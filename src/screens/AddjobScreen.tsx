@@ -162,11 +162,11 @@ export default function AddJobScreen() {
           value={paymentMethod}
           onValueChange={(value) => setPaymentMethod(value as PaymentMethod)}
           buttons={[
-            { value: 'Cash', label: 'Cash' },
             { value: 'Check', label: 'Check' },
             { value: 'Zelle', label: 'Zelle' },
             { value: 'Square', label: 'Square' },
             { value: 'Charge', label: 'Charge' },
+            { value: 'Cash', label: 'Cash' },
           ]}
           style={styles.segmentedButtons}
           multiSelect={false}

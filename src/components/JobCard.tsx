@@ -34,7 +34,7 @@ export default function JobCard({ job, onPress }: JobCardProps) {
       <Card style={[styles.card, isPaid ? styles.paidCard : styles.unpaidCard]}>
         <Card.Content>
           <View style={styles.cardHeader}>
-            <Title>{companyName || 'Unnamed Job'}</Title>
+            <Title>{formattedDate}</Title>
             <Chip
               mode="outlined"
               textStyle={{ fontWeight: 'bold' }}
@@ -44,10 +44,10 @@ export default function JobCard({ job, onPress }: JobCardProps) {
             </Chip>
           </View>
 
-          <Paragraph>{`${address}, ${city}`}</Paragraph>
+          <Paragraph>{companyName || 'Unnamed Job'}</Paragraph>
           <View style={styles.detailsRow}>
-            <Paragraph>{`${yards} yards`}</Paragraph>
-            <Paragraph>{formattedDate}</Paragraph>
+          <Paragraph>{`${address}, ${city}`}</Paragraph>
+          <Paragraph>{`${yards} yards`}</Paragraph>
           </View>
           <View style={styles.detailsRow}>
             <Paragraph>{paymentMethod}</Paragraph>
