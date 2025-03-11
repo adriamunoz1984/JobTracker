@@ -1,27 +1,33 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, StyleSheet, ScrollView, Platform } from 'react-native';
 import { TextInput, Button, Switch, Text, SegmentedButtons } from 'react-native-paper';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { format } from 'date-fns';
 
 import { useJobs } from '../context/JobsContext';
-import { PaymentMethod } from '../types';
+import { PaymentMethod, Job } from '../types';
 
 export default function AddJobScreen() {
   const navigation = useNavigation();
-  const { addJob } = useJobs();
-  const [date, setDate] = useState(new Date());
+  const route = useRoute();
+  const { addJob, updateJob } = useJobs();
+  
+  // Check if we're editing an existing job
+  const editJob = route.params?.job as Job | undefined;
+  const isEditMode = !!editJob;
+  
+  const [date, setDate] = useState(editJob ? new Date(editJob.date) : new Date());
   const [showDatePicker, setShowDatePicker] = useState(false);
-  const [companyName, setCompanyName] = useState('');
-  const [address, setAddress] = useState('');
-  const [city, setCity] = useState('');
-  const [yards, setYards] = useState('');
-  const [isPaid, setIsPaid] = useState(false);
-  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('Cash');
-  const [amount, setAmount] = useState(job?.amount?.toString() || '');
-  const [checkNumber, setCheckNumber] = useState('');
-  const [notes, setNotes] = useState('');
+  const [companyName, setCompanyName] = useState(editJob?.companyName || '');
+  const [address, setAddress] = useState(editJob?.address || '');
+  const [city, setCity] = useState(editJob?.city || '');
+  const [yards, setYards] = useState(editJob?.yards ? editJob.yards.toString() : '');
+  const [isPaid, setIsPaid] = useState(editJob?.isPaid || false);
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>(editJob?.paymentMethod || 'Cash');
+  const [amount, setAmount] = useState(editJob?.amount ? editJob.amount.toString() : '');
+  const [checkNumber, setCheckNumber] = useState(editJob?.checkNumber || '');
+  const [notes, setNotes] = useState(editJob?.notes || '');
 
   const handleDateChange = (event: any, selectedDate?: Date) => {
     const currentDate = selectedDate || date;
@@ -54,19 +60,24 @@ export default function AddJobScreen() {
       notes: notes.trim() || undefined,
     };
 
-    if (isEditMode && job) {
-      // Update existing job
-      await updateJob({
-        ...job,
-        ...jobData,
-      });
-    } else {
-      // Add new job
-      await addJob(jobData);
+    try {
+      if (isEditMode && editJob) {
+        // Update existing job
+        await updateJob({
+          ...editJob,
+          ...jobData,
+        });
+      } else {
+        // Add new job
+        await addJob(jobData);
+      }
+      
+      // Navigate back
+      navigation.goBack();
+    } catch (error) {
+      console.error('Error saving job:', error);
+      alert('Failed to save job. Please try again.');
     }
-    
-    // Navigate back
-    navigation.goBack();
   };
 
   return (
@@ -189,7 +200,7 @@ export default function AddJobScreen() {
           onPress={handleSubmit} 
           style={styles.submitButton}
         >
-          Save Job
+          {isEditMode ? 'Update Job' : 'Save Job'}
         </Button>
       </View>
     </ScrollView>
