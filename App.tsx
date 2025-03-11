@@ -7,6 +7,8 @@ import { Provider as PaperProvider } from 'react-native-paper';
 
 import MainNavigator from './src/navigation/MainNavigator';
 import { JobsProvider } from './src/context/JobsContext';
+import { ExpensesProvider } from './src/context/ExpensesContext';
+import { WeeklyGoalsProvider } from './src/context/WeeklyGoalsContext';
 
 export default function App() {
   return (
@@ -15,8 +17,12 @@ export default function App() {
         <PaperProvider>
           <NavigationContainer>
             <JobsProvider>
-              <MainNavigator />
-              <StatusBar style="auto" />
+              <ExpensesProvider>
+                <WeeklyGoalsProvider>
+                  <MainNavigator />
+                  <StatusBar style="auto" />
+                </WeeklyGoalsProvider>
+              </ExpensesProvider>
             </JobsProvider>
           </NavigationContainer>
         </PaperProvider>
