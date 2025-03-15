@@ -123,9 +123,17 @@ export default function ExpensesListScreen() {
         style={[styles.expenseCard, { borderLeftColor: status.color }]} 
         onPress={() => handleExpensePress(item)}
       >
+        // In the renderExpenseItem function in ExpensesListScreen.tsx, update the Card.Content section:
+
         <Card.Content>
           <View style={styles.cardHeader}>
-            <Title>{item.name}</Title>
+            <Title 
+              numberOfLines={1} 
+              ellipsizeMode="tail" 
+              style={styles.expenseTitle}
+            >
+              {item.name}
+            </Title>
             <Chip 
               mode="outlined" 
               textStyle={{ color: status.color, fontWeight: 'bold' }}

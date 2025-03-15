@@ -179,14 +179,20 @@ export default function ExpenseDetailScreen() {
       <Card style={styles.card}>
         <Card.Content>
           <View style={styles.header}>
-            <Title style={styles.title}>{expense.name}</Title>
-            <Chip
-              mode="outlined"
-              textStyle={{ color: statusColor, fontWeight: 'bold' }}
-              style={{ backgroundColor: `${statusColor}10`, borderColor: statusColor }}
-            >
-              {statusLabel}
-            </Chip>
+    <Title 
+      numberOfLines={1}
+      ellipsizeMode="tail"
+      style={styles.title}
+    >
+      {expense.name}
+    </Title>
+    <Chip
+      mode="outlined"
+      textStyle={{ color: statusColor, fontWeight: 'bold' }}
+      style={{ backgroundColor: `${statusColor}10`, borderColor: statusColor }}
+    >
+      {statusLabel}
+    </Chip>
           </View>
           
           <Divider style={styles.divider} />
@@ -323,9 +329,22 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
   },
+  cardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  expenseTitle: {
+    flex: 1,
+    marginRight: 10, // Add space between the title and the status chip
+    maxWidth: '70%',  // Limit the title width to 70% of the container
+  },
+  
   title: {
     flex: 1,
     marginRight: 8,
+    maxWidth: '70%', // Limit title width
   },
   divider: {
     marginVertical: 16,
