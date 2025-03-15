@@ -3,18 +3,16 @@ export type PaymentMethod = 'Cash' | 'Check' | 'Zelle' | 'Square' | 'Charge';
 
 export interface Job {
   id: string;
-  date: string;
   companyName?: string;
   address: string;
   city: string;
   yards: number;
   isPaid: boolean;
-  paymentMethod: PaymentMethod;
+  paymentMethod: 'Cash' | 'Check' | 'Zelle' | 'Square' | 'Charge';
   amount: number;
-  checkNumber?: string; // Only for Check payment
+  date: string;
+  sequenceNumber: number; // Add this field
   notes?: string;
-  createdAt: string;
-  updatedAt: string;
 }
 
 export interface WeeklySummary {

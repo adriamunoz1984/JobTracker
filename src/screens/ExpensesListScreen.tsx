@@ -157,7 +157,14 @@ export default function ExpensesListScreen() {
         value={searchQuery}
         style={styles.searchBar}
       />
-      
+      <Button 
+          mode="outlined" 
+          onPress={handleViewCalendar} 
+          icon="calendar"
+          style={styles.calendarButton}
+        >
+          Calendar View
+        </Button>
       <View style={styles.filterContainer}>
         <SegmentedButtons
           value={filterPaid === null ? 'all' : filterPaid ? 'paid' : 'unpaid'}
@@ -174,14 +181,7 @@ export default function ExpensesListScreen() {
           style={styles.segmentedButtons}
         />
         
-        <Button 
-          mode="outlined" 
-          onPress={handleViewCalendar} 
-          icon="calendar"
-          style={styles.calendarButton}
-        >
-          Calendar View
-        </Button>
+        
       </View>
       
       <Divider style={styles.divider} />

@@ -93,42 +93,58 @@ export const WeeklyGoalsProvider: React.FC<{ children: React.ReactNode }> = ({ c
     return weeklyGoals.find((goal) => goal.id === id);
   };
 
-  const getCurrentWeekGoal = (startDateStr: string, endDateStr: string): WeeklyGoal | null => {
-    const startDate = new Date(startDateStr);
-    const endDate = new Date(endDateStr);
+  // In WeeklyGoalsContext.tsx
+const getCurrentWeekGoal = (weekStart: string, weekEnd: string) => {
+  try {
+    // Parse input dates safely
+    const startDate = new Date(weekStart);
+    const endDate = new Date(weekEnd);
     
-    // Try to find an existing goal for this week
-    const existingGoal = weeklyGoals.find(goal => {
-      const goalStart = new Date(goal.weekStartDate);
-      const goalEnd = new Date(goal.weekEndDate);
-      
-      return (
-        format(goalStart, 'yyyy-MM-dd') === format(startDate, 'yyyy-MM-dd') &&
-        format(goalEnd, 'yyyy-MM-dd') === format(endDate, 'yyyy-MM-dd')
-      );
-    });
-    
-    if (existingGoal) {
-      return existingGoal;
+    // Validate dates are valid
+    if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+      console.warn('Invalid date parameters provided to getCurrentWeekGoal');
+      return null;
     }
     
-    // No existing goal found, create a default one
-    const defaultGoal = {
-      id: Date.now().toString(),
-      weekStartDate: startDate.toISOString(),
-      weekEndDate: endDate.toISOString(),
-      incomeTarget: 0, // Default target
-      actualIncome: 0,
-      allocatedBills: [],
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
+    // Find the matching goal with safety checks
+    const goal = weeklyGoals.find(g => {
+      try {
+        // Safely parse stored dates
+        const goalStart = new Date(g.weekStart);
+        const goalEnd = new Date(g.weekEnd);
+        
+        // Make sure they're valid dates before comparing
+        if (isNaN(goalStart.getTime()) || isNaN(goalEnd.getTime())) {
+          return false;
+        }
+        
+        // Do the actual comparison
+        return (
+          format(goalStart, 'yyyy-MM-dd') === format(startDate, 'yyyy-MM-dd') && 
+          format(goalEnd, 'yyyy-MM-dd') === format(endDate, 'yyyy-MM-dd')
+        );
+      } catch (err) {
+        console.warn('Error comparing goal dates', err);
+        return false;
+      }
+    });
+    
+    // Return the found goal or create a default one
+    if (goal) return goal;
+    
+    // Create default goal if none found
+    return {
+      id: `goal-${Date.now()}`,
+      weekStart,
+      weekEnd,
+      incomeTarget: 1500, // Default target
+      actualIncome: 0
     };
-    
-    // Add this goal to the state
-    setWeeklyGoals(prev => [...prev, defaultGoal]);
-    
-    return defaultGoal;
-  };
+  } catch (error) {
+    console.error('Error in getCurrentWeekGoal:', error);
+    return null;
+  }
+};
 
   const allocateBillToWeek = async (goalId: string, expenseId: string, amount: number) => {
     const goal = weeklyGoals.find(g => g.id === goalId);

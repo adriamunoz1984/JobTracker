@@ -29,16 +29,15 @@ export const JobsProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Load jobs from AsyncStorage on component mount
   useEffect(() => {
+    // In your JobsContext.tsx, when loading jobs from storage, ensure you're preserving the sequenceNumber
     const loadJobs = async () => {
       try {
-        const storedJobs = await AsyncStorage.getItem('jobs');
-        if (storedJobs) {
-          setJobs(JSON.parse(storedJobs));
+        const jobsData = await AsyncStorage.getItem('jobs');
+        if (jobsData) {
+          setJobs(JSON.parse(jobsData));
         }
       } catch (error) {
-        console.error('Failed to load jobs:', error);
-      } finally {
-        setIsLoading(false);
+        console.error('Error loading jobs:', error);
       }
     };
 

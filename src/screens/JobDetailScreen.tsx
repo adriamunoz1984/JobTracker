@@ -16,7 +16,6 @@ export default function JobDetailScreen() {
   const navigation = useNavigation();
   const { getJobById, updateJob, deleteJob } = useJobs();
   const [job, setJob] = useState<Job | undefined>(undefined);
-
   const { jobId } = route.params || {};
 
   useEffect(() => {

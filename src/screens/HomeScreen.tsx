@@ -13,7 +13,7 @@ export default function HomeScreen() {
   const navigation = useNavigation();
   const { jobs, isLoading } = useJobs();
   const [searchQuery, setSearchQuery] = useState('');
-
+  
   // Filter jobs based on search query
   const filteredJobs = searchQuery
     ? jobs.filter(
@@ -50,14 +50,14 @@ export default function HomeScreen() {
         style={styles.searchBar}
       />
 
-      <FlatList
-        data={sortedJobs}
-        keyExtractor={(item) => item.id}
-        renderItem={({ item }) => (
-          <JobCard job={item} onPress={() => handleJobPress(item)} />
-        )}
-        contentContainerStyle={styles.listContent}
-      />
+<FlatList
+  data={sortedJobs}
+  keyExtractor={(item, index) => `job-card-${item.id}-${index}`}
+  renderItem={({ item }) => (
+    <JobCard job={item} onPress={() => handleJobPress(item)} />
+  )}
+  contentContainerStyle={styles.listContent}
+/>
 
       <FAB
         style={styles.fab}

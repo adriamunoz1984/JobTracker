@@ -20,13 +20,27 @@ import SetWeeklyGoalScreen from '../screens/SetWeeklyGoalScreen';
 import PayBillsScreen from '../screens/PayBillsScreen';
 import BillCalendarScreen from '../screens/BillCalendarScreen';
 
+//Dummy Data
+import DummyDataSeeder from '../screens/DummyDataSeeder';
+
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
 
 // Home stack includes the job list and related screens
+
+
 function HomeStack() {
+  
+  
   return (
+    
     <Stack.Navigator>
+      {/* <Stack.Screen 
+      name="DummyDataSeeder" 
+      
+      component={DummyDataSeeder} 
+      /> */}
+      
       <Stack.Screen 
         name="JobsList" 
         component={HomeScreen} 
@@ -77,6 +91,7 @@ function WeeklyStack() {
 // Expenses stack includes expense list and related screens
 function ExpensesStack() {
   return (
+    
     <Stack.Navigator>
       <Stack.Screen 
         name="ExpensesList" 
@@ -98,12 +113,14 @@ function ExpensesStack() {
         component={BillCalendarScreen} 
         options={{ title: 'Bill Calendar' }} 
       />
+      
     </Stack.Navigator>
   );
 }
 
 // Main tab navigation
 export default function MainNavigator() {
+  
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({

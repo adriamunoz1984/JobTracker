@@ -41,8 +41,10 @@ export default function WeeklyDashboardScreen() {
   
   useEffect(() => {
     // Get jobs for the current week
-    const jobsThisWeek = getJobsByDateRange(weekStart.toISOString(), weekEnd.toISOString());
-    setWeeklyJobs(jobsThisWeek);
+   const jobsThisWeek = getJobsByDateRange(
+  weekStart ? weekStart.toISOString() : new Date().toISOString(),
+  weekEnd ? weekEnd.toISOString() : new Date().toISOString()
+);
     
     // Get upcoming bills (next 4 weeks)
     const nextMonth = addDays(weekEnd, 28);
@@ -120,14 +122,28 @@ export default function WeeklyDashboardScreen() {
     });
   };
   
-  // Calculate days until due
-  const getDaysUntilDue = (dueDate) => {
+  // Modified getDaysUntilDue function with validation
+const getDaysUntilDue = (dueDate) => {
+  if (!dueDate) return 0; // Return 0 if no due date is provided
+  
+  try {
     const today = new Date();
     const due = new Date(dueDate);
+    
+    // Check if date is valid
+    if (isNaN(due.getTime())) {
+      console.warn('Invalid date encountered:', dueDate);
+      return 0;
+    }
+    
     const diffTime = due.getTime() - today.getTime();
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
     return diffDays;
-  };
+  } catch (error) {
+    console.error('Error calculating days until due:', error);
+    return 0;
+  }
+};
   
   // Navigate to weekly goal setting screen
   const handleEditGoal = () => {

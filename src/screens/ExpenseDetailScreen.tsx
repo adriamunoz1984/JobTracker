@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { View, StyleSheet, ScrollView, Alert } from 'react-native';
 import { Card, Title, Paragraph, Button, Divider, Chip, IconButton, Text } from 'react-native-paper';
 import { useRoute, useNavigation, RouteProp } from '@react-navigation/native';
-import { format } from 'date-fns';
+import { format, isValid } from 'date-fns'; // Added isValid import
 
 import { useExpenses } from '../context/ExpensesContext';
 import { Expense } from '../types';
@@ -26,6 +26,37 @@ export default function ExpenseDetailScreen() {
       setExpense(expenseData);
     }
   }, [expenseId, getExpenseById]);
+  
+  // Safe date formatter function
+  const formatDateSafely = (dateString: string | undefined, formatString: string = 'MMMM dd, yyyy'): string => {
+    if (!dateString) return 'No date';
+    
+    try {
+      const date = new Date(dateString);
+      // Check if the date is valid
+      if (!isValid(date)) {
+        console.warn('Invalid date encountered:', dateString);
+        return 'Invalid date';
+      }
+      return format(date, formatString);
+    } catch (error) {
+      console.error('Error formatting date:', error, dateString);
+      return 'Error with date';
+    }
+  };
+  
+  // Safe function to get Date object
+  const getValidDate = (dateString: string | undefined): Date | null => {
+    if (!dateString) return null;
+    
+    try {
+      const date = new Date(dateString);
+      return isValid(date) ? date : null;
+    } catch (error) {
+      console.error('Error creating date from string:', error, dateString);
+      return null;
+    }
+  };
   
   // Handle edit expense
   const handleEdit = () => {
@@ -96,15 +127,18 @@ export default function ExpenseDetailScreen() {
     );
   }
   
-  const formattedDueDate = format(new Date(expense.dueDate), 'MMMM dd, yyyy');
-  const formattedCreatedDate = format(new Date(expense.createdAt), 'MMMM dd, yyyy');
+  const formattedDueDate = formatDateSafely(expense.dueDate);
+  const formattedCreatedDate = formatDateSafely(expense.createdAt);
   
   // Get status indicator color
   const getStatusColor = () => {
     if (expense.isPaid) return '#4CAF50'; // Green for paid
     
     const now = new Date();
-    const dueDate = new Date(expense.dueDate);
+    const dueDate = getValidDate(expense.dueDate);
+    
+    // If no valid due date, return default
+    if (!dueDate) return '#607D8B'; // Grey for unknown
     
     if (dueDate < now) return '#F44336'; // Red for overdue
     
@@ -120,7 +154,10 @@ export default function ExpenseDetailScreen() {
     if (expense.isPaid) return 'PAID';
     
     const now = new Date();
-    const dueDate = new Date(expense.dueDate);
+    const dueDate = getValidDate(expense.dueDate);
+    
+    // If no valid due date, return default
+    if (!dueDate) return 'UNKNOWN STATUS';
     
     if (dueDate < now) return 'OVERDUE';
     
@@ -166,7 +203,7 @@ export default function ExpenseDetailScreen() {
           
           <View style={styles.detailRow}>
             <Text style={styles.label}>Recurrence:</Text>
-            <Text>{expense.recurrence}</Text>
+            <Text>{expense.recurrence || 'One-time'}</Text>
           </View>
           
           <View style={styles.detailRow}>
@@ -176,14 +213,14 @@ export default function ExpenseDetailScreen() {
               style={[styles.categoryChip, getCategoryStyle(expense.category)]}
               textStyle={{ color: getCategoryColor(expense.category) }}
             >
-              {expense.category}
+              {expense.category || 'Other'}
             </Chip>
           </View>
           
           {expense.isPaid && expense.paidDate && (
             <View style={styles.detailRow}>
               <Text style={styles.label}>Paid On:</Text>
-              <Text>{format(new Date(expense.paidDate), 'MMMM dd, yyyy')}</Text>
+              <Text>{formatDateSafely(expense.paidDate)}</Text>
             </View>
           )}
           
@@ -241,7 +278,7 @@ export default function ExpenseDetailScreen() {
 }
 
 // Helper function to get category color
-const getCategoryColor = (category: string) => {
+const getCategoryColor = (category: string = 'Other') => {
   switch (category) {
     case 'Fixed':
       return '#4CAF50'; // Green
@@ -258,7 +295,7 @@ const getCategoryColor = (category: string) => {
 };
 
 // Helper function to get category chip style
-const getCategoryStyle = (category: string) => {
+const getCategoryStyle = (category: string = 'Other') => {
   const color = getCategoryColor(category);
   return {
     borderColor: color,
