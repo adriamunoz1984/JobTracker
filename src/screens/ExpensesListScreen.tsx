@@ -123,8 +123,6 @@ export default function ExpensesListScreen() {
         style={[styles.expenseCard, { borderLeftColor: status.color }]} 
         onPress={() => handleExpensePress(item)}
       >
-        // In the renderExpenseItem function in ExpensesListScreen.tsx, update the Card.Content section:
-
         <Card.Content>
           <View style={styles.cardHeader}>
             <Title 
@@ -188,8 +186,6 @@ export default function ExpensesListScreen() {
           ]}
           style={styles.segmentedButtons}
         />
-        
-        
       </View>
       
       <Divider style={styles.divider} />
@@ -245,6 +241,8 @@ const styles = StyleSheet.create({
     marginRight: 8,
   },
   calendarButton: {
+    marginHorizontal: 10,
+    marginBottom: 10,
     borderColor: '#2196F3',
   },
   divider: {
@@ -264,6 +262,11 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 8,
+  },
+  expenseTitle: {
+    flex: 1,
+    marginRight: 8,
+    fontSize: 16,
   },
   detailRow: {
     flexDirection: 'row',

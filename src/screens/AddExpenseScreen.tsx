@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, ScrollView, Platform } from 'react-native';
-import { TextInput, Button, Switch, Text, SegmentedButtons, Menu, Divider } from 'react-native-paper';
+import { View, StyleSheet, ScrollView, Platform, Modal } from 'react-native';
+import { TextInput, Button, Switch, Text, SegmentedButtons, Menu, Divider, Chip, IconButton, Portal, Dialog, FAB } from 'react-native-paper';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { format } from 'date-fns';
@@ -25,12 +25,22 @@ export default function AddExpenseScreen() {
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [isPaid, setIsPaid] = useState(false);
   const [category, setCategory] = useState<ExpenseCategory>('Fixed');
-  const [showCategoryMenu, setShowCategoryMenu] = useState(false);
   const [recurrence, setRecurrence] = useState<RecurrenceType>('Monthly');
   const [notes, setNotes] = useState('');
   
-  // Category options
-  const categories: ExpenseCategory[] = ['Fixed', 'Variable', 'Business', 'Personal', 'Other'];
+  // Category UI state
+  const [showCategories, setShowCategories] = useState(false);
+  const [showAddCategoryDialog, setShowAddCategoryDialog] = useState(false);
+  const [newCategoryName, setNewCategoryName] = useState('');
+  
+  // Category options - we'll store these in state so we can add to them
+  const [categories, setCategories] = useState<Array<{ value: ExpenseCategory; label: string; icon: string; color: string }>>([
+    { value: 'Fixed', label: 'Fixed', icon: 'lock', color: '#4CAF50' },
+    { value: 'Variable', label: 'Variable', icon: 'currency-usd', color: '#FF9800' },
+    { value: 'Business', label: 'Business', icon: 'briefcase', color: '#9C27B0' },
+    { value: 'Personal', label: 'Personal', icon: 'account', color: '#E91E63' },
+    { value: 'Other', label: 'Other', icon: 'dots-horizontal', color: '#607D8B' }
+  ]);
   
   // Load existing expense data if in edit mode
   useEffect(() => {
@@ -96,6 +106,37 @@ export default function AddExpenseScreen() {
     }
   };
   
+  // Get color for selected category
+  const getCategoryColor = (categoryValue: ExpenseCategory) => {
+    return categories.find(cat => cat.value === categoryValue)?.color || '#607D8B';
+  };
+  
+  // Find the current category object
+  const currentCategory = categories.find(cat => cat.value === category);
+  
+  // Add a new custom category
+  const handleAddCategory = () => {
+    if (!newCategoryName.trim()) {
+      alert('Please enter a category name');
+      return;
+    }
+    
+    // Create a new category with a random color and the tag icon
+    const newCatValue = newCategoryName.trim() as ExpenseCategory;
+    const newCategory = {
+      value: newCatValue,
+      label: newCategoryName.trim(),
+      icon: 'tag',
+      color: `#${Math.floor(Math.random()*16777215).toString(16)}` // Random color
+    };
+    
+    setCategories([...categories, newCategory]);
+    setCategory(newCatValue);
+    setNewCategoryName('');
+    setShowAddCategoryDialog(false);
+    setShowCategories(true); // Keep categories visible
+  };
+
   return (
     <ScrollView style={styles.container}>
       <View style={styles.formContainer}>
@@ -145,35 +186,85 @@ export default function AddExpenseScreen() {
         
         <Divider style={styles.divider} />
         
-        {/* Category */}
+        {/* Category Selection Button */}
         <Text style={styles.sectionLabel}>Category</Text>
-        <View style={styles.menuContainer}>
-          <Button 
-            mode="outlined" 
-            onPress={() => setShowCategoryMenu(true)}
-            style={styles.menuButton}
-          >
-            {category}
-          </Button>
-          
-          <Menu
-            visible={showCategoryMenu}
-            onDismiss={() => setShowCategoryMenu(false)}
-            anchor={<View />} // Empty view as anchor
-            style={styles.menu}
-          >
-            {categories.map((cat) => (
-              <Menu.Item
-                key={cat}
-                title={cat}
-                onPress={() => {
-                  setCategory(cat);
-                  setShowCategoryMenu(false);
-                }}
+        <Button
+          mode="outlined"
+          onPress={() => setShowCategories(!showCategories)}
+          style={[
+            styles.categoryButton,
+            { borderColor: getCategoryColor(category) }
+          ]}
+          icon={() => (
+            <View style={[
+              styles.categoryDot,
+              { backgroundColor: getCategoryColor(category) }
+            ]} />
+          )}
+          contentStyle={{ justifyContent: 'flex-start' }}
+        >
+          {currentCategory?.label || category}
+        </Button>
+        
+        {/* Collapsible Category Selection */}
+        {showCategories && (
+          <View style={styles.categoriesContainer}>
+            <View style={styles.categoryChipsContainer}>
+              {categories.map((cat) => (
+                <Chip
+                  key={cat.value}
+                  selected={category === cat.value}
+                  onPress={() => setCategory(cat.value)}
+                  style={[
+                    styles.categoryChip,
+                    { 
+                      backgroundColor: category === cat.value 
+                        ? `${cat.color}20` // 20% opacity
+                        : '#f0f0f0',
+                      borderColor: category === cat.value ? cat.color : '#e0e0e0'
+                    }
+                  ]}
+                  icon={cat.icon}
+                  textStyle={{ 
+                    color: category === cat.value ? cat.color : '#757575',
+                    fontWeight: category === cat.value ? 'bold' : 'normal'
+                  }}
+                >
+                  {cat.label}
+                </Chip>
+              ))}
+            </View>
+            
+            <FAB
+              style={styles.addCategoryButton}
+              small
+              icon="plus"
+              label="Add Category"
+              onPress={() => setShowAddCategoryDialog(true)}
+            />
+          </View>
+        )}
+        
+        {/* Add Category Dialog */}
+        <Portal>
+          <Dialog visible={showAddCategoryDialog} onDismiss={() => setShowAddCategoryDialog(false)}>
+            <Dialog.Title>Add New Category</Dialog.Title>
+            <Dialog.Content>
+              <TextInput
+                label="Category Name"
+                value={newCategoryName}
+                onChangeText={setNewCategoryName}
+                mode="outlined"
               />
-            ))}
-          </Menu>
-        </View>
+            </Dialog.Content>
+            <Dialog.Actions>
+              <Button onPress={() => setShowAddCategoryDialog(false)}>Cancel</Button>
+              <Button onPress={handleAddCategory}>Add</Button>
+            </Dialog.Actions>
+          </Dialog>
+        </Portal>
+        
+        <Divider style={styles.divider} />
         
         {/* Recurrence */}
         <Text style={styles.sectionLabel}>Recurrence</Text>
@@ -215,7 +306,7 @@ export default function AddExpenseScreen() {
         <Button 
           mode="contained" 
           onPress={handleSubmit} 
-          style={styles.submitButton}
+          style={[styles.submitButton, { backgroundColor: getCategoryColor(category) }]}
         >
           {isEditMode ? 'Update Expense' : 'Save Expense'}
         </Button>
@@ -256,18 +347,35 @@ const styles = StyleSheet.create({
   },
   sectionLabel: {
     fontSize: 16,
-    marginBottom: 8,
+    marginBottom: 12,
     fontWeight: 'bold',
   },
-  menuContainer: {
+  categoryButton: {
+    marginBottom: 12,
+    justifyContent: 'flex-start',
+  },
+  categoryDot: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    marginRight: 8,
+  },
+  categoriesContainer: {
     marginBottom: 16,
-    zIndex: 1000,
   },
-  menuButton: {
-    marginBottom: 8,
+  categoryChipsContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginBottom: 12,
   },
-  menu: {
-    minWidth: 200,
+  categoryChip: {
+    margin: 4,
+    height: 36,
+  },
+  addCategoryButton: {
+    alignSelf: 'flex-start',
+    marginTop: 8,
+    backgroundColor: '#607D8B',
   },
   segmentedButtons: {
     marginBottom: 16,
@@ -275,6 +383,5 @@ const styles = StyleSheet.create({
   submitButton: {
     marginTop: 24,
     paddingVertical: 8,
-    backgroundColor: '#2196F3',
   },
 });

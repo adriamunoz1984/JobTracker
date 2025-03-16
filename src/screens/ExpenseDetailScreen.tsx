@@ -186,13 +186,13 @@ export default function ExpenseDetailScreen() {
     >
       {expense.name}
     </Title>
-    <Chip
+    {/* <Chip
       mode="outlined"
       textStyle={{ color: statusColor, fontWeight: 'bold' }}
       style={{ backgroundColor: `${statusColor}10`, borderColor: statusColor }}
     >
       {statusLabel}
-    </Chip>
+    </Chip> */}
           </View>
           
           <Divider style={styles.divider} />
@@ -340,7 +340,7 @@ const styles = StyleSheet.create({
     marginRight: 10, // Add space between the title and the status chip
     maxWidth: '70%',  // Limit the title width to 70% of the container
   },
-  
+
   title: {
     flex: 1,
     marginRight: 8,
