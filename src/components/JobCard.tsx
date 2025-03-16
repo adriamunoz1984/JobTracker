@@ -52,8 +52,8 @@ const JobCard: React.FC<JobCardProps> = ({ job, onDelete, onTogglePaid }) => {
   // Handle edit job
   const handleEdit = () => {
     setMenuVisible(false);
-    // @ts-ignore - we know this route exists
-    navigation.navigate('EditJob', { jobId: job.id });
+    // Changed from 'EditJob' to 'AddJob' with a jobId parameter
+    navigation.navigate('AddJob' as never, { job: job } as never);
   };
   
   // Handle delete job
