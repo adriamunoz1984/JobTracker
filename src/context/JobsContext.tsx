@@ -58,12 +58,11 @@ export const JobsProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const saveJobs = async () => {
       try {
         await AsyncStorage.setItem('jobs', JSON.stringify(jobs));
-        console.log(`Saved ${jobs.length} jobs to storage`);
       } catch (error) {
         console.error('Failed to save jobs:', error);
       }
     };
-
+  
     if (!isLoading) {
       saveJobs();
     }

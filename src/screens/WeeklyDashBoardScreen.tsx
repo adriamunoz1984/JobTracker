@@ -1,195 +1,132 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { View, StyleSheet, ScrollView } from 'react-native';
 import { Card, Title, Paragraph, Button, ProgressBar, Divider, Text, List, IconButton } from 'react-native-paper';
 import { useNavigation } from '@react-navigation/native';
-import { format, startOfWeek, endOfWeek, addDays, isBefore, isToday, addWeeks, subWeeks } from 'date-fns';
+import { format, startOfWeek, endOfWeek, addDays, isBefore, addWeeks, subWeeks } from 'date-fns';
 
 import { useJobs } from '../context/JobsContext';
 import { useExpenses } from '../context/ExpensesContext';
 import { useWeeklyGoals } from '../context/WeeklyGoalsContext';
-import { Job } from '../types';
+import { Job, Expense, WeeklyGoal } from '../types';
 
 export default function WeeklyDashboardScreen() {
   const navigation = useNavigation();
-  const { jobs } = useJobs();
-  const { expenses, getUpcomingExpenses } = useExpenses();
-  const { weeklyGoals, getCurrentWeekGoal, updateWeeklyGoal, suggestWeeklyGoal } = useWeeklyGoals();
+  const { getJobsByDateRange } = useJobs();
+  const { getUpcomingExpenses } = useExpenses();
+  const { getCurrentWeekGoal, updateWeeklyGoal, suggestWeeklyGoal } = useWeeklyGoals();
   
+  // State for current date and data fetched from it
   const [currentDate, setCurrentDate] = useState(new Date());
-  const [weeklyJobs, setWeeklyJobs] = useState<Job[]>([]);
-  const [upcomingBills, setUpcomingBills] = useState([]);
-  const [currentGoal, setCurrentGoal] = useState(null);
   
-  // Calculate start and end of week - using useMemo to avoid recalculation on every render
-  const { weekStart, weekEnd, weekStartFormatted, weekEndFormatted, weekRangeText } = useMemo(() => {
-    const start = startOfWeek(currentDate, { weekStartsOn: 0 }); // Sunday
-    const end = endOfWeek(currentDate, { weekStartsOn: 0 }); // Saturday
-    
-    return {
-      weekStart: start,
-      weekEnd: end,
-      weekStartFormatted: format(start, 'yyyy-MM-dd'),
-      weekEndFormatted: format(end, 'yyyy-MM-dd'),
-      weekRangeText: `${format(start, 'MMM d')} - ${format(end, 'MMM d, yyyy')}`
-    };
-  }, [currentDate]); // Only depends on currentDate
+  // Refs to prevent infinite loops
+  const weekStartRef = useRef(startOfWeek(currentDate, { weekStartsOn: 0 }));
+  const weekEndRef = useRef(endOfWeek(currentDate, { weekStartsOn: 0 }));
   
-  // Calculate weekly jobs - using useMemo instead of state + useEffect
-  const filteredJobs = useMemo(() => {
-    return jobs.filter((job) => {
+  // State for fetched data
+  const [dashboardData, setDashboardData] = useState({
+    weeklyJobs: [] as Job[],
+    weekIncome: 0,
+    upcomingBills: [] as Expense[],
+    currentGoal: null as WeeklyGoal | null,
+    suggestedPayments: [] as Expense[]
+  });
+  
+  // Update refs when currentDate changes
+  useEffect(() => {
+    weekStartRef.current = startOfWeek(currentDate, { weekStartsOn: 0 });
+    weekEndRef.current = endOfWeek(currentDate, { weekStartsOn: 0 });
+  }, [currentDate]);
+  
+  // Single data-fetching effect that runs only when the date changes
+  useEffect(() => {
+    const fetchDashboardData = async () => {
       try {
-        const jobDate = new Date(job.date);
-        const jobDateFormatted = format(jobDate, 'yyyy-MM-dd');
-        return jobDateFormatted >= weekStartFormatted && jobDateFormatted <= weekEndFormatted;
-      } catch (error) {
-        console.error('Error filtering job:', error);
-        return false;
-      }
-    });
-  }, [jobs, weekStartFormatted, weekEndFormatted]);
-  
-  // Load bills and goals data
-  useEffect(() => {
-    // Get upcoming bills (next 4 weeks)
-    const nextMonth = addDays(weekEnd, 28);
-    const bills = getUpcomingExpenses(weekStart.toISOString(), nextMonth.toISOString());
-    setUpcomingBills(bills);
-    
-    // Get or initialize this week's goal
-    const goal = getCurrentWeekGoal(weekStart.toISOString(), weekEnd.toISOString());
-    
-    if (goal) {
-      setCurrentGoal(goal);
-    } else {
-      // Create a suggested goal if no goal exists
-      suggestWeeklyGoal(weekStart.toISOString(), weekEnd.toISOString())
-        .then(suggestion => {
-          // Only set the suggestion data, don't create an actual goal yet
-          setCurrentGoal({
-            weekStartDate: weekStart.toISOString(),
-            weekEndDate: weekEnd.toISOString(),
-            incomeTarget: suggestion.incomeTarget,
-            actualIncome: 0,
-            allocatedBills: suggestion.allocatedBills,
-            id: 'temp-goal-id', // Temporary ID for the UI
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString()
-          });
-        })
-        .catch(error => {
-          console.error('Error suggesting weekly goal:', error);
+        const weekStart = weekStartRef.current;
+        const weekEnd = weekEndRef.current;
+        
+        // Fetch jobs and calculate income
+        const jobs = getJobsByDateRange(weekStart.toISOString(), weekEnd.toISOString());
+        const income = jobs.reduce((sum, job) => sum + job.amount, 0);
+        
+        // Fetch upcoming bills
+        const nextMonth = addDays(weekEnd, 28);
+        const bills = getUpcomingExpenses(weekStart.toISOString(), nextMonth.toISOString());
+        
+        // Sort bills by due date
+        const sortedBills = [...bills].sort((a, b) => {
+          return new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime();
         });
-    }
-  }, [weekStart, weekEnd, getUpcomingExpenses, getCurrentWeekGoal, suggestWeeklyGoal]);
-  
-  // Use filteredJobs directly instead of the state variable
-  // Calculate week's actual income
-  const weekIncome = useMemo(() => {
-    return filteredJobs.reduce((sum, job) => sum + job.amount, 0);
-  }, [filteredJobs]);
-  
-  // Update the weekly goal with actual income
-  useEffect(() => {
-    if (!currentGoal) return;
-    
-    if (currentGoal.id !== 'temp-goal-id' && weekIncome !== currentGoal.actualIncome) {
-      const updatedGoal = {
-        ...currentGoal,
-        actualIncome: weekIncome
-      };
-      updateWeeklyGoal(updatedGoal)
-        .then(() => {
-          setCurrentGoal(updatedGoal);
-        })
-        .catch(error => {
-          console.error('Error updating weekly goal:', error);
-        });
-    } else if (currentGoal.id === 'temp-goal-id') {
-      // If it's a temporary suggested goal, just update the UI
-      setCurrentGoal(prevGoal => {
-        if (prevGoal && prevGoal.actualIncome !== weekIncome) {
-          return { ...prevGoal, actualIncome: weekIncome };
+        
+        // Get or suggest a goal
+        let goal = getCurrentWeekGoal(weekStart.toISOString(), weekEnd.toISOString());
+        
+        // If no goal exists, create a suggested one
+        if (!goal) {
+          try {
+            const suggestion = await suggestWeeklyGoal(weekStart.toISOString(), weekEnd.toISOString());
+            goal = {
+              id: 'temp-goal-id',
+              weekStartDate: weekStart.toISOString(),
+              weekEndDate: weekEnd.toISOString(),
+              incomeTarget: suggestion.incomeTarget,
+              actualIncome: income,
+              allocatedBills: suggestion.allocatedBills,
+              createdAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString()
+            };
+          } catch (error) {
+            console.error('Error suggesting weekly goal:', error);
+          }
+        } else if (goal.actualIncome !== income) {
+          // Update the goal with current income if it exists
+          try {
+            const updatedGoal = {
+              ...goal,
+              actualIncome: income
+            };
+            await updateWeeklyGoal(updatedGoal);
+            goal = updatedGoal;
+          } catch (error) {
+            console.error('Error updating weekly goal:', error);
+          }
         }
-        return prevGoal;
-      });
-    }
-  }, [weekIncome, currentGoal, updateWeeklyGoal]);
-  
-  // Calculate progress towards weekly goal
-  const progressPercentage = currentGoal ? (weekIncome / currentGoal.incomeTarget) : 0;
-  const progressColor = progressPercentage >= 1 ? '#4CAF50' : progressPercentage >= 0.7 ? '#FFC107' : '#F44336';
-  
-  // Sort upcoming bills by due date
-  const sortedBills = useMemo(() => {
-    return [...upcomingBills].sort((a, b) => {
-      return new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime();
-    });
-  }, [upcomingBills]);
-  
-  // Format currency for display
-  const formatCurrency = (amount) => {
-    if (amount === undefined) return '$0.00';
-    return amount.toLocaleString('en-US', {
-      style: 'currency',
-      currency: 'USD',
-    });
-  };
-  
-  // Modified getDaysUntilDue function with validation
-  const getDaysUntilDue = (dueDate) => {
-    if (!dueDate) return 0; // Return 0 if no due date is provided
-    
-    try {
-      const today = new Date();
-      const due = new Date(dueDate);
-      
-      // Check if date is valid
-      if (isNaN(due.getTime())) {
-        console.warn('Invalid date encountered:', dueDate);
-        return 0;
+        
+        // Calculate suggested payments
+        const suggestedPayments = getSuggestedPayments(sortedBills, income, goal);
+        
+        // Update all state at once to prevent cascading updates
+        setDashboardData({
+          weeklyJobs: jobs,
+          weekIncome: income,
+          upcomingBills: sortedBills,
+          currentGoal: goal,
+          suggestedPayments
+        });
+      } catch (error) {
+        console.error('Error fetching dashboard data:', error);
       }
-      
-      const diffTime = due.getTime() - today.getTime();
-      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-      return diffDays;
-    } catch (error) {
-      console.error('Error calculating days until due:', error);
-      return 0;
-    }
-  };
-  
-  // Navigation between weeks
-  const goToNextWeek = () => {
-    setCurrentDate(addWeeks(currentDate, 1));
-  };
-  
-  const goToPreviousWeek = () => {
-    setCurrentDate(subWeeks(currentDate, 1));
-  };
-  
-  const goToCurrentWeek = () => {
-    setCurrentDate(new Date());
-  };
-  
-  // Navigate to weekly goal setting screen
-  const handleEditGoal = () => {
-    navigation.navigate('SetWeeklyGoal' as never, { weekStart: weekStart.toISOString() } as never);
-  };
-  
-  // Get suggested bills to pay with current income
-  const getSuggestedPayments = () => {
-    if (!currentGoal) return [];
+    };
     
-    let remainingFunds = weekIncome;
+    fetchDashboardData();
+  }, [currentDate]); // Only depend on the date
+  
+  // Extract values from dashboard data
+  const { weeklyJobs, weekIncome, upcomingBills, currentGoal, suggestedPayments } = dashboardData;
+  
+  // Helper function to get suggested bills to pay
+  function getSuggestedPayments(bills, income, goal) {
+    if (!goal) return [];
+    
+    let remainingFunds = income;
     const suggestions = [];
     
     // First prioritize overdue bills
-    const overdueBills = sortedBills.filter(bill => 
+    const overdueBills = bills.filter(bill => 
       !bill.isPaid && isBefore(new Date(bill.dueDate), new Date())
     );
     
     // Then upcoming bills
-    const upcomingDueBills = sortedBills.filter(bill => 
+    const upcomingDueBills = bills.filter(bill => 
       !bill.isPaid && !isBefore(new Date(bill.dueDate), new Date())
     );
     
@@ -205,20 +142,84 @@ export default function WeeklyDashboardScreen() {
     }
     
     return suggestions;
+  }
+  
+  // Navigation between weeks
+  const goToNextWeek = () => {
+    setCurrentDate(addWeeks(currentDate, 1));
   };
   
-  // Handle pay bills navigation
+  const goToPreviousWeek = () => {
+    setCurrentDate(subWeeks(currentDate, 1));
+  };
+  
+  const goToCurrentWeek = () => {
+    setCurrentDate(new Date());
+  };
+  
+  // Format dates for display
+  const weekRangeText = `${format(weekStartRef.current, 'MMM d')} - ${format(weekEndRef.current, 'MMM d, yyyy')}`;
+  
+  // Calculate progress towards weekly goal
+  const progressPercentage = currentGoal && currentGoal.incomeTarget > 0 
+    ? (weekIncome / currentGoal.incomeTarget) 
+    : 0;
+  const progressColor = progressPercentage >= 1 ? '#4CAF50' : progressPercentage >= 0.7 ? '#FFC107' : '#F44336';
+  
+  // Format currency for display
+  const formatCurrency = (amount) => {
+    if (amount === undefined) return '$0.00';
+    return amount.toLocaleString('en-US', {
+      style: 'currency',
+      currency: 'USD',
+    });
+  };
+  
+  // Modified getDaysUntilDue function with validation
+  const getDaysUntilDue = (dueDate) => {
+    if (!dueDate) return 0;
+    
+    try {
+      const today = new Date();
+      const due = new Date(dueDate);
+      
+      // Check if date is valid
+      if (isNaN(due.getTime())) {
+        return 0;
+      }
+      
+      const diffTime = due.getTime() - today.getTime();
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      return diffDays;
+    } catch (error) {
+      return 0;
+    }
+  };
+  
+  // Handler functions
+  const handleEditGoal = () => {
+    navigation.navigate('SetWeeklyGoal' as never, { weekStart: weekStartRef.current.toISOString() } as never);
+  };
+  
   const handlePayBills = () => {
-    const suggestedPayments = getSuggestedPayments();
     navigation.navigate('PayBills' as never, { suggestions: suggestedPayments } as never);
   };
   
-  // Handle view all expenses
+  const handleAddJob = () => {
+    navigation.navigate('AddJob' as never);
+  };
+  
+  const handleViewJobDetails = (jobId) => {
+    // Navigate to the Home tab first, then to JobDetail screen
+    navigation.navigate('Home', {
+      screen: 'JobDetail',
+      params: { jobId }
+    });
+  };
+  
   const handleViewExpenses = () => {
     navigation.navigate('ExpensesList' as never);
   };
-  
-  const suggestedPayments = getSuggestedPayments();
   
   return (
     <ScrollView style={styles.container}>
@@ -244,7 +245,6 @@ export default function WeeklyDashboardScreen() {
         <Card.Content>
           <Title>Weekly Dashboard</Title>
           <Paragraph>{weekRangeText}</Paragraph>
-          <Paragraph>Showing {filteredJobs.length} jobs this week</Paragraph>
         </Card.Content>
       </Card>
       
@@ -284,28 +284,59 @@ export default function WeeklyDashboardScreen() {
       {/* Jobs card */}
       <Card style={styles.jobsCard}>
         <Card.Content>
-          <Title>This Week's Jobs</Title>
+          <View style={styles.sectionHeader}>
+            <Title>This Week's Jobs</Title>
+            {/* <Button 
+              mode="text" 
+              onPress={handleAddJob} 
+              compact
+            >
+              Add New
+            </Button> //add new button*/}
+          </View>
           <Divider style={styles.divider} />
           
-          {filteredJobs.length === 0 ? (
+          {weeklyJobs.length === 0 ? (
             <Paragraph style={styles.emptyState}>No jobs recorded for this week yet</Paragraph>
           ) : (
-            filteredJobs.map(job => (
-              <View key={job.id} style={styles.jobItem}>
-                <View style={styles.jobHeader}>
-                  <Text style={styles.jobDate}>{format(new Date(job.date), 'EEE, MMM d')}</Text>
-                  <View style={[styles.statusBadge, { backgroundColor: job.isPaid ? '#4CAF50' : '#F44336' }]}>
-                    <Text style={styles.statusText}>{job.isPaid ? 'PAID' : 'UNPAID'}</Text>
-                  </View>
-                </View>
-                <Text style={styles.jobCompany}>{job.companyName || 'Unnamed Job'}</Text>
-                <Text style={styles.jobAddress}>{job.address}, {job.city || 'Unknown'}</Text>
-                <View style={styles.jobDetails}>
-                  <Text>{job.yards} yards</Text>
-                  <Text style={styles.jobAmount}>{formatCurrency(job.amount)}</Text>
-                </View>
+            <>
+              <View style={styles.jobSummary}>
+                <Paragraph>Completed: {weeklyJobs.filter(job => job.isPaid).length} jobs</Paragraph>
+                <Paragraph>Income: {formatCurrency(weekIncome)}</Paragraph>
               </View>
-            ))
+              
+              <List.Section style={styles.jobList}>
+                {weeklyJobs.map(job => (
+                  <List.Item
+                    key={job.id}
+                    title={job.company || 'Unlisted Company'}
+                    description={`${job.city || 'No location'} • ${job.yards} yards`}
+                    left={() => (
+                      <List.Icon 
+                        icon={job.isPaid ? "check-circle" : "clock-outline"} 
+                        color={job.isPaid ? "#4CAF50" : "#FFC107"} 
+                      />
+                    )}
+                    right={() => (
+                      <View style={styles.jobRight}>
+                        <Text style={styles.jobAmount}>{formatCurrency(job.amount)}</Text>
+                        <Text style={[
+                          styles.paymentStatus, 
+                          { color: job.isPaid ? "#4CAF50" : "#F44336" }
+                        ]}>
+                          {job.isPaid ? job.paymentMethod || 'Paid' : 'Unpaid'}
+                        </Text>
+                      </View>
+                    )}
+                    onPress={() => handleViewJobDetails(job.id)}
+                    style={[
+                      styles.jobItem,
+                      { backgroundColor: job.isPaid ? 'rgba(76, 175, 80, 0.05)' : 'rgba(255, 193, 7, 0.05)' }
+                    ]}
+                  />
+                ))}
+              </List.Section>
+            </>
           )}
         </Card.Content>
       </Card>
@@ -325,11 +356,11 @@ export default function WeeklyDashboardScreen() {
           </View>
           <Divider style={styles.divider} />
           
-          {sortedBills.length === 0 ? (
+          {upcomingBills.length === 0 ? (
             <Paragraph style={styles.emptyState}>No upcoming bills</Paragraph>
           ) : (
             <List.Section>
-              {sortedBills.slice(0, 5).map(bill => {
+              {upcomingBills.slice(0, 5).map(bill => {
                 const daysUntil = getDaysUntilDue(bill.dueDate);
                 let urgencyColor = '#4CAF50';
                 if (daysUntil <= 0) urgencyColor = '#F44336';
@@ -452,6 +483,29 @@ const styles = StyleSheet.create({
     marginHorizontal: 16,
     marginBottom: 16,
   },
+  jobSummary: {
+    marginBottom: 12,
+  },
+  jobList: {
+    marginHorizontal: -16, // Counter the Card padding
+  },
+  jobItem: {
+    paddingLeft: 0,
+    borderRadius: 4,
+    marginBottom: 4,
+  },
+  jobRight: {
+    alignItems: 'flex-end',
+    justifyContent: 'center',
+    paddingRight: 12,
+  },
+  jobAmount: {
+    fontWeight: 'bold',
+  },
+  paymentStatus: {
+    fontSize: 12,
+    marginTop: 4,
+  },
   billsCard: {
     marginHorizontal: 16,
     marginBottom: 16,
@@ -473,50 +527,9 @@ const styles = StyleSheet.create({
     fontStyle: 'italic',
     marginVertical: 12,
   },
-  jobItem: {
-    backgroundColor: '#fff',
-    borderRadius: 8,
-    padding: 12,
-    marginBottom: 8,
-    borderLeftWidth: 3,
-    borderLeftColor: '#2196F3',
-  },
-  jobHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 6,
-  },
-  jobDate: {
-    fontSize: 14,
-    fontWeight: 'bold',
-  },
-  statusBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 4,
-  },
-  statusText: {
-    color: 'white',
-    fontSize: 10,
-    fontWeight: 'bold',
-  },
-  jobCompany: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    marginBottom: 2,
-  },
-  jobAddress: {
-    fontSize: 14,
-    color: '#757575',
-    marginBottom: 4,
-  },
-  jobDetails: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: 4,
-  },
-  jobAmount: {
-    fontWeight: 'bold',
+  addJobButton: {
+    marginTop: 12,
+    backgroundColor: '#2196F3',
   },
   billItem: {
     paddingLeft: 0,
