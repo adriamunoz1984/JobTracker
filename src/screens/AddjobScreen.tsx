@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { View, StyleSheet, ScrollView, Platform } from 'react-native';
-import { TextInput, Button, Switch, Text, SegmentedButtons } from 'react-native-paper';
+import { TextInput, Button, Switch, Text, SegmentedButtons, Divider } from 'react-native-paper';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { format } from 'date-fns';
@@ -11,12 +11,13 @@ import { PaymentMethod, Job } from '../types';
 export default function AddJobScreen() {
   const navigation = useNavigation();
   const route = useRoute();
-  const { addJob, updateJob } = useJobs();
+  const { addJob, updateJob, getJobById } = useJobs();
   
   // Check if we're editing an existing job
   const editJob = route.params?.job as Job | undefined;
   const isEditMode = !!editJob;
   
+  // Basic job information
   const [date, setDate] = useState(editJob ? new Date(editJob.date) : new Date());
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [companyName, setCompanyName] = useState(editJob?.companyName || '');
@@ -28,6 +29,16 @@ export default function AddJobScreen() {
   const [amount, setAmount] = useState(editJob?.amount ? editJob.amount.toString() : '');
   const [checkNumber, setCheckNumber] = useState(editJob?.checkNumber || '');
   const [notes, setNotes] = useState(editJob?.notes || '');
+  
+  // Billing details (for Charge payment method)
+  const [billingDetails, setBillingDetails] = useState({
+    invoiceNumber: editJob?.billingDetails?.invoiceNumber || '',
+    billingDate: editJob?.billingDetails?.billingDate || '',
+    dueDate: editJob?.billingDetails?.dueDate || '',
+    contactPerson: editJob?.billingDetails?.contactPerson || '',
+    contactEmail: editJob?.billingDetails?.contactEmail || '',
+    contactPhone: editJob?.billingDetails?.contactPhone || '',
+  });
 
   const handleDateChange = (event: any, selectedDate?: Date) => {
     const currentDate = selectedDate || date;
@@ -58,6 +69,15 @@ export default function AddJobScreen() {
       amount: parseFloat(amount),
       checkNumber: paymentMethod === 'Check' ? checkNumber.trim() : undefined,
       notes: notes.trim() || undefined,
+      // Only include billing details if payment method is Charge
+      billingDetails: paymentMethod === 'Charge' ? {
+        invoiceNumber: billingDetails.invoiceNumber.trim() || undefined,
+        billingDate: billingDetails.billingDate.trim() || undefined,
+        dueDate: billingDetails.dueDate.trim() || undefined,
+        contactPerson: billingDetails.contactPerson.trim() || undefined,
+        contactEmail: billingDetails.contactEmail.trim() || undefined,
+        contactPhone: billingDetails.contactPhone.trim() || undefined,
+      } : undefined,
     };
 
     try {
@@ -172,7 +192,7 @@ export default function AddJobScreen() {
           multiSelect={false}
         />
 
-        {/* Conditional Fields */}
+        {/* Conditional Fields based on Payment Method */}
         {paymentMethod === 'Check' && (
           <TextInput
             label="Check Number"
@@ -181,6 +201,65 @@ export default function AddJobScreen() {
             style={styles.input}
             mode="outlined"
           />
+        )}
+        
+        {/* Billing Information for Charge payment method */}
+        {paymentMethod === 'Charge' && (
+          <View style={styles.billingContainer}>
+            <Divider style={styles.divider} />
+            <Text style={styles.sectionTitle}>Billing Information</Text>
+            
+            <TextInput
+              label="Invoice Number"
+              value={billingDetails.invoiceNumber}
+              onChangeText={(text) => setBillingDetails({...billingDetails, invoiceNumber: text})}
+              style={styles.input}
+              mode="outlined"
+            />
+            
+            <TextInput
+              label="Billing Date (MM/DD/YYYY)"
+              value={billingDetails.billingDate}
+              onChangeText={(text) => setBillingDetails({...billingDetails, billingDate: text})}
+              style={styles.input}
+              mode="outlined"
+            />
+            
+            <TextInput
+              label="Due Date (MM/DD/YYYY)"
+              value={billingDetails.dueDate}
+              onChangeText={(text) => setBillingDetails({...billingDetails, dueDate: text})}
+              style={styles.input}
+              mode="outlined"
+            />
+            
+            <TextInput
+              label="Contact Person"
+              value={billingDetails.contactPerson}
+              onChangeText={(text) => setBillingDetails({...billingDetails, contactPerson: text})}
+              style={styles.input}
+              mode="outlined"
+            />
+            
+            <TextInput
+              label="Contact Email"
+              value={billingDetails.contactEmail}
+              onChangeText={(text) => setBillingDetails({...billingDetails, contactEmail: text})}
+              style={styles.input}
+              mode="outlined"
+              keyboardType="email-address"
+              autoCapitalize="none"
+            />
+            
+            <TextInput
+              label="Contact Phone"
+              value={billingDetails.contactPhone}
+              onChangeText={(text) => setBillingDetails({...billingDetails, contactPhone: text})}
+              style={styles.input}
+              mode="outlined"
+              keyboardType="phone-pad"
+            />
+          </View>
         )}
 
         {/* Notes */}
@@ -240,6 +319,17 @@ const styles = StyleSheet.create({
   segmentedButtons: {
     marginBottom: 16,
     flexWrap: 'wrap',
+  },
+  divider: {
+    marginVertical: 16,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 16,
+  },
+  billingContainer: {
+    marginBottom: 16,
   },
   submitButton: {
     marginTop: 24,

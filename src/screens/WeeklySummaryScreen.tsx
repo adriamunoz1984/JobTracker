@@ -1,13 +1,15 @@
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, ScrollView } from 'react-native';
+import { View, StyleSheet, ScrollView, Text as RNText } from 'react-native';
 import { Card, Title, Paragraph, Button, Divider, Text } from 'react-native-paper';
 import { format, startOfWeek, endOfWeek, addWeeks, subWeeks } from 'date-fns';
+import { useNavigation } from '@react-navigation/native';
 
 import { useJobs } from '../context/JobsContext';
 import { Job } from '../types';
 
 export default function WeeklySummaryScreen() {
-  const { getJobsByDateRange, calculateWeeklySummary } = useJobs();
+  const navigation = useNavigation();
+  const { jobs } = useJobs();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [weeklyJobs, setWeeklyJobs] = useState<Job[]>([]);
   
@@ -18,14 +20,46 @@ export default function WeeklySummaryScreen() {
   // Format dates for display
   const weekRangeText = `${format(weekStart, 'MMM d')} - ${format(weekEnd, 'MMM d, yyyy')}`;
   
-  useEffect(() => {
-    // Get jobs for the current week
-    const jobs = getJobsByDateRange(weekStart.toISOString(), weekEnd.toISOString());
-    setWeeklyJobs(jobs);
-  }, [currentDate, getJobsByDateRange]);
+  // For debugging
+  const formattedWeekStart = format(weekStart, 'yyyy-MM-dd');
+  const formattedWeekEnd = format(weekEnd, 'yyyy-MM-dd');
   
-  // Calculate weekly summary
-  const summary = calculateWeeklySummary(weekStart.toISOString(), weekEnd.toISOString());
+  useEffect(() => {
+    // Direct filtering in the component instead of using context function
+    try {
+      // Get jobs for the current week - manually filter by date
+      const filteredJobs = jobs.filter((job) => {
+        try {
+          const jobDate = new Date(job.date);
+          const jobDateFormatted = format(jobDate, 'yyyy-MM-dd');
+          
+          const isInRange = jobDateFormatted >= formattedWeekStart && 
+                          jobDateFormatted <= formattedWeekEnd;
+          
+          console.log(`Job ${job.id} date: ${jobDateFormatted}, in range: ${isInRange}`);
+          return isInRange;
+        } catch (error) {
+          console.error('Error filtering job:', error);
+          return false;
+        }
+      });
+      
+      console.log(`Found ${filteredJobs.length} jobs in range`);
+      setWeeklyJobs(filteredJobs);
+    } catch (error) {
+      console.error('Error in useEffect:', error);
+    }
+  }, [currentDate, jobs, formattedWeekStart, formattedWeekEnd]);
+  
+  // Calculate weekly summary manually
+  const totalEarnings = weeklyJobs.reduce((sum, job) => sum + job.amount, 0);
+  const totalUnpaid = weeklyJobs
+    .filter(job => !job.isPaid)
+    .reduce((sum, job) => sum + job.amount, 0);
+  const cashPayments = weeklyJobs
+    .filter(job => job.isPaid && job.paymentMethod === 'Cash')
+    .reduce((sum, job) => sum + job.amount, 0);
+  const netEarnings = (totalEarnings / 2) - cashPayments;
   
   const navigateToPreviousWeek = () => {
     setCurrentDate(subWeeks(currentDate, 1));
@@ -64,6 +98,17 @@ export default function WeeklySummaryScreen() {
       
       <Title style={styles.weekTitle}>{weekRangeText}</Title>
       
+      {/* Debug Card */}
+      <Card style={styles.debugCard}>
+        <Card.Content>
+          <Title>Debug Info</Title>
+          <Paragraph>Total Jobs in System: {jobs.length}</Paragraph>
+          <Paragraph>Jobs For This Week: {weeklyJobs.length}</Paragraph>
+          <Paragraph>Week Start: {formattedWeekStart}</Paragraph>
+          <Paragraph>Week End: {formattedWeekEnd}</Paragraph>
+        </Card.Content>
+      </Card>
+      
       <Card style={styles.summaryCard}>
         <Card.Content>
           <Title>Weekly Summary</Title>
@@ -71,29 +116,29 @@ export default function WeeklySummaryScreen() {
           
           <View style={styles.summaryRow}>
             <Paragraph style={styles.label}>Total Jobs:</Paragraph>
-            <Paragraph>{summary.totalJobs}</Paragraph>
+            <Paragraph>{weeklyJobs.length}</Paragraph>
           </View>
           
           <View style={styles.summaryRow}>
             <Paragraph style={styles.label}>Total Earnings:</Paragraph>
-            <Paragraph style={styles.amount}>{formatCurrency(summary.totalEarnings)}</Paragraph>
+            <Paragraph style={styles.amount}>{formatCurrency(totalEarnings)}</Paragraph>
           </View>
           
           <View style={styles.summaryRow}>
             <Paragraph style={styles.label}>Unpaid Amount:</Paragraph>
-            <Paragraph style={styles.unpaidAmount}>{formatCurrency(summary.totalUnpaid)}</Paragraph>
+            <Paragraph style={styles.unpaidAmount}>{formatCurrency(totalUnpaid)}</Paragraph>
           </View>
           
           <View style={styles.summaryRow}>
             <Paragraph style={styles.label}>Cash Payments:</Paragraph>
-            <Paragraph>{formatCurrency(summary.cashPayments)}</Paragraph>
+            <Paragraph>{formatCurrency(cashPayments)}</Paragraph>
           </View>
           
           <Divider style={styles.divider} />
           
           <View style={styles.summaryRow}>
             <Paragraph style={styles.label}>Net Earnings:</Paragraph>
-            <Paragraph style={styles.netEarnings}>{formatCurrency(summary.netEarnings)}</Paragraph>
+            <Paragraph style={styles.netEarnings}>{formatCurrency(netEarnings)}</Paragraph>
           </View>
           
           <View style={styles.formulaContainer}>
@@ -123,13 +168,15 @@ export default function WeeklySummaryScreen() {
                 </Text>
               </View>
               
-              <Paragraph>{format(new Date(job.date), 'MMM d, yyyy')}</Paragraph>
-              <Paragraph>{`${job.address}, ${job.city}`}</Paragraph>
+              <Paragraph>Date: {format(new Date(job.date), 'MMM d, yyyy')}</Paragraph>
+              <Paragraph>Address: {`${job.address}, ${job.city}`}</Paragraph>
               
               <View style={styles.jobFooter}>
                 <Paragraph>{`${job.yards} yards`}</Paragraph>
                 <Paragraph style={styles.jobAmount}>{formatCurrency(job.amount)}</Paragraph>
               </View>
+              
+              <RNText style={styles.jobId}>Job ID: {job.id}</RNText>
             </Card.Content>
           </Card>
         ))
@@ -151,6 +198,10 @@ const styles = StyleSheet.create({
   weekTitle: {
     textAlign: 'center',
     marginVertical: 8,
+  },
+  debugCard: {
+    margin: 16,
+    backgroundColor: '#FFF9C4', // Light yellow
   },
   summaryCard: {
     margin: 16,
@@ -199,6 +250,7 @@ const styles = StyleSheet.create({
   noJobsText: {
     textAlign: 'center',
     fontStyle: 'italic',
+    marginBottom: 16,
   },
   jobCard: {
     marginHorizontal: 16,
@@ -232,5 +284,10 @@ const styles = StyleSheet.create({
   },
   jobAmount: {
     fontWeight: 'bold',
+  },
+  jobId: {
+    fontSize: 10,
+    color: '#999',
+    marginTop: 8,
   },
 });

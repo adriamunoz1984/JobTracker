@@ -1,15 +1,38 @@
 import React, { useState, useEffect } from 'react';
 import { View, StyleSheet, ScrollView, Alert } from 'react-native';
 import { useRoute, useNavigation, RouteProp } from '@react-navigation/native';
-import { Card, Title, Paragraph, Button, Divider, Chip, IconButton } from 'react-native-paper';
+import { Card, Title, Paragraph, Button, Divider, Chip, IconButton, TextInput, List } from 'react-native-paper';
 import { format } from 'date-fns';
 
 import { useJobs } from '../context/JobsContext';
-import { Job } from '../types';
 
 type RouteParams = {
   jobId: string;
 };
+
+// Extended Job interface with billing details
+interface Job {
+  id: string;
+  companyName?: string;
+  address: string;
+  city: string;
+  yards: number;
+  isPaid: boolean;
+  paymentMethod: 'Cash' | 'Check' | 'Zelle' | 'Square' | 'Charge';
+  amount: number;
+  date: string;
+  sequenceNumber?: number;
+  notes?: string;
+  billingDetails?: {
+    invoiceNumber?: string;
+    billingDate?: string;
+    dueDate?: string;
+    contactPerson?: string;
+    contactEmail?: string;
+    contactPhone?: string;
+  };
+  checkNumber?: string;
+}
 
 export default function JobDetailScreen() {
   const route = useRoute<RouteProp<Record<string, RouteParams>, string>>();
@@ -17,11 +40,27 @@ export default function JobDetailScreen() {
   const { getJobById, updateJob, deleteJob } = useJobs();
   const [job, setJob] = useState<Job | undefined>(undefined);
   const { jobId } = route.params || {};
+  
+  // State for billing details
+  const [showBillingForm, setShowBillingForm] = useState(false);
+  const [billingDetails, setBillingDetails] = useState({
+    invoiceNumber: '',
+    billingDate: '',
+    dueDate: '',
+    contactPerson: '',
+    contactEmail: '',
+    contactPhone: '',
+  });
 
   useEffect(() => {
     if (jobId) {
       const jobData = getJobById(jobId);
       setJob(jobData);
+      
+      // Initialize billing details if they exist
+      if (jobData?.billingDetails) {
+        setBillingDetails(jobData.billingDetails);
+      }
     }
   }, [jobId, getJobById]);
 
@@ -56,6 +95,21 @@ export default function JobDetailScreen() {
       const updatedJob = { ...job, isPaid: !job.isPaid };
       await updateJob(updatedJob);
       setJob(updatedJob);
+    }
+  };
+  
+  // Handle saving billing details
+  const saveBillingDetails = async () => {
+    if (job) {
+      const updatedJob = {
+        ...job,
+        billingDetails: billingDetails
+      };
+      
+      await updateJob(updatedJob);
+      setJob(updatedJob);
+      setShowBillingForm(false);
+      Alert.alert('Success', 'Billing details have been saved');
     }
   };
 
@@ -133,6 +187,144 @@ export default function JobDetailScreen() {
           )}
         </Card.Content>
       </Card>
+      
+      {/* Billing Information Section - only for Charge jobs */}
+      {job.paymentMethod === 'Charge' && (
+        <Card style={styles.billingCard}>
+          <Card.Content>
+            <View style={styles.billingHeader}>
+              <Title>Billing Information</Title>
+              <Button 
+                mode="text" 
+                onPress={() => setShowBillingForm(!showBillingForm)}
+                icon={showBillingForm ? "chevron-up" : "chevron-down"}
+              >
+                {showBillingForm ? 'Hide Form' : 'Edit'}
+              </Button>
+            </View>
+            
+            <Divider style={styles.divider} />
+            
+            {/* Display billing details if available */}
+            {!showBillingForm && (
+              <>
+                {job.billingDetails?.invoiceNumber ? (
+                  <View style={styles.detailRow}>
+                    <Paragraph style={styles.label}>Invoice #:</Paragraph>
+                    <Paragraph>{job.billingDetails.invoiceNumber}</Paragraph>
+                  </View>
+                ) : null}
+                
+                {job.billingDetails?.billingDate ? (
+                  <View style={styles.detailRow}>
+                    <Paragraph style={styles.label}>Billing Date:</Paragraph>
+                    <Paragraph>{job.billingDetails.billingDate}</Paragraph>
+                  </View>
+                ) : null}
+                
+                {job.billingDetails?.dueDate ? (
+                  <View style={styles.detailRow}>
+                    <Paragraph style={styles.label}>Due Date:</Paragraph>
+                    <Paragraph>{job.billingDetails.dueDate}</Paragraph>
+                  </View>
+                ) : null}
+                
+                {job.billingDetails?.contactPerson ? (
+                  <View style={styles.detailRow}>
+                    <Paragraph style={styles.label}>Contact:</Paragraph>
+                    <Paragraph>{job.billingDetails.contactPerson}</Paragraph>
+                  </View>
+                ) : null}
+                
+                {job.billingDetails?.contactEmail ? (
+                  <View style={styles.detailRow}>
+                    <Paragraph style={styles.label}>Email:</Paragraph>
+                    <Paragraph>{job.billingDetails.contactEmail}</Paragraph>
+                  </View>
+                ) : null}
+                
+                {job.billingDetails?.contactPhone ? (
+                  <View style={styles.detailRow}>
+                    <Paragraph style={styles.label}>Phone:</Paragraph>
+                    <Paragraph>{job.billingDetails.contactPhone}</Paragraph>
+                  </View>
+                ) : null}
+                
+                {!job.billingDetails || (
+                  !job.billingDetails.invoiceNumber && 
+                  !job.billingDetails.contactPerson &&
+                  !job.billingDetails.billingDate
+                ) ? (
+                  <Paragraph style={styles.emptyBilling}>No billing details entered yet</Paragraph>
+                ) : null}
+              </>
+            )}
+            
+            {/* Billing details form */}
+            {showBillingForm && (
+              <View style={styles.billingForm}>
+                <TextInput
+                  label="Invoice Number"
+                  value={billingDetails.invoiceNumber}
+                  onChangeText={(text) => setBillingDetails({...billingDetails, invoiceNumber: text})}
+                  style={styles.input}
+                  mode="outlined"
+                />
+                
+                <TextInput
+                  label="Billing Date (MM/DD/YYYY)"
+                  value={billingDetails.billingDate}
+                  onChangeText={(text) => setBillingDetails({...billingDetails, billingDate: text})}
+                  style={styles.input}
+                  mode="outlined"
+                />
+                
+                <TextInput
+                  label="Due Date (MM/DD/YYYY)"
+                  value={billingDetails.dueDate}
+                  onChangeText={(text) => setBillingDetails({...billingDetails, dueDate: text})}
+                  style={styles.input}
+                  mode="outlined"
+                />
+                
+                <TextInput
+                  label="Contact Person"
+                  value={billingDetails.contactPerson}
+                  onChangeText={(text) => setBillingDetails({...billingDetails, contactPerson: text})}
+                  style={styles.input}
+                  mode="outlined"
+                />
+                
+                <TextInput
+                  label="Contact Email"
+                  value={billingDetails.contactEmail}
+                  onChangeText={(text) => setBillingDetails({...billingDetails, contactEmail: text})}
+                  style={styles.input}
+                  mode="outlined"
+                  keyboardType="email-address"
+                />
+                
+                <TextInput
+                  label="Contact Phone"
+                  value={billingDetails.contactPhone}
+                  onChangeText={(text) => setBillingDetails({...billingDetails, contactPhone: text})}
+                  style={styles.input}
+                  mode="outlined"
+                  keyboardType="phone-pad"
+                />
+                
+                <Button 
+                  mode="contained" 
+                  onPress={saveBillingDetails}
+                  style={styles.saveBillingButton}
+                >
+                  Save Billing Details
+                </Button>
+              </View>
+            )}
+          </Card.Content>
+        </Card>
+      )}
 
       <View style={styles.actions}>
         <Button
@@ -180,11 +372,21 @@ const styles = StyleSheet.create({
     margin: 16,
     elevation: 4,
   },
+  billingCard: {
+    marginHorizontal: 16,
+    marginBottom: 16,
+    elevation: 4,
+  },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 8,
+  },
+  billingHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
   },
   title: {
     flex: 1,
@@ -243,5 +445,22 @@ const styles = StyleSheet.create({
     marginLeft: 8,
     borderColor: '#F44336',
     color: '#F44336',
+  },
+  billingForm: {
+    marginTop: 8,
+  },
+  input: {
+    marginBottom: 12,
+    backgroundColor: 'white',
+  },
+  saveBillingButton: {
+    marginTop: 8,
+    backgroundColor: '#2196F3',
+  },
+  emptyBilling: {
+    fontStyle: 'italic',
+    textAlign: 'center',
+    marginVertical: 12,
+    color: '#757575',
   },
 });

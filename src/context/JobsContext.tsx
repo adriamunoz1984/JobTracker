@@ -1,10 +1,11 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { format } from 'date-fns';
 import { Job, PaymentMethod, WeeklySummary } from '../types';
 
 interface JobsContextType {
   jobs: Job[];
-  addJob: (job: Omit<Job, 'id' | 'createdAt' | 'updatedAt'>) => Promise<void>;
+  addJob: (job: Omit<Job, 'id' | 'createdAt' | 'updatedAt'>) => Promise<string>;
   updateJob: (job: Job) => Promise<void>;
   deleteJob: (id: string) => Promise<void>;
   getJobById: (id: string) => Job | undefined;
@@ -29,15 +30,23 @@ export const JobsProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Load jobs from AsyncStorage on component mount
   useEffect(() => {
-    // In your JobsContext.tsx, when loading jobs from storage, ensure you're preserving the sequenceNumber
     const loadJobs = async () => {
       try {
+        setIsLoading(true);
         const jobsData = await AsyncStorage.getItem('jobs');
         if (jobsData) {
-          setJobs(JSON.parse(jobsData));
+          const parsedJobs = JSON.parse(jobsData);
+          console.log(`Loaded ${parsedJobs.length} jobs from storage`);
+          setJobs(parsedJobs);
+        } else {
+          console.log('No jobs found in storage');
+          setJobs([]);
         }
       } catch (error) {
         console.error('Error loading jobs:', error);
+        setJobs([]);
+      } finally {
+        setIsLoading(false);
       }
     };
 
@@ -49,6 +58,7 @@ export const JobsProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const saveJobs = async () => {
       try {
         await AsyncStorage.setItem('jobs', JSON.stringify(jobs));
+        console.log(`Saved ${jobs.length} jobs to storage`);
       } catch (error) {
         console.error('Failed to save jobs:', error);
       }
@@ -59,16 +69,20 @@ export const JobsProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, [jobs, isLoading]);
 
-  const addJob = async (jobData: Omit<Job, 'id' | 'createdAt' | 'updatedAt'>) => {
+  const addJob = async (jobData: Omit<Job, 'id' | 'createdAt' | 'updatedAt'>): Promise<string> => {
     const now = new Date().toISOString();
+    const jobId = Date.now().toString();
+    
     const newJob: Job = {
       ...jobData,
-      id: Date.now().toString(),
+      id: jobId,
       createdAt: now,
       updatedAt: now,
     };
 
     setJobs((prevJobs) => [...prevJobs, newJob]);
+    console.log(`Added new job with ID: ${jobId}`);
+    return jobId;
   };
 
   const updateJob = async (updatedJob: Job) => {
@@ -78,24 +92,56 @@ export const JobsProvider: React.FC<{ children: React.ReactNode }> = ({ children
         : job
     );
     setJobs(updatedJobs);
+    console.log(`Updated job with ID: ${updatedJob.id}`);
   };
 
   const deleteJob = async (id: string) => {
     setJobs((prevJobs) => prevJobs.filter((job) => job.id !== id));
+    console.log(`Deleted job with ID: ${id}`);
   };
 
   const getJobById = (id: string) => {
     return jobs.find((job) => job.id === id);
   };
 
-  const getJobsByDateRange = (startDate: string, endDate: string) => {
-    const start = new Date(startDate);
-    const end = new Date(endDate);
-    
-    return jobs.filter((job) => {
-      const jobDate = new Date(job.date);
-      return jobDate >= start && jobDate <= end;
-    });
+  const getJobsByDateRange = (startDate: string, endDate: string): Job[] => {
+    try {
+      console.log(`Getting jobs between ${startDate} and ${endDate}`);
+      const start = new Date(startDate);
+      const end = new Date(endDate);
+      
+      // Format dates to compare only the date part (yyyy-MM-dd)
+      const startFormatted = format(start, 'yyyy-MM-dd');
+      const endFormatted = format(end, 'yyyy-MM-dd');
+      
+      console.log(`Formatted date range: ${startFormatted} to ${endFormatted}`);
+      
+      const jobsInRange = jobs.filter((job) => {
+        try {
+          // Create date object from job date
+          const jobDate = new Date(job.date);
+          
+          // Format job date for comparison
+          const jobDateFormatted = format(jobDate, 'yyyy-MM-dd');
+          
+          // Compare formatted dates as strings
+          const isInRange = jobDateFormatted >= startFormatted && jobDateFormatted <= endFormatted;
+          
+          console.log(`Job ${job.id} date: ${jobDateFormatted}, inRange: ${isInRange}`);
+          
+          return isInRange;
+        } catch (error) {
+          console.error(`Error filtering job ${job.id}:`, error);
+          return false;
+        }
+      });
+      
+      console.log(`Found ${jobsInRange.length} jobs in range`);
+      return jobsInRange;
+    } catch (error) {
+      console.error('Error in getJobsByDateRange:', error);
+      return [];
+    }
   };
 
   const calculateWeeklySummary = (startDate: string, endDate: string): WeeklySummary => {

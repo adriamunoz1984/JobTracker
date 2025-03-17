@@ -17,6 +17,14 @@ interface Job {
   date: string;
   sequenceNumber?: number;
   notes?: string;
+  billingDetails?: {
+    invoiceNumber?: string;
+    billingDate?: string;
+    dueDate?: string;
+    contactPerson?: string;
+    contactEmail?: string;
+    contactPhone?: string;
+  };
 }
 
 interface JobCardProps {
@@ -27,7 +35,6 @@ interface JobCardProps {
 
 const JobCard: React.FC<JobCardProps> = ({ job, onDelete, onTogglePaid }) => {
   const navigation = useNavigation();
-  const [expanded, setExpanded] = useState(false);
   const [menuVisible, setMenuVisible] = useState(false);
 
   // Format the date for display
@@ -35,7 +42,6 @@ const JobCard: React.FC<JobCardProps> = ({ job, onDelete, onTogglePaid }) => {
   
   // Define colors based on payment status
   const statusColor = job.isPaid ? '#4CAF50' : '#F44336';
-  const cardBorderColor = job.isPaid ? '#BAEFC1' : '#FFCDD2';
   
   // Payment method icons
   const getPaymentIcon = () => {
@@ -49,10 +55,19 @@ const JobCard: React.FC<JobCardProps> = ({ job, onDelete, onTogglePaid }) => {
     }
   };
   
+  // Check if there's additional information that warrants showing details
+  const hasAdditionalInfo = !!job.notes || job.paymentMethod === 'Charge' || !!job.billingDetails;
+
+  // Handle card press - navigate to details only if there's additional info
+  const handleCardPress = () => {
+    if (hasAdditionalInfo) {
+      navigation.navigate('JobDetail' as never, { jobId: job.id } as never);
+    }
+  };
+  
   // Handle edit job
   const handleEdit = () => {
     setMenuVisible(false);
-    // Changed from 'EditJob' to 'AddJob' with a jobId parameter
     navigation.navigate('AddJob' as never, { job: job } as never);
   };
   
@@ -74,19 +89,20 @@ const JobCard: React.FC<JobCardProps> = ({ job, onDelete, onTogglePaid }) => {
   
   return (
     <Card 
-        style={[
-          styles.card, 
-          { borderLeftColor: statusColor, borderLeftWidth: 4 },
-          // Add conditional indentation for secondary jobs
-          job.sequenceNumber > 1 ? styles.secondaryJobCard : null
-        ]}
-        elevation={2}
-      >
+      style={[
+        styles.card, 
+        { borderLeftColor: statusColor, borderLeftWidth: 4 },
+        // Add conditional indentation for secondary jobs
+        job.sequenceNumber > 1 ? styles.secondaryJobCard : null
+      ]}
+      elevation={2}
+      onPress={handleCardPress}
+    >
       <Card.Content>
         <View style={styles.headerRow}>
           <View style={styles.dateContainer}>
             <Text style={styles.date}>{formattedDate}</Text>
-            {job.sequenceNumber && job.sequenceNumber > 1 && (
+            {job.sequenceNumber > 1 && (
               <Badge style={styles.sequenceBadge}>Job #{job.sequenceNumber}</Badge>
             )}
           </View>
@@ -117,7 +133,7 @@ const JobCard: React.FC<JobCardProps> = ({ job, onDelete, onTogglePaid }) => {
           </Menu>
         </View>
         
-        <TouchableOpacity onPress={() => setExpanded(!expanded)} style={styles.contentContainer}>
+        <View style={styles.contentContainer}>
           <View style={styles.companyRow}>
             {job.companyName ? (
               <Title style={styles.companyName}>{job.companyName}</Title>
@@ -142,18 +158,17 @@ const JobCard: React.FC<JobCardProps> = ({ job, onDelete, onTogglePaid }) => {
             </View>
           </View>
           
-          {expanded && job.notes && (
-            <View style={styles.notesContainer}>
-              <Divider style={styles.divider} />
-              <Text style={styles.notesLabel}>Notes:</Text>
-              <Paragraph style={styles.notes}>{job.notes}</Paragraph>
+          {hasAdditionalInfo && (
+            <View style={styles.infoIndicator}>
+              <IconButton icon="information" size={16} style={styles.infoIcon} />
+              <Text style={styles.infoText}>
+                {job.notes ? "Has notes" : ""}
+                {job.notes && job.paymentMethod === 'Charge' ? " • " : ""}
+                {job.paymentMethod === 'Charge' ? "Has billing info" : ""}
+              </Text>
             </View>
           )}
-          
-          {!expanded && job.notes && (
-            <Text style={styles.notesIndicator}>Tap to see notes...</Text>
-          )}
-        </TouchableOpacity>
+        </View>
       </Card.Content>
       
       <Card.Actions style={styles.cardActions}>
@@ -280,25 +295,18 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: 'bold',
   },
-  notesContainer: {
-    marginTop: 8,
+  infoIndicator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 4,
   },
-  divider: {
-    marginVertical: 8,
+  infoIcon: {
+    margin: 0,
+    padding: 0,
   },
-  notesLabel: {
-    fontSize: 14,
-    color: '#666',
-    marginBottom: 4,
-  },
-  notes: {
-    fontSize: 14,
-    fontStyle: 'italic',
-  },
-  notesIndicator: {
-    marginTop: 8,
+  infoText: {
     fontSize: 12,
-    color: '#888',
+    color: '#2196F3',
     fontStyle: 'italic',
   },
   cardActions: {
