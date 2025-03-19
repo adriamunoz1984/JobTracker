@@ -3,6 +3,7 @@ import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { Card, Title, Paragraph, Text, Button, IconButton, Menu, Divider, Badge } from 'react-native-paper';
 import { format } from 'date-fns';
 import { useNavigation } from '@react-navigation/native';
+import { useJobs } from '../context/JobsContext';
 
 // Define the Job interface
 interface Job {
@@ -17,14 +18,6 @@ interface Job {
   date: string;
   sequenceNumber?: number;
   notes?: string;
-  billingDetails?: {
-    invoiceNumber?: string;
-    billingDate?: string;
-    dueDate?: string;
-    contactPerson?: string;
-    contactEmail?: string;
-    contactPhone?: string;
-  };
 }
 
 interface JobCardProps {
@@ -35,6 +28,8 @@ interface JobCardProps {
 
 const JobCard: React.FC<JobCardProps> = ({ job, onDelete, onTogglePaid }) => {
   const navigation = useNavigation();
+  const { updateJob } = useJobs();
+  const [expanded, setExpanded] = useState(false);
   const [menuVisible, setMenuVisible] = useState(false);
 
   // Format the date for display
@@ -42,6 +37,7 @@ const JobCard: React.FC<JobCardProps> = ({ job, onDelete, onTogglePaid }) => {
   
   // Define colors based on payment status
   const statusColor = job.isPaid ? '#4CAF50' : '#F44336';
+  const cardBorderColor = job.isPaid ? '#BAEFC1' : '#FFCDD2';
   
   // Payment method icons
   const getPaymentIcon = () => {
@@ -55,19 +51,10 @@ const JobCard: React.FC<JobCardProps> = ({ job, onDelete, onTogglePaid }) => {
     }
   };
   
-  // Check if there's additional information that warrants showing details
-  const hasAdditionalInfo = !!job.notes || job.paymentMethod === 'Charge' || !!job.billingDetails;
-
-  // Handle card press - navigate to details only if there's additional info
-  const handleCardPress = () => {
-    if (hasAdditionalInfo) {
-      navigation.navigate('JobDetail' as never, { jobId: job.id } as never);
-    }
-  };
-  
   // Handle edit job
   const handleEdit = () => {
     setMenuVisible(false);
+    // Navigate to AddJob with the job object
     navigation.navigate('AddJob' as never, { job: job } as never);
   };
   
@@ -80,38 +67,40 @@ const JobCard: React.FC<JobCardProps> = ({ job, onDelete, onTogglePaid }) => {
   };
   
   // Handle toggle paid status
-  const handleTogglePaid = () => {
+  const handleTogglePaid = async () => {
     setMenuVisible(false);
+    // Try to use the prop first, then fall back to context
     if (onTogglePaid) {
       onTogglePaid(job.id, !job.isPaid);
+    } else if (updateJob) {
+      // Use the context directly if no prop is provided
+      const updatedJob = { ...job, isPaid: !job.isPaid };
+      await updateJob(updatedJob);
     }
   };
   
   return (
     <Card 
-      style={[
-        styles.card, 
-        { borderLeftColor: statusColor, borderLeftWidth: 4 },
-        // Add conditional indentation for secondary jobs
-        job.sequenceNumber > 1 ? styles.secondaryJobCard : null
-      ]}
-      elevation={2}
-      onPress={handleCardPress}
-    >
+        style={[
+          styles.card, 
+          { borderLeftColor: statusColor, borderLeftWidth: 4 },
+          // Add conditional indentation for secondary jobs
+          job.sequenceNumber > 1 ? styles.secondaryJobCard : null
+        ]}
+        elevation={2}
+      >
       <Card.Content>
         <View style={styles.headerRow}>
           <View style={styles.dateContainer}>
             <Text style={styles.date}>{formattedDate}</Text>
-            {job.sequenceNumber > 1 && (
+            {job.sequenceNumber && job.sequenceNumber > 1 && (
               <Badge style={styles.sequenceBadge}>Job #{job.sequenceNumber}</Badge>
             )}
           </View>
           
           <View style={styles.amountContainer}>
             <Text style={styles.amount}>${job.amount}</Text>
-            <View style={[styles.statusBadge, { backgroundColor: statusColor }]}>
-              <Text style={styles.statusText}>{job.isPaid ? 'PAID' : 'UNPAID'}</Text>
-            </View>
+            
           </View>
           
           <Menu
@@ -133,7 +122,7 @@ const JobCard: React.FC<JobCardProps> = ({ job, onDelete, onTogglePaid }) => {
           </Menu>
         </View>
         
-        <View style={styles.contentContainer}>
+        <TouchableOpacity onPress={() => setExpanded(!expanded)} style={styles.contentContainer}>
           <View style={styles.companyRow}>
             {job.companyName ? (
               <Title style={styles.companyName}>{job.companyName}</Title>
@@ -144,7 +133,9 @@ const JobCard: React.FC<JobCardProps> = ({ job, onDelete, onTogglePaid }) => {
             <View style={styles.paymentMethodContainer}>
               <IconButton icon={getPaymentIcon()} size={16} style={styles.paymentIcon} />
               <Text style={styles.paymentMethod}>{job.paymentMethod}</Text>
+              
             </View>
+            
           </View>
           
           <Paragraph style={styles.address}>
@@ -158,17 +149,18 @@ const JobCard: React.FC<JobCardProps> = ({ job, onDelete, onTogglePaid }) => {
             </View>
           </View>
           
-          {hasAdditionalInfo && (
-            <View style={styles.infoIndicator}>
-              <IconButton icon="information" size={16} style={styles.infoIcon} />
-              <Text style={styles.infoText}>
-                {job.notes ? "Has notes" : ""}
-                {job.notes && job.paymentMethod === 'Charge' ? " • " : ""}
-                {job.paymentMethod === 'Charge' ? "Has billing info" : ""}
-              </Text>
+          {expanded && job.notes && (
+            <View style={styles.notesContainer}>
+              <Divider style={styles.divider} />
+              <Text style={styles.notesLabel}>Notes:</Text>
+              <Paragraph style={styles.notes}>{job.notes}</Paragraph>
             </View>
           )}
-        </View>
+          
+          {!expanded && job.notes && (
+            <Text style={styles.notesIndicator}>Tap to see notes...</Text>
+          )}
+        </TouchableOpacity>
       </Card.Content>
       
       <Card.Actions style={styles.cardActions}>
@@ -295,18 +287,25 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: 'bold',
   },
-  infoIndicator: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 4,
+  notesContainer: {
+    marginTop: 8,
   },
-  infoIcon: {
-    margin: 0,
-    padding: 0,
+  divider: {
+    marginVertical: 8,
   },
-  infoText: {
+  notesLabel: {
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 4,
+  },
+  notes: {
+    fontSize: 14,
+    fontStyle: 'italic',
+  },
+  notesIndicator: {
+    marginTop: 8,
     fontSize: 12,
-    color: '#2196F3',
+    color: '#888',
     fontStyle: 'italic',
   },
   cardActions: {

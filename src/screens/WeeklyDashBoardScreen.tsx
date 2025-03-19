@@ -26,6 +26,8 @@ export default function WeeklyDashboardScreen() {
   const [dashboardData, setDashboardData] = useState({
     weeklyJobs: [] as Job[],
     weekIncome: 0,
+    cashPayments: 0,
+    yourPay: 0, // New field for employee pay
     upcomingBills: [] as Expense[],
     currentGoal: null as WeeklyGoal | null,
     suggestedPayments: [] as Expense[]
@@ -46,7 +48,15 @@ export default function WeeklyDashboardScreen() {
         
         // Fetch jobs and calculate income
         const jobs = getJobsByDateRange(weekStart.toISOString(), weekEnd.toISOString());
-        const income = jobs.reduce((sum, job) => sum + job.amount, 0);
+        const totalIncome = jobs.reduce((sum, job) => sum + job.amount, 0);
+        
+        // Calculate cash payments
+        const cashPayments = jobs
+          .filter(job => job.isPaid && job.paymentMethod === 'Cash')
+          .reduce((sum, job) => sum + job.amount, 0);
+        
+        // Calculate your actual pay: (Total amount / 2) - cash = your total
+        const yourPay = (totalIncome / 2) - cashPayments;
         
         // Fetch upcoming bills
         const nextMonth = addDays(weekEnd, 28);
@@ -69,7 +79,7 @@ export default function WeeklyDashboardScreen() {
               weekStartDate: weekStart.toISOString(),
               weekEndDate: weekEnd.toISOString(),
               incomeTarget: suggestion.incomeTarget,
-              actualIncome: income,
+              actualIncome: yourPay, // Use your actual pay here
               allocatedBills: suggestion.allocatedBills,
               createdAt: new Date().toISOString(),
               updatedAt: new Date().toISOString()
@@ -77,12 +87,12 @@ export default function WeeklyDashboardScreen() {
           } catch (error) {
             console.error('Error suggesting weekly goal:', error);
           }
-        } else if (goal.actualIncome !== income) {
+        } else if (goal.actualIncome !== yourPay) {
           // Update the goal with current income if it exists
           try {
             const updatedGoal = {
               ...goal,
-              actualIncome: income
+              actualIncome: yourPay // Use your actual pay here
             };
             await updateWeeklyGoal(updatedGoal);
             goal = updatedGoal;
@@ -92,12 +102,14 @@ export default function WeeklyDashboardScreen() {
         }
         
         // Calculate suggested payments
-        const suggestedPayments = getSuggestedPayments(sortedBills, income, goal);
+        const suggestedPayments = getSuggestedPayments(sortedBills, yourPay, goal);
         
         // Update all state at once to prevent cascading updates
         setDashboardData({
           weeklyJobs: jobs,
-          weekIncome: income,
+          weekIncome: totalIncome,
+          cashPayments: cashPayments,
+          yourPay: yourPay,
           upcomingBills: sortedBills,
           currentGoal: goal,
           suggestedPayments
@@ -111,7 +123,7 @@ export default function WeeklyDashboardScreen() {
   }, [currentDate]); // Only depend on the date
   
   // Extract values from dashboard data
-  const { weeklyJobs, weekIncome, upcomingBills, currentGoal, suggestedPayments } = dashboardData;
+  const { weeklyJobs, weekIncome, cashPayments, yourPay, upcomingBills, currentGoal, suggestedPayments } = dashboardData;
   
   // Helper function to get suggested bills to pay
   function getSuggestedPayments(bills, income, goal) {
@@ -162,7 +174,7 @@ export default function WeeklyDashboardScreen() {
   
   // Calculate progress towards weekly goal
   const progressPercentage = currentGoal && currentGoal.incomeTarget > 0 
-    ? (weekIncome / currentGoal.incomeTarget) 
+    ? (yourPay / currentGoal.incomeTarget) 
     : 0;
   const progressColor = progressPercentage >= 1 ? '#4CAF50' : progressPercentage >= 0.7 ? '#FFC107' : '#F44336';
   
@@ -261,9 +273,10 @@ export default function WeeklyDashboardScreen() {
               Target: {formatCurrency(currentGoal?.incomeTarget || 0)}
             </Paragraph>
             <Paragraph style={styles.goalActual}>
-              Actual: {formatCurrency(weekIncome)}
+              Actual: {formatCurrency(yourPay)}
             </Paragraph>
           </View>
+          
           
           <ProgressBar
             progress={Math.min(progressPercentage, 1)}
@@ -286,13 +299,13 @@ export default function WeeklyDashboardScreen() {
         <Card.Content>
           <View style={styles.sectionHeader}>
             <Title>This Week's Jobs</Title>
-            {/* <Button 
+            <Button 
               mode="text" 
               onPress={handleAddJob} 
               compact
             >
               Add New
-            </Button> //add new button*/}
+            </Button>
           </View>
           <Divider style={styles.divider} />
           
@@ -302,14 +315,16 @@ export default function WeeklyDashboardScreen() {
             <>
               <View style={styles.jobSummary}>
                 <Paragraph>Completed: {weeklyJobs.filter(job => job.isPaid).length} jobs</Paragraph>
-                <Paragraph>Income: {formatCurrency(weekIncome)}</Paragraph>
+                <Paragraph>Total Income:     {formatCurrency(weekIncome)}</Paragraph>
+                <Paragraph>Cash Payments: {formatCurrency(cashPayments)}</Paragraph>
+                <Paragraph style={styles.yourPayText}>Earned: {formatCurrency(yourPay)}</Paragraph>
               </View>
               
               <List.Section style={styles.jobList}>
                 {weeklyJobs.map(job => (
                   <List.Item
                     key={job.id}
-                    title={job.company || 'Unlisted Company'}
+                    title={job.companyName || 'Unlisted Company'}
                     description={`${job.city || 'No location'} • ${job.yards} yards`}
                     left={() => (
                       <List.Icon 
@@ -394,7 +409,7 @@ export default function WeeklyDashboardScreen() {
           <Title>Payment Suggestions</Title>
           <Divider style={styles.divider} />
           
-          <Paragraph>Based on your current income of {formatCurrency(weekIncome)}, you can pay:</Paragraph>
+          <Paragraph>Based on your current pay of {formatCurrency(yourPay)}, you can pay:</Paragraph>
           
           {suggestedPayments.length === 0 ? (
             <Paragraph style={styles.emptyState}>
@@ -423,11 +438,11 @@ export default function WeeklyDashboardScreen() {
             </List.Section>
           )}
           
-          {weekIncome < (currentGoal?.incomeTarget || 0) && (
+          {yourPay < (currentGoal?.incomeTarget || 0) && (
             <Card style={styles.shortfallCard}>
               <Card.Content>
                 <Paragraph style={styles.shortfallText}>
-                  You need {formatCurrency((currentGoal?.incomeTarget || 0) - weekIncome)} more to reach your weekly goal
+                  You need {formatCurrency((currentGoal?.incomeTarget || 0) - yourPay)} more to reach your weekly goal
                 </Paragraph>
               </Card.Content>
             </Card>
@@ -475,6 +490,17 @@ const styles = StyleSheet.create({
   goalActual: {
     fontWeight: 'bold',
   },
+  formulaContainer: {
+    backgroundColor: '#f0f0f0',
+    padding: 8,
+    borderRadius: 4,
+    marginBottom: 12,
+  },
+  formulaText: {
+    fontSize: 14,
+    textAlign: 'center',
+    fontWeight: '500', 
+  },
   progressBar: {
     height: 12,
     borderRadius: 6,
@@ -485,6 +511,11 @@ const styles = StyleSheet.create({
   },
   jobSummary: {
     marginBottom: 12,
+  },
+  yourPayText: {
+    fontWeight: 'bold',
+    color: '#2196F3',
+    marginTop: 4,
   },
   jobList: {
     marginHorizontal: -16, // Counter the Card padding
@@ -526,10 +557,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontStyle: 'italic',
     marginVertical: 12,
-  },
-  addJobButton: {
-    marginTop: 12,
-    backgroundColor: '#2196F3',
   },
   billItem: {
     paddingLeft: 0,
