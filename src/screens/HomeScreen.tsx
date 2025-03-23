@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { View, StyleSheet, FlatList } from 'react-native';
-import { FAB, Searchbar, Button, IconButton } from 'react-native-paper';
+import { FAB, Searchbar, IconButton, Button } from 'react-native-paper';
 import { useNavigation } from '@react-navigation/native';
 import { format } from 'date-fns';
 
 import { useJobs } from '../context/JobsContext';
-import JobCard from '../components/JobCard';
+import JobCard from '../components/JobCard'; // Back to using regular JobCard
 import { Job } from '../types';
 
 export default function HomeScreen() {
@@ -127,6 +127,17 @@ export default function HomeScreen() {
           style={styles.sortButton}
           color="#2196F3"
         />
+      </View>
+      
+      <View style={styles.sortLabelContainer}>
+        <Button 
+          mode="text" 
+          compact 
+          icon={sortNewestFirst ? "arrow-down" : "arrow-up"} 
+          onPress={toggleSortOrder}
+        >
+          {sortNewestFirst ? "Newest first" : "Oldest first"}
+        </Button>
       </View>
 
       <FlatList
