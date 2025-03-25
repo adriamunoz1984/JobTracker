@@ -1,8 +1,8 @@
-import React, { useState } from 'react';
-import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import React from 'react';
+import { createMaterialTopTabNavigator } from '@react-navigation/material-top-tabs';
 import { createStackNavigator } from '@react-navigation/stack';
 import { Ionicons } from '@expo/vector-icons';
-import { Text, TouchableOpacity, View, StyleSheet } from 'react-native';
+import { StyleSheet, useWindowDimensions, Platform } from 'react-native';
 
 // Existing screens
 import HomeScreen from '../screens/HomeScreen';
@@ -21,10 +21,7 @@ import SetWeeklyGoalScreen from '../screens/SetWeeklyGoalScreen';
 import PayBillsScreen from '../screens/PayBillsScreen';
 import BillCalendarScreen from '../screens/BillCalendarScreen';
 
-// Import SwipeNavigationWrapper
-import SwipeNavigationWrapper from './SwipeNavigationWrapper';
-
-const Tab = createBottomTabNavigator();
+const Tab = createMaterialTopTabNavigator(); // Using Material Top Tab for swipe functionality
 const Stack = createStackNavigator();
 
 // Home stack includes the job list and related screens
@@ -78,6 +75,32 @@ function WeeklyStack() {
   );
 }
 
+// Monthly screen
+function MonthlyStack() {
+  return (
+    <Stack.Navigator>
+      <Stack.Screen 
+        name="MonthlySummary" 
+        component={MonthlySummaryScreen} 
+        options={{ title: 'Monthly Summary' }} 
+      />
+    </Stack.Navigator>
+  );
+}
+
+// Yearly screen
+function YearlyStack() {
+  return (
+    <Stack.Navigator>
+      <Stack.Screen 
+        name="YearlySummary" 
+        component={YearlySummaryScreen} 
+        options={{ title: 'Yearly Summary' }} 
+      />
+    </Stack.Navigator>
+  );
+}
+
 // Expenses stack includes expense list and related screens
 function ExpensesStack() {
   return (
@@ -106,140 +129,68 @@ function ExpensesStack() {
   );
 }
 
-// Swipeable summary screens with tab controls
-function SummaryStack() {
-  const [activeIndex, setActiveIndex] = useState(0);
-  const summaryTypes = ['Weekly', 'Monthly', 'Yearly'];
-  
-  // Handle index change from swipe
-  const handleIndexChange = (index) => {
-    setActiveIndex(index);
-  };
-  
-  // Create header with tabs
-  const SummaryHeader = ({ navigation, route }) => {
-    return (
-      <View style={styles.headerContainer}>
-        <Text style={styles.headerTitle}>{summaryTypes[activeIndex]} Summary</Text>
-        <View style={styles.tabsContainer}>
-          {summaryTypes.map((type, index) => (
-            <TouchableOpacity 
-              key={index} 
-              onPress={() => setActiveIndex(index)}
-              style={[
-                styles.tab, 
-                activeIndex === index ? styles.activeTab : null
-              ]}
-            >
-              <Text style={[
-                styles.tabText, 
-                activeIndex === index ? styles.activeTabText : null
-              ]}>
-                {type}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-      </View>
-    );
-  };
-  
-  return (
-    <Stack.Navigator screenOptions={{ header: SummaryHeader }}>
-      <Stack.Screen name="SummaryScreens">
-        {() => (
-          <SwipeNavigationWrapper 
-            initialIndex={activeIndex} 
-            onIndexChange={handleIndexChange}
-          >
-            <WeeklySummaryScreen />
-            <MonthlySummaryScreen />
-            <YearlySummaryScreen />
-          </SwipeNavigationWrapper>
-        )}
-      </Stack.Screen>
-    </Stack.Navigator>
-  );
-}
-
 // Main tab navigation
 export default function MainNavigator() {
+  const dimensions = useWindowDimensions();
+  
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
-        tabBarIcon: ({ focused, color, size }) => {
+        tabBarIcon: ({ focused, color }) => {
           let iconName;
 
           if (route.name === 'Home') {
             iconName = focused ? 'home' : 'home-outline';
           } else if (route.name === 'Weekly') {
             iconName = focused ? 'calendar' : 'calendar-outline';
-          } else if (route.name === 'Summary') {
+          } else if (route.name === 'Monthly') {
+            iconName = focused ? 'bar-chart' : 'bar-chart-outline';
+          } else if (route.name === 'Yearly') {
             iconName = focused ? 'stats-chart' : 'stats-chart-outline';
           } else if (route.name === 'Expenses') {
             iconName = focused ? 'cash' : 'cash-outline';
           }
 
-          return <Ionicons name={iconName} size={size} color={color} />;
+          return <Ionicons name={iconName} size={24} color={color} />;
         },
+        tabBarShowLabel: false,
+        tabBarStyle: styles.tabBar,
+        tabBarItemStyle: styles.tabItem,
+        tabBarActiveTintColor: '#2196F3',
+        tabBarInactiveTintColor: '#777',
+        tabBarIndicatorStyle: { opacity: 0 }, // Hide the tab indicator
+        swipeEnabled: true,
+        animationEnabled: true,
       })}
+      style={styles.container}
+      tabBarPosition="bottom"
+      initialLayout={{ width: dimensions.width }}
     >
-      <Tab.Screen 
-        name="Home" 
-        component={HomeStack} 
-        options={{ headerShown: false }} 
-      />
-      <Tab.Screen 
-        name="Weekly" 
-        component={WeeklyStack}
-        options={{ headerShown: false }} 
-      />
-      <Tab.Screen 
-        name="Summary" 
-        component={SummaryStack}
-        options={{ headerShown: false }} 
-      />
-      <Tab.Screen 
-        name="Expenses" 
-        component={ExpensesStack}
-        options={{ headerShown: false }} 
-      />
+      <Tab.Screen name="Home" component={HomeStack} />
+      <Tab.Screen name="Weekly" component={WeeklyStack} />
+      <Tab.Screen name="Monthly" component={MonthlyStack} />
+      <Tab.Screen name="Yearly" component={YearlyStack} />
+      <Tab.Screen name="Expenses" component={ExpensesStack} />
     </Tab.Navigator>
   );
 }
 
 const styles = StyleSheet.create({
-  headerContainer: {
-    backgroundColor: '#2196F3',
-    paddingTop: 40,
-    paddingBottom: 10,
+  container: {
+    backgroundColor: 'white',
   },
-  headerTitle: {
-    color: 'white',
-    fontSize: 20,
-    fontWeight: 'bold',
-    textAlign: 'center',
-    marginBottom: 10,
+  tabBar: {
+    height: 60,
+    backgroundColor: 'white',
+    borderTopWidth: 1,
+    borderTopColor: '#e0e0e0',
+    shadowOpacity: 0, // Remove shadow on iOS
+    elevation: 0, // Remove shadow on Android
   },
-  tabsContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    paddingHorizontal: 20,
-  },
-  tab: {
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: 20,
-  },
-  activeTab: {
-    backgroundColor: 'rgba(255, 255, 255, 0.3)',
-  },
-  tabText: {
-    color: 'rgba(255, 255, 255, 0.7)',
-    fontWeight: '500',
-  },
-  activeTabText: {
-    color: 'white',
-    fontWeight: 'bold',
+  tabItem: {
+    padding: 0,
+    height: 60,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });
