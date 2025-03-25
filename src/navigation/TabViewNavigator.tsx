@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { View, StyleSheet, Dimensions, useWindowDimensions } from 'react-native';
+import { View, StyleSheet, useWindowDimensions, Text } from 'react-native';
 import { TabView, SceneMap, TabBar } from 'react-native-tab-view';
 import { Ionicons } from '@expo/vector-icons';
+import { Appbar } from 'react-native-paper';
 
 // Import your screens directly
 import HomeScreen from '../screens/HomeScreen';
@@ -10,13 +11,69 @@ import MonthlySummaryScreen from '../screens/MonthlySummaryScreen';
 import YearlySummaryScreen from '../screens/YearlySummaryScreen';
 import ExpensesListScreen from '../screens/ExpensesListScreen';
 
-// Define the scenes
+// Create scene wrappers with headers
+const HomeScene = () => (
+  <View style={styles.sceneContainer}>
+    <Appbar.Header style={styles.header}>
+      <Appbar.Content title="My Jobs" />
+    </Appbar.Header>
+    <View style={styles.content}>
+      <HomeScreen />
+    </View>
+  </View>
+);
+
+const WeeklyScene = () => (
+  <View style={styles.sceneContainer}>
+    <Appbar.Header style={styles.header}>
+      <Appbar.Content title="Weekly Dashboard" />
+    </Appbar.Header>
+    <View style={styles.content}>
+      <WeeklyDashboardScreen />
+    </View>
+  </View>
+);
+
+const MonthlyScene = () => (
+  <View style={styles.sceneContainer}>
+    <Appbar.Header style={styles.header}>
+      <Appbar.Content title="Monthly Summary" />
+    </Appbar.Header>
+    <View style={styles.content}>
+      <MonthlySummaryScreen />
+    </View>
+  </View>
+);
+
+const YearlyScene = () => (
+  <View style={styles.sceneContainer}>
+    <Appbar.Header style={styles.header}>
+      <Appbar.Content title="Yearly Summary" />
+    </Appbar.Header>
+    <View style={styles.content}>
+      <YearlySummaryScreen />
+    </View>
+  </View>
+);
+
+const ExpensesScene = () => (
+  <View style={styles.sceneContainer}>
+    <Appbar.Header style={styles.header}>
+      <Appbar.Content title="My Expenses" />
+    </Appbar.Header>
+    <View style={styles.content}>
+      <ExpensesListScreen />
+    </View>
+  </View>
+);
+
+// Define the scenes with headers
 const renderScene = SceneMap({
-  home: HomeScreen,
-  weekly: WeeklyDashboardScreen,
-  monthly: MonthlySummaryScreen,
-  yearly: YearlySummaryScreen,
-  expenses: ExpensesListScreen,
+  home: HomeScene,
+  weekly: WeeklyScene,
+  monthly: MonthlyScene,
+  yearly: YearlyScene,
+  expenses: ExpensesScene,
 });
 
 export default function TabViewNavigator() {
@@ -32,15 +89,15 @@ export default function TabViewNavigator() {
     { key: 'expenses', title: 'Expenses', icon: 'cash' },
   ]);
 
-  // Custom tab bar with icons
+  // Custom tab bar with icons at the bottom
   const renderTabBar = props => (
     <TabBar
       {...props}
       indicatorStyle={{ backgroundColor: '#2196F3' }}
-      style={{ backgroundColor: 'white' }}
+      style={styles.tabBar}
       labelStyle={{ color: '#2196F3' }}
       activeColor="#2196F3"
-      inactiveColor="#000"
+      inactiveColor="#777"
       renderIcon={({ route, focused, color }) => {
         let iconName;
         
@@ -71,19 +128,38 @@ export default function TabViewNavigator() {
   );
 
   return (
-    <TabView
-      navigationState={{ index, routes }}
-      renderScene={renderScene}
-      onIndexChange={setIndex}
-      initialLayout={{ width: layout.width }}
-      renderTabBar={renderTabBar}
-      swipeEnabled={true} // Enable swiping between tabs
-    />
+    <View style={styles.container}>
+      <TabView
+        navigationState={{ index, routes }}
+        renderScene={renderScene}
+        onIndexChange={setIndex}
+        initialLayout={{ width: layout.width }}
+        renderTabBar={renderTabBar}
+        swipeEnabled={true} // Enable swiping between tabs
+        tabBarPosition="bottom" // Position the tab bar at the bottom
+      />
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  sceneContainer: {
+    flex: 1,
+  },
+  header: {
+    backgroundColor: '#2196F3',
+  },
+  content: {
+    flex: 1,
+  },
+  tabBar: {
+    backgroundColor: 'white',
+    height: 60,
+    justifyContent: 'center',
+    borderTopWidth: 1,
+    borderTopColor: '#e0e0e0',
   },
 });
