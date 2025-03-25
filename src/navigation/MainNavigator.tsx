@@ -24,10 +24,19 @@ import BillCalendarScreen from '../screens/BillCalendarScreen';
 const Tab = createMaterialTopTabNavigator(); // Using Material Top Tab for swipe functionality
 const Stack = createStackNavigator();
 
+// Define custom header options with centered title
+const screenOptions = {
+  headerTitleAlign: 'center', // This centers the title on both iOS and Android
+  headerStyle: {
+    backgroundColor: '#2196F3', // Keep your existing blue color
+  },
+  headerTintColor: '#fff', // White text for the header
+}
+
 // Home stack includes the job list and related screens
 function HomeStack() {
   return (
-    <Stack.Navigator>
+    <Stack.Navigator screenOptions={screenOptions}>
       <Stack.Screen 
         name="JobsList" 
         component={HomeScreen} 
@@ -50,7 +59,7 @@ function HomeStack() {
 // Weekly stack includes weekly dashboard and related screens
 function WeeklyStack() {
   return (
-    <Stack.Navigator>
+    <Stack.Navigator screenOptions={screenOptions}>
       <Stack.Screen 
         name="WeeklyDashboard" 
         component={WeeklyDashboardScreen} 
@@ -78,7 +87,7 @@ function WeeklyStack() {
 // Monthly screen
 function MonthlyStack() {
   return (
-    <Stack.Navigator>
+    <Stack.Navigator screenOptions={screenOptions}>
       <Stack.Screen 
         name="MonthlySummary" 
         component={MonthlySummaryScreen} 
@@ -91,7 +100,7 @@ function MonthlyStack() {
 // Yearly screen
 function YearlyStack() {
   return (
-    <Stack.Navigator>
+    <Stack.Navigator screenOptions={screenOptions}>
       <Stack.Screen 
         name="YearlySummary" 
         component={YearlySummaryScreen} 
@@ -104,7 +113,7 @@ function YearlyStack() {
 // Expenses stack includes expense list and related screens
 function ExpensesStack() {
   return (
-    <Stack.Navigator>
+    <Stack.Navigator screenOptions={screenOptions}>
       <Stack.Screen 
         name="ExpensesList" 
         component={ExpensesListScreen} 

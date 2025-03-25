@@ -34,7 +34,7 @@ export default function TabViewNavigator() {
         return (
           <View style={styles.sceneContainer}>
             <Appbar.Header style={styles.header}>
-              <Appbar.Content title="My Jobs" />
+              <Appbar.Content title="My Jobs" style={styles.headerContent} />
             </Appbar.Header>
             <View style={styles.content}>
               <HomeScreen navigation={navigation} />
@@ -45,7 +45,7 @@ export default function TabViewNavigator() {
         return (
           <View style={styles.sceneContainer}>
             <Appbar.Header style={styles.header}>
-              <Appbar.Content title="Weekly Dashboard" />
+              <Appbar.Content title="Weekly Dashboard" style={styles.headerContent} />
             </Appbar.Header>
             <View style={styles.content}>
               <WeeklyDashboardScreen navigation={navigation} />
@@ -56,7 +56,7 @@ export default function TabViewNavigator() {
         return (
           <View style={styles.sceneContainer}>
             <Appbar.Header style={styles.header}>
-              <Appbar.Content title="Monthly Summary" />
+              <Appbar.Content title="Monthly Summary" style={styles.headerContent} />
             </Appbar.Header>
             <View style={styles.content}>
               <MonthlySummaryScreen navigation={navigation} />
@@ -67,7 +67,7 @@ export default function TabViewNavigator() {
         return (
           <View style={styles.sceneContainer}>
             <Appbar.Header style={styles.header}>
-              <Appbar.Content title="Yearly Summary" />
+              <Appbar.Content title="Yearly Summary" style={styles.headerContent} />
             </Appbar.Header>
             <View style={styles.content}>
               <YearlySummaryScreen navigation={navigation} />
@@ -78,7 +78,7 @@ export default function TabViewNavigator() {
         return (
           <View style={styles.sceneContainer}>
             <Appbar.Header style={styles.header}>
-              <Appbar.Content title="My Expenses" />
+              <Appbar.Content title="My Expenses" style={styles.headerContent} />
             </Appbar.Header>
             <View style={styles.content}>
               <ExpensesListScreen navigation={navigation} />
@@ -157,6 +157,9 @@ const styles = StyleSheet.create({
   },
   header: {
     backgroundColor: '#2196F3',
+  },
+  headerContent: {
+    alignItems: 'center', // Center the title text
   },
   content: {
     flex: 1,

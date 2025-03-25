@@ -299,13 +299,13 @@ export default function WeeklyDashboardScreen() {
         <Card.Content>
           <View style={styles.sectionHeader}>
             <Title>This Week's Jobs</Title>
-            <Button 
+            {/* <Button 
               mode="text" 
               onPress={handleAddJob} 
               compact
             >
               Add New
-            </Button>
+            </Button> */}
           </View>
           <Divider style={styles.divider} />
           
