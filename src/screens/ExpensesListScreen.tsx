@@ -214,7 +214,7 @@ export default function ExpensesListScreen() {
         style={styles.fab}
         icon="plus"
         onPress={handleAddExpense}
-        label="Add Expense"
+        label="Expense"
       />
     </View>
   );

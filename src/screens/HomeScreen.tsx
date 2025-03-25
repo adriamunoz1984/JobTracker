@@ -153,12 +153,12 @@ export default function HomeScreen() {
         contentContainerStyle={styles.listContent}
       />
 
-      <FAB
+      {/* <FAB
         style={styles.fab}
         icon="plus"
         onPress={handleAddJob}
         label="Add Job"
-      />
+      /> */}
     </View>
   );
 }
