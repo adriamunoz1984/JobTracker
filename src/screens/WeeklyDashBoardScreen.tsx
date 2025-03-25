@@ -12,7 +12,7 @@ import { Job, Expense, WeeklyGoal } from '../types';
 export default function WeeklyDashboardScreen() {
   const navigation = useNavigation();
   const { getJobsByDateRange } = useJobs();
-  const { getUpcomingExpenses } = useExpenses();
+  const { getUpcomingExpenses, getTotalDailyExpensesForRange } = useExpenses();
   const { getCurrentWeekGoal, updateWeeklyGoal, suggestWeeklyGoal } = useWeeklyGoals();
   
   // State for current date and data fetched from it
@@ -30,7 +30,9 @@ export default function WeeklyDashboardScreen() {
     yourPay: 0, // New field for employee pay
     upcomingBills: [] as Expense[],
     currentGoal: null as WeeklyGoal | null,
-    suggestedPayments: [] as Expense[]
+    suggestedPayments: [] as Expense[],
+    dailyExpensesTotal: 0, // New field for daily expenses
+    finalTakeHome: 0 // New field for final take-home pay
   });
   
   // Update refs when currentDate changes
@@ -58,6 +60,15 @@ export default function WeeklyDashboardScreen() {
         // Calculate your actual pay: (Total amount / 2) - cash = your total
         const yourPay = (totalIncome / 2) - cashPayments;
         
+        // Get daily expenses total
+        const dailyExpensesTotal = getTotalDailyExpensesForRange(
+          weekStart.toISOString(),
+          weekEnd.toISOString()
+        );
+        
+        // Calculate final take home after daily expenses
+        const finalTakeHome = yourPay - dailyExpensesTotal;
+        
         // Fetch upcoming bills
         const nextMonth = addDays(weekEnd, 28);
         const bills = getUpcomingExpenses(weekStart.toISOString(), nextMonth.toISOString());
@@ -79,7 +90,7 @@ export default function WeeklyDashboardScreen() {
               weekStartDate: weekStart.toISOString(),
               weekEndDate: weekEnd.toISOString(),
               incomeTarget: suggestion.incomeTarget,
-              actualIncome: yourPay, // Use your actual pay here
+              actualIncome: finalTakeHome, // Use final take home pay
               allocatedBills: suggestion.allocatedBills,
               createdAt: new Date().toISOString(),
               updatedAt: new Date().toISOString()
@@ -87,12 +98,12 @@ export default function WeeklyDashboardScreen() {
           } catch (error) {
             console.error('Error suggesting weekly goal:', error);
           }
-        } else if (goal.actualIncome !== yourPay) {
+        } else if (goal.actualIncome !== finalTakeHome) {
           // Update the goal with current income if it exists
           try {
             const updatedGoal = {
               ...goal,
-              actualIncome: yourPay // Use your actual pay here
+              actualIncome: finalTakeHome // Use final take home pay
             };
             await updateWeeklyGoal(updatedGoal);
             goal = updatedGoal;
@@ -102,7 +113,7 @@ export default function WeeklyDashboardScreen() {
         }
         
         // Calculate suggested payments
-        const suggestedPayments = getSuggestedPayments(sortedBills, yourPay, goal);
+        const suggestedPayments = getSuggestedPayments(sortedBills, finalTakeHome, goal);
         
         // Update all state at once to prevent cascading updates
         setDashboardData({
@@ -112,7 +123,9 @@ export default function WeeklyDashboardScreen() {
           yourPay: yourPay,
           upcomingBills: sortedBills,
           currentGoal: goal,
-          suggestedPayments
+          suggestedPayments,
+          dailyExpensesTotal: dailyExpensesTotal,
+          finalTakeHome: finalTakeHome
         });
       } catch (error) {
         console.error('Error fetching dashboard data:', error);
@@ -123,7 +136,17 @@ export default function WeeklyDashboardScreen() {
   }, [currentDate]); // Only depend on the date
   
   // Extract values from dashboard data
-  const { weeklyJobs, weekIncome, cashPayments, yourPay, upcomingBills, currentGoal, suggestedPayments } = dashboardData;
+  const { 
+    weeklyJobs, 
+    weekIncome, 
+    cashPayments, 
+    yourPay, 
+    upcomingBills, 
+    currentGoal, 
+    suggestedPayments,
+    dailyExpensesTotal,
+    finalTakeHome
+  } = dashboardData;
   
   // Helper function to get suggested bills to pay
   function getSuggestedPayments(bills, income, goal) {
@@ -174,7 +197,7 @@ export default function WeeklyDashboardScreen() {
   
   // Calculate progress towards weekly goal
   const progressPercentage = currentGoal && currentGoal.incomeTarget > 0 
-    ? (yourPay / currentGoal.incomeTarget) 
+    ? (finalTakeHome / currentGoal.incomeTarget) // Use finalTakeHome instead of yourPay
     : 0;
   const progressColor = progressPercentage >= 1 ? '#4CAF50' : progressPercentage >= 0.7 ? '#FFC107' : '#F44336';
   
@@ -233,6 +256,16 @@ export default function WeeklyDashboardScreen() {
     navigation.navigate('ExpensesList' as never);
   };
   
+  // New handler for viewing daily expenses
+  const handleViewDailyExpenses = () => {
+    navigation.navigate('DailyExpenses' as never);
+  };
+  
+  // New handler for adding daily expense
+  const handleAddDailyExpense = () => {
+    navigation.navigate('AddDailyExpense' as never);
+  };
+  
   return (
     <ScrollView style={styles.container}>
       {/* Week navigation */}
@@ -273,10 +306,9 @@ export default function WeeklyDashboardScreen() {
               Target: {formatCurrency(currentGoal?.incomeTarget || 0)}
             </Paragraph>
             <Paragraph style={styles.goalActual}>
-              Actual: {formatCurrency(yourPay)}
+              Actual: {formatCurrency(finalTakeHome)}
             </Paragraph>
           </View>
-          
           
           <ProgressBar
             progress={Math.min(progressPercentage, 1)}
@@ -299,13 +331,13 @@ export default function WeeklyDashboardScreen() {
         <Card.Content>
           <View style={styles.sectionHeader}>
             <Title>This Week's Jobs</Title>
-            {/* <Button 
+            <Button 
               mode="text" 
               onPress={handleAddJob} 
               compact
             >
               Add New
-            </Button> */}
+            </Button>
           </View>
           <Divider style={styles.divider} />
           
@@ -317,7 +349,7 @@ export default function WeeklyDashboardScreen() {
                 <Paragraph>Completed: {weeklyJobs.filter(job => job.isPaid).length} jobs</Paragraph>
                 <Paragraph>Total Income:     {formatCurrency(weekIncome)}</Paragraph>
                 <Paragraph>Cash Payments: {formatCurrency(cashPayments)}</Paragraph>
-                <Paragraph style={styles.yourPayText}>Earned: {formatCurrency(yourPay)}</Paragraph>
+                <Paragraph style={styles.yourPayText}>Your Pay: {formatCurrency(yourPay)}</Paragraph>
               </View>
               
               <List.Section style={styles.jobList}>
@@ -353,6 +385,56 @@ export default function WeeklyDashboardScreen() {
               </List.Section>
             </>
           )}
+        </Card.Content>
+      </Card>
+      
+      {/* NEW: Daily Expenses Card */}
+      <Card style={styles.expensesCard}>
+        <Card.Content>
+          <View style={styles.sectionHeader}>
+            <Title>Daily Expenses</Title>
+            <Button 
+              mode="text" 
+              onPress={handleAddDailyExpense} 
+              compact
+            >
+              Add Expense
+            </Button>
+          </View>
+          <Divider style={styles.divider} />
+          
+          <View style={styles.expensesSummary}>
+            <View style={styles.summaryRow}>
+              <Paragraph style={styles.label}>Your Pay:</Paragraph>
+              <Paragraph style={styles.amount}>{formatCurrency(yourPay)}</Paragraph>
+            </View>
+            
+            <View style={styles.summaryRow}>
+              <Paragraph style={styles.label}>Daily Expenses:</Paragraph>
+              <Paragraph style={styles.expenseAmount}>- {formatCurrency(dailyExpensesTotal)}</Paragraph>
+            </View>
+            
+            <Divider style={styles.divider} />
+            
+            <View style={styles.summaryRow}>
+              <Paragraph style={styles.label}>Final Take Home:</Paragraph>
+              <Paragraph style={[
+                styles.finalAmount,
+                finalTakeHome >= 0 ? styles.positiveAmount : styles.negativeAmount
+              ]}>
+                {formatCurrency(finalTakeHome)}
+              </Paragraph>
+            </View>
+          </View>
+          
+          <Button
+            mode="outlined"
+            onPress={handleViewDailyExpenses}
+            icon="receipt"
+            style={styles.viewButton}
+          >
+            View All Daily Expenses
+          </Button>
         </Card.Content>
       </Card>
       
@@ -409,7 +491,7 @@ export default function WeeklyDashboardScreen() {
           <Title>Payment Suggestions</Title>
           <Divider style={styles.divider} />
           
-          <Paragraph>Based on your current pay of {formatCurrency(yourPay)}, you can pay:</Paragraph>
+          <Paragraph>Based on your current take-home pay of {formatCurrency(finalTakeHome)}, you can pay:</Paragraph>
           
           {suggestedPayments.length === 0 ? (
             <Paragraph style={styles.emptyState}>
@@ -438,11 +520,11 @@ export default function WeeklyDashboardScreen() {
             </List.Section>
           )}
           
-          {yourPay < (currentGoal?.incomeTarget || 0) && (
+          {finalTakeHome < (currentGoal?.incomeTarget || 0) && (
             <Card style={styles.shortfallCard}>
               <Card.Content>
                 <Paragraph style={styles.shortfallText}>
-                  You need {formatCurrency((currentGoal?.incomeTarget || 0) - yourPay)} more to reach your weekly goal
+                  You need {formatCurrency((currentGoal?.incomeTarget || 0) - finalTakeHome)} more to reach your weekly goal
                 </Paragraph>
               </Card.Content>
             </Card>
@@ -490,17 +572,6 @@ const styles = StyleSheet.create({
   goalActual: {
     fontWeight: 'bold',
   },
-  formulaContainer: {
-    backgroundColor: '#f0f0f0',
-    padding: 8,
-    borderRadius: 4,
-    marginBottom: 12,
-  },
-  formulaText: {
-    fontSize: 14,
-    textAlign: 'center',
-    fontWeight: '500', 
-  },
   progressBar: {
     height: 12,
     borderRadius: 6,
@@ -509,6 +580,44 @@ const styles = StyleSheet.create({
     marginHorizontal: 16,
     marginBottom: 16,
   },
+  // New styles for daily expenses card
+  expensesCard: {
+    marginHorizontal: 16,
+    marginBottom: 16,
+    backgroundColor: '#f8f8ff', // Light blue-ish background to differentiate
+  },
+  expensesSummary: {
+    marginVertical: 8,
+  },
+  summaryRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  label: {
+    fontWeight: 'bold',
+  },
+  amount: {
+    fontWeight: 'bold',
+  },
+  expenseAmount: {
+    fontWeight: 'bold',
+    color: '#F44336', // Red for expenses
+  },
+  finalAmount: {
+    fontWeight: 'bold',
+    fontSize: 18,
+  },
+  positiveAmount: {
+    color: '#4CAF50', // Green for positive balance
+  },
+  negativeAmount: {
+    color: '#F44336', // Red for negative balance
+  },
+  viewButton: {
+    marginTop: 8,
+  },
+  // End of new styles
   jobSummary: {
     marginBottom: 12,
   },

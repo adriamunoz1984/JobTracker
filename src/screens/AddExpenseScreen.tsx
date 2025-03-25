@@ -85,6 +85,8 @@ export default function AddExpenseScreen() {
         category,
         recurrence,
         notes: notes.trim() || undefined,
+        isDailyExpense: false, // Mark as a regular expense (not daily)
+        affectsEarnings: false, // Regular expenses don't affect earnings calculation
       };
       
       if (isEditMode && existingExpense) {

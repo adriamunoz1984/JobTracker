@@ -1,8 +1,8 @@
 // src/context/ExpensesContext.tsx
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Expense, ExpenseCategory, RecurrenceType } from '../types';
-import { format, addDays, addWeeks, addMonths, addQuarters, addYears, isBefore, isAfter } from 'date-fns';
+import { Expense, ExpenseCategory, RecurrenceType, DailyExpenseSummary } from '../types';
+import { format, addDays, addWeeks, addMonths, addQuarters, addYears, isBefore, isAfter, isWithinInterval, startOfDay, endOfDay } from 'date-fns';
 
 interface ExpensesContextType {
   expenses: Expense[];
@@ -13,6 +13,10 @@ interface ExpensesContextType {
   markAsUnpaid: (id: string) => Promise<void>;
   getExpenseById: (id: string) => Expense | undefined;
   getUpcomingExpenses: (startDate: string, endDate: string) => Expense[];
+  getDailyExpenses: (startDate: string, endDate: string) => Expense[];
+  getDailyExpensesByDate: (date: string) => Expense[];
+  getDailyExpenseSummary: (startDate: string, endDate: string) => DailyExpenseSummary[];
+  getTotalDailyExpensesForRange: (startDate: string, endDate: string) => number;
   generateNextRecurringExpense: (expenseId: string) => Promise<void>;
   isLoading: boolean;
 }
@@ -154,14 +158,83 @@ export const ExpensesProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   };
 
   const getUpcomingExpenses = (startDate: string, endDate: string) => {
+    // Only include regular (non-daily) expenses
+    const regularExpenses = expenses.filter(expense => !expense.isDailyExpense);
+    
     const start = new Date(startDate);
     const end = new Date(endDate);
     
-    return expenses.filter((expense) => {
+    return regularExpenses.filter((expense) => {
       const dueDate = new Date(expense.dueDate);
       return (dueDate >= start && dueDate <= end) || 
         (!expense.isPaid && dueDate < start); // Also include overdue unpaid expenses
     });
+  };
+
+  // New method to get only daily expenses
+  const getDailyExpenses = (startDate: string, endDate: string) => {
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    
+    return expenses.filter(expense => {
+      if (!expense.isDailyExpense) return false;
+      
+      const expenseDate = new Date(expense.expenseDate || expense.dueDate);
+      return expenseDate >= start && expenseDate <= end;
+    });
+  };
+
+  // Get daily expenses for a specific date
+  const getDailyExpensesByDate = (date: string) => {
+    const targetDate = new Date(date);
+    const dayStart = startOfDay(targetDate);
+    const dayEnd = endOfDay(targetDate);
+    
+    return expenses.filter(expense => {
+      if (!expense.isDailyExpense) return false;
+      
+      const expenseDate = new Date(expense.expenseDate || expense.dueDate);
+      return expenseDate >= dayStart && expenseDate <= dayEnd;
+    });
+  };
+
+  // Get daily expense summaries grouped by date
+  const getDailyExpenseSummary = (startDate: string, endDate: string): DailyExpenseSummary[] => {
+    const dailyExpenses = getDailyExpenses(startDate, endDate);
+    
+    // Group expenses by date
+    const expensesByDate: Record<string, Expense[]> = {};
+    
+    dailyExpenses.forEach(expense => {
+      const dateStr = format(new Date(expense.expenseDate || expense.dueDate), 'yyyy-MM-dd');
+      
+      if (!expensesByDate[dateStr]) {
+        expensesByDate[dateStr] = [];
+      }
+      
+      expensesByDate[dateStr].push(expense);
+    });
+    
+    // Convert to array of summaries
+    const summaries: DailyExpenseSummary[] = Object.keys(expensesByDate).map(dateStr => {
+      const dateExpenses = expensesByDate[dateStr];
+      const totalAmount = dateExpenses.reduce((sum, exp) => sum + exp.amount, 0);
+      
+      return {
+        date: dateStr,
+        totalAmount,
+        expenses: dateExpenses
+      };
+    });
+    
+    // Sort by date (newest first)
+    return summaries.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  };
+
+  // Calculate total daily expenses for a date range
+  const getTotalDailyExpensesForRange = (startDate: string, endDate: string): number => {
+    const dailyExpenses = getDailyExpenses(startDate, endDate);
+    return dailyExpenses.reduce((total, expense) => total + expense.amount, 0);
   };
 
   const generateNextRecurringExpense = async (expenseId: string) => {
@@ -203,6 +276,10 @@ export const ExpensesProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     markAsUnpaid,
     getExpenseById,
     getUpcomingExpenses,
+    getDailyExpenses,
+    getDailyExpensesByDate,
+    getDailyExpenseSummary,
+    getTotalDailyExpensesForRange,
     generateNextRecurringExpense,
     isLoading
   };

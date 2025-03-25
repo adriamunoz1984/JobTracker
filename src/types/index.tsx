@@ -22,7 +22,8 @@ export interface WeeklySummary {
   totalEarnings: number;
   totalUnpaid: number;
   cashPayments: number;
-  netEarnings: number; // (Total Earnings / 2) - Cash Payments
+  personalExpenses: number; // New field for tracking personal expenses
+  netEarnings: number; // (Total Earnings / 2) - Cash Payments - Personal Expenses
 }
 
 export interface MonthlySummary {
@@ -31,6 +32,7 @@ export interface MonthlySummary {
   totalJobs: number;
   totalEarnings: number;
   totalUnpaid: number;
+  personalExpenses: number; // New field
 }
 
 export interface YearlySummary {
@@ -41,6 +43,7 @@ export interface YearlySummary {
   monthlyBreakdown: {
     month: number;
     earnings: number;
+    expenses: number; // New field for expenses per month
   }[];
 }
 
@@ -60,6 +63,28 @@ export interface Expense {
   recurrence: RecurrenceType;
   nextDueDate: string;
   notes?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+
+export type PersonalExpenseCategory = 
+  'Gas' | 
+  'Food' | 
+  'Water' | 
+  'Entertainment' | 
+  'Supplies' | 
+  'Tools' | 
+  'Repairs' | 
+  'Other';
+
+export interface PersonalExpense {
+  id: string;
+  amount: number;
+  category: PersonalExpenseCategory;
+  description: string;
+  date: string; // ISO date string
+  jobId?: string; // Optional reference to a job this expense is related to
   createdAt: string;
   updatedAt: string;
 }
