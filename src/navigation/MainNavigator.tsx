@@ -1,9 +1,8 @@
-// src/navigation/MainNavigator.tsx with daily expenses screens
 import React from 'react';
 import { createMaterialTopTabNavigator } from '@react-navigation/material-top-tabs';
 import { createStackNavigator } from '@react-navigation/stack';
 import { Ionicons } from '@expo/vector-icons';
-import { StyleSheet, useWindowDimensions } from 'react-native';
+import { StyleSheet, useWindowDimensions, Platform } from 'react-native';
 
 // Existing screens
 import HomeScreen from '../screens/HomeScreen';
@@ -13,7 +12,7 @@ import YearlySummaryScreen from '../screens/YearlySummaryScreen';
 import AddJobScreen from '../screens/AddjobScreen';
 import JobDetailScreen from '../screens/JobDetailScreen';
 
-// Expense screens
+// New screens
 import ExpensesListScreen from '../screens/ExpensesListScreen';
 import AddExpenseScreen from '../screens/AddExpenseScreen';
 import ExpenseDetailScreen from '../screens/ExpenseDetailScreen';
@@ -22,20 +21,16 @@ import SetWeeklyGoalScreen from '../screens/SetWeeklyGoalScreen';
 import PayBillsScreen from '../screens/PayBillsScreen';
 import BillCalendarScreen from '../screens/BillCalendarScreen';
 
-// New daily expense screens
-import DailyExpensesScreen from '../screens/DailyExpensesScreen';
-import AddDailyExpenseScreen from '../screens/AddDailyExpenseScreen';
-
-const Tab = createMaterialTopTabNavigator();
+const Tab = createMaterialTopTabNavigator(); // Using Material Top Tab for swipe functionality
 const Stack = createStackNavigator();
 
 // Define custom header options with centered title
 const screenOptions = {
-  headerTitleAlign: 'center',
+  headerTitleAlign: 'center', // This centers the title on both iOS and Android
   headerStyle: {
-    backgroundColor: '#2196F3',
+    backgroundColor: '#2196F3', // Keep your existing blue color
   },
-  headerTintColor: '#fff',
+  headerTintColor: '#fff', // White text for the header
 }
 
 // Home stack includes the job list and related screens
@@ -84,19 +79,6 @@ function WeeklyStack() {
         name="PayBills" 
         component={PayBillsScreen} 
         options={{ title: 'Pay Bills' }} 
-      />
-      {/* Add Daily Expenses screens to Weekly stack */}
-      <Stack.Screen 
-        name="DailyExpenses" 
-        component={DailyExpensesScreen} 
-        options={{ title: 'Daily Expenses' }} 
-      />
-      <Stack.Screen 
-        name="AddDailyExpense" 
-        component={AddDailyExpenseScreen} 
-        options={({ route }) => ({ 
-          title: route.params?.expenseId ? 'Edit Daily Expense' : 'Add Daily Expense' 
-        })} 
       />
     </Stack.Navigator>
   );
@@ -151,19 +133,6 @@ function ExpensesStack() {
         name="BillCalendar" 
         component={BillCalendarScreen} 
         options={{ title: 'Bill Calendar' }} 
-      />
-      {/* Also add Daily Expenses screens to Expenses stack */}
-      <Stack.Screen 
-        name="DailyExpenses" 
-        component={DailyExpensesScreen} 
-        options={{ title: 'Daily Expenses' }} 
-      />
-      <Stack.Screen 
-        name="AddDailyExpense" 
-        component={AddDailyExpenseScreen} 
-        options={({ route }) => ({ 
-          title: route.params?.expenseId ? 'Edit Daily Expense' : 'Add Daily Expense' 
-        })} 
       />
     </Stack.Navigator>
   );
