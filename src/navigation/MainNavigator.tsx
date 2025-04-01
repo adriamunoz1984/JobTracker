@@ -1,8 +1,12 @@
+// src/navigation/MainNavigator.tsx
 import React from 'react';
 import { createMaterialTopTabNavigator } from '@react-navigation/material-top-tabs';
 import { createStackNavigator } from '@react-navigation/stack';
 import { Ionicons } from '@expo/vector-icons';
-import { StyleSheet, useWindowDimensions, Platform } from 'react-native';
+import { StyleSheet, useWindowDimensions, TouchableOpacity } from 'react-native';
+import { Avatar, IconButton } from 'react-native-paper';
+import { useNavigation } from '@react-navigation/native';
+import { useAuth } from '../context/AuthContext';
 
 // Existing screens
 import HomeScreen from '../screens/HomeScreen';
@@ -12,7 +16,7 @@ import YearlySummaryScreen from '../screens/YearlySummaryScreen';
 import AddJobScreen from '../screens/AddjobScreen';
 import JobDetailScreen from '../screens/JobDetailScreen';
 
-// New screens
+// Expense screens
 import ExpensesListScreen from '../screens/ExpensesListScreen';
 import AddExpenseScreen from '../screens/AddExpenseScreen';
 import ExpenseDetailScreen from '../screens/ExpenseDetailScreen';
@@ -20,23 +24,63 @@ import WeeklyDashboardScreen from '../screens/WeeklyDashBoardScreen';
 import SetWeeklyGoalScreen from '../screens/SetWeeklyGoalScreen';
 import PayBillsScreen from '../screens/PayBillsScreen';
 import BillCalendarScreen from '../screens/BillCalendarScreen';
+// Add any other screens you have
 
-const Tab = createMaterialTopTabNavigator(); // Using Material Top Tab for swipe functionality
+const Tab = createMaterialTopTabNavigator();
 const Stack = createStackNavigator();
 
-// Define custom header options with centered title
-const screenOptions = {
-  headerTitleAlign: 'center', // This centers the title on both iOS and Android
+// Profile Button Component
+const ProfileButton = () => {
+  const navigation = useNavigation();
+  const { user } = useAuth();
+  
+  const goToProfile = () => {
+    navigation.navigate('Profile');
+  };
+  
+  return (
+    <TouchableOpacity onPress={goToProfile} style={{ marginRight: 10 }}>
+      {user?.photoURL ? (
+        // If user has a profile photo, show it
+        <Avatar.Image 
+          source={{ uri: user.photoURL }} 
+          size={34} 
+          style={{ backgroundColor: '#2196F3' }} 
+        />
+      ) : (
+        // Otherwise show their initials or a default icon
+        user?.displayName ? (
+          <Avatar.Text 
+            size={34} 
+            label={user.displayName.substring(0, 2).toUpperCase()} 
+            style={{ backgroundColor: '#2196F3' }} 
+          />
+        ) : (
+          <IconButton 
+            icon="account-circle" 
+            size={28} 
+            color="#fff" 
+          />
+        )
+      )}
+    </TouchableOpacity>
+  );
+};
+
+// Define common header options
+const commonScreenOptions = {
+  headerTitleAlign: 'center',
   headerStyle: {
-    backgroundColor: '#2196F3', // Keep your existing blue color
+    backgroundColor: '#2196F3',
   },
-  headerTintColor: '#fff', // White text for the header
-}
+  headerTintColor: '#fff',
+  headerRight: () => <ProfileButton />
+};
 
 // Home stack includes the job list and related screens
 function HomeStack() {
   return (
-    <Stack.Navigator screenOptions={screenOptions}>
+    <Stack.Navigator screenOptions={commonScreenOptions}>
       <Stack.Screen 
         name="JobsList" 
         component={HomeScreen} 
@@ -56,10 +100,10 @@ function HomeStack() {
   );
 }
 
-// Weekly stack includes weekly dashboard and related screens
+// Weekly stack
 function WeeklyStack() {
   return (
-    <Stack.Navigator screenOptions={screenOptions}>
+    <Stack.Navigator screenOptions={commonScreenOptions}>
       <Stack.Screen 
         name="WeeklyDashboard" 
         component={WeeklyDashboardScreen} 
@@ -80,6 +124,7 @@ function WeeklyStack() {
         component={PayBillsScreen} 
         options={{ title: 'Pay Bills' }} 
       />
+      {/* Add other weekly related screens */}
     </Stack.Navigator>
   );
 }
@@ -87,7 +132,7 @@ function WeeklyStack() {
 // Monthly screen
 function MonthlyStack() {
   return (
-    <Stack.Navigator screenOptions={screenOptions}>
+    <Stack.Navigator screenOptions={commonScreenOptions}>
       <Stack.Screen 
         name="MonthlySummary" 
         component={MonthlySummaryScreen} 
@@ -100,7 +145,7 @@ function MonthlyStack() {
 // Yearly screen
 function YearlyStack() {
   return (
-    <Stack.Navigator screenOptions={screenOptions}>
+    <Stack.Navigator screenOptions={commonScreenOptions}>
       <Stack.Screen 
         name="YearlySummary" 
         component={YearlySummaryScreen} 
@@ -110,10 +155,10 @@ function YearlyStack() {
   );
 }
 
-// Expenses stack includes expense list and related screens
+// Expenses stack
 function ExpensesStack() {
   return (
-    <Stack.Navigator screenOptions={screenOptions}>
+    <Stack.Navigator screenOptions={commonScreenOptions}>
       <Stack.Screen 
         name="ExpensesList" 
         component={ExpensesListScreen} 
@@ -134,6 +179,7 @@ function ExpensesStack() {
         component={BillCalendarScreen} 
         options={{ title: 'Bill Calendar' }} 
       />
+      {/* Add other expense related screens */}
     </Stack.Navigator>
   );
 }
