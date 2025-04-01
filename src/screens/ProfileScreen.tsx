@@ -1,143 +1,68 @@
-// src/screens/ProfileScreen.tsx
+// src/screens/ProfileScreen.tsx (enhanced with role and commission settings)
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, Image, ScrollView, TouchableOpacity, Alert, Platform } from 'react-native';
-import { Card, Title, Paragraph, Button, Text, TextInput, Divider, ActivityIndicator, Avatar, IconButton, Snackbar } from 'react-native-paper';
+import { View, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
+import { Card, Title, Paragraph, Button, Divider, Text, TextInput, Switch, SegmentedButtons, RadioButton } from 'react-native-paper';
 import { useNavigation } from '@react-navigation/native';
 import { useAuth } from '../context/AuthContext';
-import * as ImagePicker from 'expo-image-picker';
-import { getStorage, ref, uploadBytes, getDownloadURL, uploadBytesResumable } from 'firebase/storage';
-import { initializeApp } from 'firebase/app';
-
-// The Firebase config should match your AuthContext
-const firebaseConfig = {
-  apiKey: "AIzaSyDd7dRBchgo1AQlsHFUr42CSTc-fdkFF6c",
-  authDomain: "job-tracker-4b731.firebaseapp.com",
-  projectId: "job-tracker-4b731",
-  storageBucket: "job-tracker-4b731.firebasestorage.app",
-  messagingSenderId: "365435353785",
-  appId: "1:365435353785:web:cdca12ac9218565c947968",
-  measurementId: "G-6KQM169CGN"
-};
-
-// Initialize Firebase
-const app = initializeApp(firebaseConfig);
-const storage = getStorage(app);
 
 export default function ProfileScreen() {
   const navigation = useNavigation();
-  const { user, updateProfile, logout, error, clearError } = useAuth();
+  const { user, updateProfile, logout } = useAuth();
   
+  // Basic profile settings
   const [isEditing, setIsEditing] = useState(false);
   const [displayName, setDisplayName] = useState(user?.displayName || '');
-  const [uploading, setUploading] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState(0);
-  const [showError, setShowError] = useState(false);
-  const [successMessage, setSuccessMessage] = useState('');
-  const [showSuccess, setShowSuccess] = useState(false);
   
-  useEffect(() => {
-    if (error) {
-      setShowError(true);
-    }
-  }, [error]);
+  // Payment settings
+  const [isEditingPayment, setIsEditingPayment] = useState(false);
+  const [userRole, setUserRole] = useState(user?.role || 'owner');
+  const [commissionRate, setCommissionRate] = useState(user?.commissionRate?.toString() || '50');
+  const [keepsCash, setKeepsCash] = useState(user?.keepsCash !== false); // Default to true
+  const [keepsCheck, setKeepsCheck] = useState(user?.keepsCheck !== false); // Default to true
   
   useEffect(() => {
     if (user) {
       setDisplayName(user.displayName || '');
+      setUserRole(user.role || 'owner');
+      setCommissionRate(user.commissionRate?.toString() || '50');
+      setKeepsCash(user.keepsCash !== false);
+      setKeepsCheck(user.keepsCheck !== false);
     }
   }, [user]);
   
-  // Handle selecting and uploading profile picture
-  const handleSelectPhoto = async () => {
-    try {
-      // Request permission to access the media library (for Expo)
-      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      if (status !== 'granted') {
-        Alert.alert('Permission needed', 'Please grant permission to access your photos');
-        return;
-      }
-      
-      // Pick an image
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
-        allowsEditing: true,
-        aspect: [1, 1],
-        quality: 0.8,
-      });
-      
-      if (!result.canceled && result.assets && result.assets.length > 0) {
-        const selectedImage = result.assets[0];
-        await uploadProfilePicture(selectedImage.uri);
-      }
-    } catch (e) {
-      console.error('Error selecting photo:', e);
-      Alert.alert('Error', 'Failed to select photo');
-    }
-  };
-  
-  // Upload profile picture to Firebase Storage
-  const uploadProfilePicture = async (uri: string) => {
-    if (!user) return;
-    
-    setUploading(true);
-    setUploadProgress(0);
-    
-    try {
-      // Convert image to blob
-      const response = await fetch(uri);
-      const blob = await response.blob();
-      
-      // Create storage reference
-      const filename = `profile_${user.uid}_${new Date().getTime()}`;
-      const extension = uri.split('.').pop();
-      const storageRef = ref(storage, `profile_pictures/${filename}.${extension}`);
-      
-      // Create upload task
-      const uploadTask = uploadBytesResumable(storageRef, blob);
-      
-      // Monitor upload progress
-      uploadTask.on('state_changed',
-        (snapshot) => {
-          const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
-          setUploadProgress(progress);
-        },
-        (error) => {
-          console.error('Upload error:', error);
-          Alert.alert('Error', 'Failed to upload profile picture');
-          setUploading(false);
-        },
-        async () => {
-          // Upload completed successfully
-          const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
-          
-          // Update user profile with new photo URL
-          await updateProfile({ photoURL: downloadURL });
-          
-          setUploading(false);
-          setSuccessMessage('Profile picture updated successfully');
-          setShowSuccess(true);
-        }
-      );
-    } catch (e) {
-      console.error('Error uploading profile picture:', e);
-      Alert.alert('Error', 'Failed to upload profile picture');
-      setUploading(false);
-    }
-  };
-  
-  // Save profile changes
+  // Update basic profile
   const handleSaveProfile = async () => {
     try {
       await updateProfile({ displayName });
       setIsEditing(false);
-      setSuccessMessage('Profile updated successfully');
-      setShowSuccess(true);
     } catch (e) {
-      // Error is handled by auth context
+      Alert.alert('Error', 'Failed to update profile');
     }
   };
   
-  // Handle logout with confirmation
+  // Update payment settings
+  const handleSavePaymentSettings = async () => {
+    try {
+      const commissionRateNum = parseInt(commissionRate, 10);
+      if (isNaN(commissionRateNum) || commissionRateNum < 1 || commissionRateNum > 100) {
+        Alert.alert('Invalid Rate', 'Commission rate must be between 1 and 100');
+        return;
+      }
+      
+      await updateProfile({
+        role: userRole,
+        commissionRate: commissionRateNum,
+        keepsCash,
+        keepsCheck
+      });
+      
+      setIsEditingPayment(false);
+    } catch (e) {
+      Alert.alert('Error', 'Failed to update payment settings');
+    }
+  };
+  
+  // Handle logout
   const handleLogout = () => {
     Alert.alert(
       'Logout',
@@ -150,9 +75,8 @@ export default function ProfileScreen() {
           onPress: async () => {
             try {
               await logout();
-              // Navigation will occur automatically due to auth state change
             } catch (e) {
-              // Error is handled by auth context
+              console.error('Logout error:', e);
             }
           }
         }
@@ -160,58 +84,25 @@ export default function ProfileScreen() {
     );
   };
   
-  if (!user) {
-    return (
-      <View style={styles.centered}>
-        <ActivityIndicator size="large" color="#2196F3" />
-      </View>
-    );
-  }
-  
   return (
     <ScrollView style={styles.container}>
-      <Card style={styles.profileCard}>
-        <View style={styles.avatarContainer}>
-          <TouchableOpacity onPress={handleSelectPhoto}>
-            {user.photoURL ? (
-              <Avatar.Image 
-                source={{ uri: user.photoURL }} 
-                size={120} 
-                style={styles.avatar} 
-              />
-            ) : (
-              <Avatar.Text 
-                size={120} 
-                label={user.displayName ? user.displayName.substring(0, 2).toUpperCase() : 'U'} 
-                style={styles.avatar} 
-              />
-            )}
-            <IconButton 
-              icon="camera" 
-              style={styles.cameraButton} 
-              size={24} 
-              color="#fff" 
-            />
-          </TouchableOpacity>
+      {/* Profile Card */}
+      <Card style={styles.card}>
+        <Card.Content>
+          <View style={styles.headerContainer}>
+            <Title>Profile</Title>
+            <Button 
+              mode="text" 
+              onPress={() => setIsEditing(!isEditing)} 
+              icon={isEditing ? "check" : "pencil"}
+            >
+              {isEditing ? "Done" : "Edit"}
+            </Button>
+          </View>
+          <Divider style={styles.divider} />
           
-          {uploading && (
-            <View style={styles.progressContainer}>
-              <Text style={styles.progressText}>{`Uploading: ${Math.round(uploadProgress)}%`}</Text>
-              <View style={styles.progressBar}>
-                <View 
-                  style={[
-                    styles.progressFill, 
-                    { width: `${uploadProgress}%` }
-                  ]} 
-                />
-              </View>
-            </View>
-          )}
-        </View>
-        
-        <Card.Content style={styles.cardContent}>
           {isEditing ? (
-            <>
+            <View style={styles.formGroup}>
               <TextInput
                 label="Display Name"
                 value={displayName}
@@ -220,98 +111,150 @@ export default function ProfileScreen() {
                 style={styles.input}
               />
               
-              <View style={styles.editButtons}>
-                <Button 
-                  mode="outlined" 
-                  onPress={() => {
-                    setIsEditing(false);
-                    setDisplayName(user.displayName || '');
-                  }} 
-                  style={styles.cancelButton}
-                >
-                  Cancel
-                </Button>
-                <Button 
-                  mode="contained" 
-                  onPress={handleSaveProfile} 
-                  style={styles.saveButton}
-                >
-                  Save Changes
-                </Button>
-              </View>
-            </>
-          ) : (
-            <>
-              <Title style={styles.name}>{user.displayName || 'User'}</Title>
-              <Paragraph style={styles.email}>{user.email}</Paragraph>
-              
               <Button 
-                mode="outlined" 
-                onPress={() => setIsEditing(true)} 
-                style={styles.editButton}
-                icon="pencil"
+                mode="contained" 
+                onPress={handleSaveProfile}
+                style={styles.saveButton}
               >
-                Edit Profile
+                Save Changes
               </Button>
-            </>
+            </View>
+          ) : (
+            <View style={styles.profileInfo}>
+              <Paragraph style={styles.label}>Name:</Paragraph>
+              <Paragraph style={styles.value}>{user?.displayName || 'Not set'}</Paragraph>
+              
+              <Paragraph style={styles.label}>Email:</Paragraph>
+              <Paragraph style={styles.value}>{user?.email || 'Not available'}</Paragraph>
+            </View>
           )}
         </Card.Content>
       </Card>
       
-      <Card style={styles.settingsCard}>
+      {/* Payment Settings Card */}
+      <Card style={styles.card}>
         <Card.Content>
-          <Title style={styles.settingsTitle}>Account Settings</Title>
+          <View style={styles.headerContainer}>
+            <Title>Payment Settings</Title>
+            <Button 
+              mode="text" 
+              onPress={() => setIsEditingPayment(!isEditingPayment)} 
+              icon={isEditingPayment ? "check" : "pencil"}
+            >
+              {isEditingPayment ? "Done" : "Edit"}
+            </Button>
+          </View>
           <Divider style={styles.divider} />
           
-          <Button 
-            mode="outlined" 
-            onPress={() => navigation.navigate('ChangePassword' as never)} 
-            style={styles.settingButton}
-            icon="lock-reset"
-          >
-            Change Password
-          </Button>
+          {isEditingPayment ? (
+            <View style={styles.formGroup}>
+              <Text style={styles.sectionLabel}>I am a:</Text>
+              <RadioButton.Group 
+                onValueChange={value => setUserRole(value)} 
+                value={userRole}
+              >
+                <View style={styles.radioOption}>
+                  <RadioButton value="owner" />
+                  <Text>Owner (Get 100% of profits)</Text>
+                </View>
+                <View style={styles.radioOption}>
+                  <RadioButton value="employee" />
+                  <Text>Employee (Commission-based)</Text>
+                </View>
+              </RadioButton.Group>
+              
+              {userRole === 'employee' && (
+                <>
+                  <Text style={styles.sectionLabel}>My commission rate:</Text>
+                  <View style={styles.commissionContainer}>
+                    <TextInput
+                      label="Commission %"
+                      value={commissionRate}
+                      onChangeText={setCommissionRate}
+                      mode="outlined"
+                      keyboardType="numeric"
+                      style={styles.commissionInput}
+                    />
+                    <Text style={styles.percentSign}>%</Text>
+                  </View>
+                  
+                  <Text style={styles.sectionLabel}>Payment handling:</Text>
+                  
+                  <View style={styles.switchRow}>
+                    <Text>I keep the cash payments</Text>
+                    <Switch 
+                      value={keepsCash} 
+                      onValueChange={setKeepsCash}
+                    />
+                  </View>
+                  
+                  <View style={styles.switchRow}>
+                    <Text>I keep the check payments</Text>
+                    <Switch 
+                      value={keepsCheck} 
+                      onValueChange={setKeepsCheck}
+                    />
+                  </View>
+                </>
+              )}
+              
+              <Button 
+                mode="contained" 
+                onPress={handleSavePaymentSettings}
+                style={styles.saveButton}
+              >
+                Save Payment Settings
+              </Button>
+            </View>
+          ) : (
+            <View style={styles.profileInfo}>
+              <Paragraph style={styles.label}>Role:</Paragraph>
+              <Paragraph style={styles.value}>
+                {user?.role === 'owner' ? 'Owner (100% profits)' : 'Employee (Commission)'}
+              </Paragraph>
+              
+              {user?.role === 'employee' && (
+                <>
+                  <Paragraph style={styles.label}>Commission Rate:</Paragraph>
+                  <Paragraph style={styles.value}>{user?.commissionRate || 50}%</Paragraph>
+                  
+                  <Paragraph style={styles.label}>Cash Handling:</Paragraph>
+                  <Paragraph style={styles.value}>
+                    {user?.keepsCash !== false ? 'I keep cash payments' : 'I remit cash payments'}
+                  </Paragraph>
+                  
+                  <Paragraph style={styles.label}>Check Handling:</Paragraph>
+                  <Paragraph style={styles.value}>
+                    {user?.keepsCheck !== false ? 'I keep check payments' : 'I remit check payments'}
+                  </Paragraph>
+                </>
+              )}
+            </View>
+          )}
           
-          <Button 
-            mode="outlined" 
-            onPress={() => navigation.navigate('DataSync' as never)} 
-            style={styles.settingButton}
-            icon="cloud-sync"
-          >
-            Manage Data Sync
-          </Button>
-          
-          <Button 
-            mode="outlined" 
-            onPress={handleLogout} 
-            style={[styles.settingButton, styles.logoutButton]}
-            icon="logout"
-          >
-            Logout
-          </Button>
+          {!isEditingPayment && (
+            <View style={styles.formulaContainer}>
+              <Text style={styles.formulaTitle}>Your Payment Formula:</Text>
+              <Text style={styles.formula}>
+                {user?.role === 'owner' 
+                  ? 'Total Amount = 100% of all jobs'
+                  : `Your Pay = (Total Jobs × ${user?.commissionRate || 50}%) ${user?.keepsCash ? '- Cash' : ''} ${user?.keepsCheck ? '- Checks' : ''}`
+                }
+              </Text>
+            </View>
+          )}
         </Card.Content>
       </Card>
       
-      <Snackbar
-        visible={showError}
-        onDismiss={() => {
-          setShowError(false);
-          clearError();
-        }}
-        duration={3000}
-        style={styles.errorSnackbar}
+      {/* Logout Button */}
+      <Button 
+        mode="outlined" 
+        onPress={handleLogout}
+        style={styles.logoutButton}
+        icon="logout"
       >
-        {error}
-      </Snackbar>
-      
-      <Snackbar
-        visible={showSuccess}
-        onDismiss={() => setShowSuccess(false)}
-        duration={3000}
-        style={styles.successSnackbar}
-      >
-        {successMessage}
-      </Snackbar>
+        Logout
+      </Button>
     </ScrollView>
   );
 }
@@ -320,107 +263,89 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f5f5f5',
+    padding: 16,
   },
-  centered: {
-    flex: 1,
-    justifyContent: 'center',
+  card: {
+    marginBottom: 16,
+    elevation: 2,
+  },
+  headerContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
   },
-  profileCard: {
-    margin: 16,
-    elevation: 4,
+  divider: {
+    marginVertical: 12,
   },
-  avatarContainer: {
-    alignItems: 'center',
-    marginTop: 24,
-    marginBottom: 16,
+  profileInfo: {
+    marginBottom: 8,
   },
-  avatar: {
-    backgroundColor: '#2196F3',
+  formGroup: {
+    marginBottom: 8,
   },
-  cameraButton: {
-    position: 'absolute',
-    bottom: 0,
-    right: 0,
-    backgroundColor: '#2196F3',
-    borderRadius: 20,
+  label: {
+    fontWeight: 'bold',
+    fontSize: 16,
+    marginTop: 8,
   },
-  progressContainer: {
-    width: '80%',
-    marginTop: 16,
-  },
-  progressText: {
-    textAlign: 'center',
-    marginBottom: 4,
-  },
-  progressBar: {
-    height: 8,
-    backgroundColor: '#e0e0e0',
-    borderRadius: 4,
-    overflow: 'hidden',
-  },
-  progressFill: {
-    height: '100%',
-    backgroundColor: '#2196F3',
-  },
-  cardContent: {
-    paddingHorizontal: 16,
-    paddingBottom: 24,
-  },
-  name: {
-    fontSize: 24,
-    textAlign: 'center',
-    marginBottom: 4,
-  },
-  email: {
-    textAlign: 'center',
-    color: '#757575',
-    marginBottom: 16,
+  value: {
+    fontSize: 16,
+    marginBottom: 8,
   },
   input: {
     marginBottom: 16,
-  },
-  editButtons: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  cancelButton: {
-    flex: 1,
-    marginRight: 8,
+    backgroundColor: 'white',
   },
   saveButton: {
-    flex: 1,
-    marginLeft: 8,
+    marginTop: 16,
     backgroundColor: '#2196F3',
   },
-  editButton: {
-    borderColor: '#2196F3',
-  },
-  settingsCard: {
-    margin: 16,
-    marginTop: 0,
-    elevation: 2,
-    marginBottom: 32,
-  },
-  settingsTitle: {
-    fontSize: 20,
+  sectionLabel: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginTop: 16,
     marginBottom: 8,
   },
-  divider: {
-    marginBottom: 16,
+  radioOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: 4,
   },
-  settingButton: {
-    marginBottom: 12,
-    borderColor: '#2196F3',
+  commissionContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  commissionInput: {
+    flex: 1,
+    marginRight: 8,
+    backgroundColor: 'white',
+  },
+  percentSign: {
+    fontSize: 18,
+    marginRight: 8,
+  },
+  switchRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginVertical: 8,
+  },
+  formulaContainer: {
+    backgroundColor: '#f0f0f0',
+    padding: 12,
+    borderRadius: 8,
+    marginTop: 16,
+  },
+  formulaTitle: {
+    fontWeight: 'bold',
+    marginBottom: 8,
+  },
+  formula: {
+    fontStyle: 'italic',
   },
   logoutButton: {
+    marginVertical: 16,
     borderColor: '#F44336',
-    marginTop: 8,
-  },
-  errorSnackbar: {
-    backgroundColor: '#F44336',
-  },
-  successSnackbar: {
-    backgroundColor: '#4CAF50',
+    borderWidth: 1,
   },
 });

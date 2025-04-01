@@ -5,13 +5,16 @@ import { format, startOfWeek, endOfWeek, addWeeks, subWeeks } from 'date-fns';
 import { useNavigation } from '@react-navigation/native';
 
 import { useJobs } from '../context/JobsContext';
+import { useAuth } from '../context/AuthContext';
 import { Job } from '../types';
 
 export default function WeeklySummaryScreen() {
   const navigation = useNavigation();
-  const { jobs } = useJobs();
+  const { jobs, calculateWeeklySummary } = useJobs();
+  const { user } = useAuth();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [weeklyJobs, setWeeklyJobs] = useState<Job[]>([]);
+  const [weeklySummary, setWeeklySummary] = useState<any>(null);
   
   // Calculate start and end of week
   const weekStart = startOfWeek(currentDate, { weekStartsOn: 0 }); // Sunday
@@ -20,46 +23,28 @@ export default function WeeklySummaryScreen() {
   // Format dates for display
   const weekRangeText = `${format(weekStart, 'MMM d')} - ${format(weekEnd, 'MMM d, yyyy')}`;
   
-  // For debugging
-  const formattedWeekStart = format(weekStart, 'yyyy-MM-dd');
-  const formattedWeekEnd = format(weekEnd, 'yyyy-MM-dd');
-  
   useEffect(() => {
-    // Direct filtering in the component instead of using context function
-    try {
-      // Get jobs for the current week - manually filter by date
-      const filteredJobs = jobs.filter((job) => {
-        try {
-          const jobDate = new Date(job.date);
-          const jobDateFormatted = format(jobDate, 'yyyy-MM-dd');
-          
-          const isInRange = jobDateFormatted >= formattedWeekStart && 
-                          jobDateFormatted <= formattedWeekEnd;
-          
-          console.log(`Job ${job.id} date: ${jobDateFormatted}, in range: ${isInRange}`);
-          return isInRange;
-        } catch (error) {
-          console.error('Error filtering job:', error);
-          return false;
-        }
-      });
-      
-      console.log(`Found ${filteredJobs.length} jobs in range`);
-      setWeeklyJobs(filteredJobs);
-    } catch (error) {
-      console.error('Error in useEffect:', error);
-    }
-  }, [currentDate, jobs, formattedWeekStart, formattedWeekEnd]);
-  
-  // Calculate weekly summary manually
-  const totalEarnings = weeklyJobs.reduce((sum, job) => sum + job.amount, 0);
-  const totalUnpaid = weeklyJobs
-    .filter(job => !job.isPaid)
-    .reduce((sum, job) => sum + job.amount, 0);
-  const cashPayments = weeklyJobs
-    .filter(job => job.isPaid && job.paymentMethod === 'Cash')
-    .reduce((sum, job) => sum + job.amount, 0);
-  const netEarnings = (totalEarnings / 2) - cashPayments;
+    // Get jobs for the current week
+    const summary = calculateWeeklySummary(weekStart.toISOString(), weekEnd.toISOString());
+    const filteredJobs = jobs.filter((job) => {
+      try {
+        const jobDate = new Date(job.date);
+        const jobDateFormatted = format(jobDate, 'yyyy-MM-dd');
+        
+        const startFormatted = format(weekStart, 'yyyy-MM-dd');
+        const endFormatted = format(weekEnd, 'yyyy-MM-dd');
+        
+        const isInRange = jobDateFormatted >= startFormatted && jobDateFormatted <= endFormatted;
+        return isInRange;
+      } catch (error) {
+        console.error('Error filtering job:', error);
+        return false;
+      }
+    });
+    
+    setWeeklySummary(summary);
+    setWeeklyJobs(filteredJobs);
+  }, [currentDate, jobs, calculateWeeklySummary]);
   
   const navigateToPreviousWeek = () => {
     setCurrentDate(subWeeks(currentDate, 1));
@@ -98,17 +83,6 @@ export default function WeeklySummaryScreen() {
       
       <Title style={styles.weekTitle}>{weekRangeText}</Title>
       
-      {/* Debug Card */}
-      <Card style={styles.debugCard}>
-        <Card.Content>
-          <Title>Debug Info</Title>
-          <Paragraph>Total Jobs in System: {jobs.length}</Paragraph>
-          <Paragraph>Jobs For This Week: {weeklyJobs.length}</Paragraph>
-          <Paragraph>Week Start: {formattedWeekStart}</Paragraph>
-          <Paragraph>Week End: {formattedWeekEnd}</Paragraph>
-        </Card.Content>
-      </Card>
-      
       <Card style={styles.summaryCard}>
         <Card.Content>
           <Title>Weekly Summary</Title>
@@ -121,31 +95,76 @@ export default function WeeklySummaryScreen() {
           
           <View style={styles.summaryRow}>
             <Paragraph style={styles.label}>Total Earnings:</Paragraph>
-            <Paragraph style={styles.amount}>{formatCurrency(totalEarnings)}</Paragraph>
+            <Paragraph style={styles.amount}>{formatCurrency(weeklySummary?.totalEarnings)}</Paragraph>
           </View>
           
           <View style={styles.summaryRow}>
             <Paragraph style={styles.label}>Unpaid Amount:</Paragraph>
-            <Paragraph style={styles.unpaidAmount}>{formatCurrency(totalUnpaid)}</Paragraph>
+            <Paragraph style={styles.unpaidAmount}>{formatCurrency(weeklySummary?.totalUnpaid)}</Paragraph>
           </View>
           
-          <View style={styles.summaryRow}>
-            <Paragraph style={styles.label}>Cash Payments:</Paragraph>
-            <Paragraph>{formatCurrency(cashPayments)}</Paragraph>
-          </View>
-          
-          <Divider style={styles.divider} />
-          
-          <View style={styles.summaryRow}>
-            <Paragraph style={styles.label}>Net Earnings:</Paragraph>
-            <Paragraph style={styles.netEarnings}>{formatCurrency(netEarnings)}</Paragraph>
-          </View>
-          
-          <View style={styles.formulaContainer}>
-            <Text style={styles.formulaText}>
-              Net Earnings = (Total Earnings / 2) - Cash Payments
-            </Text>
-          </View>
+          {/* Display different calculations based on role */}
+          {user?.role === 'owner' ? (
+            // Owner view - simpler calculation
+            <>
+              <Divider style={styles.divider} />
+              
+              <View style={styles.summaryRow}>
+                <Paragraph style={styles.label}>Net Earnings:</Paragraph>
+                <Paragraph style={styles.netEarnings}>{formatCurrency(weeklySummary?.netEarnings)}</Paragraph>
+              </View>
+              
+              <View style={styles.formulaContainer}>
+                <Text style={styles.formulaText}>
+                  Owner Earnings = 100% of Total Earnings
+                </Text>
+              </View>
+            </>
+          ) : (
+            // Employee view - show commission and payment details
+            <>
+              <View style={styles.summaryRow}>
+                <Paragraph style={styles.label}>Your Commission Rate:</Paragraph>
+                <Paragraph>{user?.commissionRate || 50}%</Paragraph>
+              </View>
+              
+              <View style={styles.summaryRow}>
+                <Paragraph style={styles.label}>Commission Amount:</Paragraph>
+                <Paragraph>
+                  {formatCurrency((weeklySummary?.totalEarnings || 0) * ((user?.commissionRate || 50) / 100))}
+                </Paragraph>
+              </View>
+              
+              {user?.keepsCash && (
+                <View style={styles.summaryRow}>
+                  <Paragraph style={styles.label}>Cash Payments Kept:</Paragraph>
+                  <Paragraph style={styles.deduction}>- {formatCurrency(weeklySummary?.cashPayments)}</Paragraph>
+                </View>
+              )}
+              
+              {user?.keepsCheck && (
+                <View style={styles.summaryRow}>
+                  <Paragraph style={styles.label}>Check Payments Kept:</Paragraph>
+                  <Paragraph style={styles.deduction}>- {formatCurrency(weeklySummary?.checkPayments)}</Paragraph>
+                </View>
+              )}
+              
+              <Divider style={styles.divider} />
+              
+              <View style={styles.summaryRow}>
+                <Paragraph style={styles.label}>Your Net Pay:</Paragraph>
+                <Paragraph style={styles.netEarnings}>{formatCurrency(weeklySummary?.netEarnings)}</Paragraph>
+              </View>
+              
+              <View style={styles.formulaContainer}>
+                <Text style={styles.formulaText}>
+                  Your Pay = (Total × {user?.commissionRate || 50}%)
+                  {user?.keepsCash ? ' - Cash Payments' : ''}
+                  {user?.keepsCheck ? ' - Check Payments' : ''}
+                </Text>
+              </View>
+            </>
+          )}
         </Card.Content>
       </Card>
       
@@ -173,10 +192,16 @@ export default function WeeklySummaryScreen() {
               
               <View style={styles.jobFooter}>
                 <Paragraph>{`${job.yards} yards`}</Paragraph>
-                <Paragraph style={styles.jobAmount}>{formatCurrency(job.amount)}</Paragraph>
+                <View style={styles.paymentDetails}>
+                  <Paragraph style={styles.jobAmount}>{formatCurrency(job.amount)}</Paragraph>
+                  {(job.paymentMethod === 'Cash' || job.paymentMethod === 'Check') && 
+                   job.paymentToMe && (
+                    <Text style={styles.paymentToMe}>To me</Text>
+                  )}
+                </View>
               </View>
               
-              <RNText style={styles.jobId}>Job ID: {job.id}</RNText>
+              <RNText style={styles.jobId}>Payment: {job.paymentMethod}</RNText>
             </Card.Content>
           </Card>
         ))
@@ -199,10 +224,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginVertical: 8,
   },
-  debugCard: {
-    margin: 16,
-    backgroundColor: '#FFF9C4', // Light yellow
-  },
   summaryCard: {
     margin: 16,
     elevation: 4,
@@ -224,6 +245,9 @@ const styles = StyleSheet.create({
   unpaidAmount: {
     color: '#F44336',
     fontWeight: 'bold',
+  },
+  deduction: {
+    color: '#F44336',
   },
   netEarnings: {
     fontSize: 18,
@@ -282,8 +306,22 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     marginTop: 8,
   },
+  paymentDetails: {
+    flexDirection: 'column',
+    alignItems: 'flex-end',
+  },
   jobAmount: {
     fontWeight: 'bold',
+  },
+  paymentToMe: {
+    fontSize: 12,
+    color: '#4CAF50',
+    fontWeight: 'bold',
+    backgroundColor: '#E8F5E9',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+    marginTop: 2,
   },
   jobId: {
     fontSize: 10,

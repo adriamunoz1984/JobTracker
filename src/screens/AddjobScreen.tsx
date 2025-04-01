@@ -1,17 +1,20 @@
+// src/screens/AddJobScreen.tsx with payment assignment
 import React, { useState, useEffect } from 'react';
 import { View, StyleSheet, ScrollView, Platform } from 'react-native';
-import { TextInput, Button, Switch, Text, SegmentedButtons, Divider } from 'react-native-paper';
+import { TextInput, Button, Switch, Text, SegmentedButtons, Divider, Checkbox } from 'react-native-paper';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { format } from 'date-fns';
 
 import { useJobs } from '../context/JobsContext';
+import { useAuth } from '../context/AuthContext';
 import { PaymentMethod, Job } from '../types';
 
 export default function AddJobScreen() {
   const navigation = useNavigation();
   const route = useRoute();
   const { addJob, updateJob, getJobById } = useJobs();
+  const { user } = useAuth();
   
   // Check if we're editing an existing job
   const editJob = route.params?.job as Job | undefined;
@@ -30,15 +33,24 @@ export default function AddJobScreen() {
   const [checkNumber, setCheckNumber] = useState(editJob?.checkNumber || '');
   const [notes, setNotes] = useState(editJob?.notes || '');
   
-  // Billing details (for Charge payment method)
-  const [billingDetails, setBillingDetails] = useState({
-    invoiceNumber: editJob?.billingDetails?.invoiceNumber || '',
-    billingDate: editJob?.billingDetails?.billingDate || '',
-    dueDate: editJob?.billingDetails?.dueDate || '',
-    contactPerson: editJob?.billingDetails?.contactPerson || '',
-    contactEmail: editJob?.billingDetails?.contactEmail || '',
-    contactPhone: editJob?.billingDetails?.contactPhone || '',
-  });
+  // Payment assignment - only relevant for employees
+  const [paymentToMe, setPaymentToMe] = useState(editJob?.paymentToMe || false);
+  const isEmployee = user?.role === 'employee';
+  
+  // Only show payment assignment for cash or check when the employee is allowed to keep them
+  const showPaymentAssignment = isEmployee && 
+    ((paymentMethod === 'Cash' && user?.keepsCash) || 
+     (paymentMethod === 'Check' && user?.keepsCheck));
+  
+  // If employee doesn't keep cash/checks, automatically set to false
+  useEffect(() => {
+    if (isEmployee) {
+      if ((paymentMethod === 'Cash' && !user?.keepsCash) || 
+          (paymentMethod === 'Check' && !user?.keepsCheck)) {
+        setPaymentToMe(false);
+      }
+    }
+  }, [paymentMethod, isEmployee, user]);
 
   const handleDateChange = (event: any, selectedDate?: Date) => {
     const currentDate = selectedDate || date;
@@ -67,17 +79,9 @@ export default function AddJobScreen() {
       isPaid,
       paymentMethod,
       amount: parseFloat(amount),
+      paymentToMe: showPaymentAssignment ? paymentToMe : false, // Only set true if applicable
       checkNumber: paymentMethod === 'Check' ? checkNumber.trim() : undefined,
       notes: notes.trim() || undefined,
-      // Only include billing details if payment method is Charge
-      billingDetails: paymentMethod === 'Charge' ? {
-        invoiceNumber: billingDetails.invoiceNumber.trim() || undefined,
-        billingDate: billingDetails.billingDate.trim() || undefined,
-        dueDate: billingDetails.dueDate.trim() || undefined,
-        contactPerson: billingDetails.contactPerson.trim() || undefined,
-        contactEmail: billingDetails.contactEmail.trim() || undefined,
-        contactPhone: billingDetails.contactPhone.trim() || undefined,
-      } : undefined,
     };
 
     try {
@@ -182,11 +186,11 @@ export default function AddJobScreen() {
           value={paymentMethod}
           onValueChange={(value) => setPaymentMethod(value as PaymentMethod)}
           buttons={[
+            { value: 'Cash', label: 'Cash' },
             { value: 'Check', label: 'Check' },
             { value: 'Zelle', label: 'Zelle' },
             { value: 'Square', label: 'Square' },
             { value: 'Charge', label: 'Charge' },
-            { value: 'Cash', label: 'Cash' },
           ]}
           style={styles.segmentedButtons}
           multiSelect={false}
@@ -203,62 +207,16 @@ export default function AddJobScreen() {
           />
         )}
         
-        {/* Billing Information for Charge payment method */}
-        {paymentMethod === 'Charge' && (
-          <View style={styles.billingContainer}>
-            <Divider style={styles.divider} />
-            <Text style={styles.sectionTitle}>Billing Information</Text>
-            
-            <TextInput
-              label="Invoice Number"
-              value={billingDetails.invoiceNumber}
-              onChangeText={(text) => setBillingDetails({...billingDetails, invoiceNumber: text})}
-              style={styles.input}
-              mode="outlined"
+        {/* Payment Assignment - Only for employees with specific payment methods */}
+        {showPaymentAssignment && (
+          <View style={styles.checkboxContainer}>
+            <Checkbox
+              status={paymentToMe ? 'checked' : 'unchecked'}
+              onPress={() => setPaymentToMe(!paymentToMe)}
             />
-            
-            <TextInput
-              label="Billing Date (MM/DD/YYYY)"
-              value={billingDetails.billingDate}
-              onChangeText={(text) => setBillingDetails({...billingDetails, billingDate: text})}
-              style={styles.input}
-              mode="outlined"
-            />
-            
-            <TextInput
-              label="Due Date (MM/DD/YYYY)"
-              value={billingDetails.dueDate}
-              onChangeText={(text) => setBillingDetails({...billingDetails, dueDate: text})}
-              style={styles.input}
-              mode="outlined"
-            />
-            
-            <TextInput
-              label="Contact Person"
-              value={billingDetails.contactPerson}
-              onChangeText={(text) => setBillingDetails({...billingDetails, contactPerson: text})}
-              style={styles.input}
-              mode="outlined"
-            />
-            
-            <TextInput
-              label="Contact Email"
-              value={billingDetails.contactEmail}
-              onChangeText={(text) => setBillingDetails({...billingDetails, contactEmail: text})}
-              style={styles.input}
-              mode="outlined"
-              keyboardType="email-address"
-              autoCapitalize="none"
-            />
-            
-            <TextInput
-              label="Contact Phone"
-              value={billingDetails.contactPhone}
-              onChangeText={(text) => setBillingDetails({...billingDetails, contactPhone: text})}
-              style={styles.input}
-              mode="outlined"
-              keyboardType="phone-pad"
-            />
+            <Text style={styles.checkboxLabel}>
+              This {paymentMethod.toLowerCase()} payment goes to me
+            </Text>
           </View>
         )}
 
@@ -320,16 +278,17 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     flexWrap: 'wrap',
   },
-  divider: {
-    marginVertical: 16,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
+  checkboxContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
     marginBottom: 16,
+    backgroundColor: '#e3f2fd',
+    padding: 10,
+    borderRadius: 4,
   },
-  billingContainer: {
-    marginBottom: 16,
+  checkboxLabel: {
+    marginLeft: 8,
+    flex: 1,
   },
   submitButton: {
     marginTop: 24,

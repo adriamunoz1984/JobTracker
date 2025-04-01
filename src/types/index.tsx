@@ -1,5 +1,18 @@
 // src/types/index.tsx
 export type PaymentMethod = 'Cash' | 'Check' | 'Zelle' | 'Square' | 'Charge';
+export type UserRole = 'owner' | 'employee';
+
+// Extended User type to include role and commission settings
+export interface User {
+  uid: string;
+  email: string | null;
+  displayName: string | null;
+  photoURL: string | null;
+  role?: UserRole;
+  commissionRate?: number;
+  keepsCash?: boolean;
+  keepsCheck?: boolean;
+}
 
 export interface Job {
   id: string;
@@ -8,11 +21,14 @@ export interface Job {
   city: string;
   yards: number;
   isPaid: boolean;
-  paymentMethod: 'Cash' | 'Check' | 'Zelle' | 'Square' | 'Charge';
+  paymentMethod: PaymentMethod;
   amount: number;
   date: string;
-  sequenceNumber: number; // Add this field
+  sequenceNumber: number;
   notes?: string;
+  paymentToMe?: boolean; // Whether this payment goes to the employee
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface WeeklySummary {
@@ -22,8 +38,10 @@ export interface WeeklySummary {
   totalEarnings: number;
   totalUnpaid: number;
   cashPayments: number;
-  personalExpenses: number; // New field for tracking personal expenses
-  netEarnings: number; // (Total Earnings / 2) - Cash Payments - Personal Expenses
+  checkPayments?: number;
+  netEarnings: number; // Calculated based on role and settings
+  userRole?: UserRole;
+  commissionRate?: number;
 }
 
 export interface MonthlySummary {
@@ -32,7 +50,6 @@ export interface MonthlySummary {
   totalJobs: number;
   totalEarnings: number;
   totalUnpaid: number;
-  personalExpenses: number; // New field
 }
 
 export interface YearlySummary {
@@ -43,13 +60,11 @@ export interface YearlySummary {
   monthlyBreakdown: {
     month: number;
     earnings: number;
-    expenses: number; // New field for expenses per month
   }[];
 }
 
-// New types for Expense Tracker and Weekly Income Planner
-
-export type ExpenseCategory = 'Fixed' | 'Variable' | 'Business' | 'Personal' | 'Other';
+// Expense types
+export type ExpenseCategory = 'Fixed' | 'Variable' | 'Business' | 'Personal' | 'Other' | 'Food' | 'Gas' | 'Water' | 'Daily';
 export type RecurrenceType = 'Daily' | 'Weekly' | 'Biweekly' | 'Monthly' | 'Quarterly' | 'Yearly' | 'OneTime';
 
 export interface Expense {
@@ -61,32 +76,12 @@ export interface Expense {
   paidDate?: string;
   category: ExpenseCategory;
   recurrence: RecurrenceType;
-  nextDueDate: string;
+  nextDueDate?: string;
   notes?: string;
   createdAt: string;
   updatedAt: string;
-}
-
-
-export type PersonalExpenseCategory = 
-  'Gas' | 
-  'Food' | 
-  'Water' | 
-  'Entertainment' | 
-  'Supplies' | 
-  'Tools' | 
-  'Repairs' | 
-  'Other';
-
-export interface PersonalExpense {
-  id: string;
-  amount: number;
-  category: PersonalExpenseCategory;
-  description: string;
-  date: string; // ISO date string
-  jobId?: string; // Optional reference to a job this expense is related to
-  createdAt: string;
-  updatedAt: string;
+  isDailyExpense?: boolean; // Flag to identify daily expenses
+  affectsEarnings?: boolean; // Whether this expense should be subtracted from earnings
 }
 
 export interface WeeklyGoal {
@@ -105,4 +100,10 @@ export interface AllocatedBill {
   expenseId: string; // Reference to Expense
   weeklyAmount: number; // How much to save this week for this bill
   isComplete: boolean; // Whether this week's allocation has been met
+}
+
+export interface DailyExpenseSummary {
+  date: string;
+  totalAmount: number;
+  expenses: Expense[];
 }

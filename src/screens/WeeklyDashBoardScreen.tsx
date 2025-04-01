@@ -7,6 +7,7 @@ import { format, startOfWeek, endOfWeek, addDays, isBefore, addWeeks, subWeeks }
 import { useJobs } from '../context/JobsContext';
 import { useExpenses } from '../context/ExpensesContext';
 import { useWeeklyGoals } from '../context/WeeklyGoalsContext';
+import { useAuth } from '../context/AuthContext';
 import { Job, Expense, WeeklyGoal } from '../types';
 
 export default function WeeklyDashboardScreen() {
@@ -14,6 +15,7 @@ export default function WeeklyDashboardScreen() {
   const { getJobsByDateRange } = useJobs();
   const { getUpcomingExpenses, getTotalDailyExpensesForRange } = useExpenses();
   const { getCurrentWeekGoal, updateWeeklyGoal, suggestWeeklyGoal } = useWeeklyGoals();
+  const { user } = useAuth();
   
   // State for current date and data fetched from it
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -27,12 +29,16 @@ export default function WeeklyDashboardScreen() {
     weeklyJobs: [] as Job[],
     weekIncome: 0,
     cashPayments: 0,
-    yourPay: 0, // New field for employee pay
+    cashPaymentsToEmployee: 0, // New: Cash specifically marked "to me"
+    checkPaymentsToEmployee: 0, // New: Checks specifically marked "to me" 
+    yourPay: 0,
     upcomingBills: [] as Expense[],
     currentGoal: null as WeeklyGoal | null,
     suggestedPayments: [] as Expense[],
-    dailyExpensesTotal: 0, // New field for daily expenses
-    finalTakeHome: 0 // New field for final take-home pay
+    dailyExpensesTotal: 0,
+    finalTakeHome: 0,
+    commissionRate: user?.commissionRate || 50, // Add commission rate
+    isOwner: user?.role === 'owner' // Whether user is owner
   });
   
   // Update refs when currentDate changes
@@ -52,13 +58,46 @@ export default function WeeklyDashboardScreen() {
         const jobs = getJobsByDateRange(weekStart.toISOString(), weekEnd.toISOString());
         const totalIncome = jobs.reduce((sum, job) => sum + job.amount, 0);
         
-        // Calculate cash payments
-        const cashPayments = jobs
+        // Get all cash/check payments
+        const allCashPayments = jobs
           .filter(job => job.isPaid && job.paymentMethod === 'Cash')
           .reduce((sum, job) => sum + job.amount, 0);
+          
+        const allCheckPayments = jobs
+          .filter(job => job.isPaid && job.paymentMethod === 'Check')
+          .reduce((sum, job) => sum + job.amount, 0);
         
-        // Calculate your actual pay: (Total amount / 2) - cash = your total
-        const yourPay = (totalIncome / 2) - cashPayments;
+        // Get cash/check payments specifically marked as going to the employee
+        const cashPaymentsToEmployee = jobs
+          .filter(job => job.isPaid && job.paymentMethod === 'Cash' && job.paymentToMe)
+          .reduce((sum, job) => sum + job.amount, 0);
+          
+        const checkPaymentsToEmployee = jobs
+          .filter(job => job.isPaid && job.paymentMethod === 'Check' && job.paymentToMe)
+          .reduce((sum, job) => sum + job.amount, 0);
+        
+        // Calculate employee's actual pay based on role
+        let yourPay = 0;
+        
+        if (user?.role === 'owner') {
+          // Owner gets 100% of job income
+          yourPay = totalIncome;
+        } else {
+          // Employee gets commission
+          const commissionRate = (user?.commissionRate || 50) / 100;
+          
+          // Calculate commission amount
+          yourPay = totalIncome * commissionRate;
+          
+          // Subtract cash/check that the employee kept, if they're configured to keep them
+          if (user?.keepsCash) {
+            yourPay -= cashPaymentsToEmployee;
+          }
+          
+          if (user?.keepsCheck) {
+            yourPay -= checkPaymentsToEmployee;
+          }
+        }
         
         // Get daily expenses total
         const dailyExpensesTotal = getTotalDailyExpensesForRange(
@@ -119,13 +158,17 @@ export default function WeeklyDashboardScreen() {
         setDashboardData({
           weeklyJobs: jobs,
           weekIncome: totalIncome,
-          cashPayments: cashPayments,
-          yourPay: yourPay,
+          cashPayments: allCashPayments,
+          cashPaymentsToEmployee,
+          checkPaymentsToEmployee,
+          yourPay,
           upcomingBills: sortedBills,
           currentGoal: goal,
           suggestedPayments,
-          dailyExpensesTotal: dailyExpensesTotal,
-          finalTakeHome: finalTakeHome
+          dailyExpensesTotal,
+          finalTakeHome,
+          commissionRate: user?.commissionRate || 50,
+          isOwner: user?.role === 'owner'
         });
       } catch (error) {
         console.error('Error fetching dashboard data:', error);
@@ -133,19 +176,23 @@ export default function WeeklyDashboardScreen() {
     };
     
     fetchDashboardData();
-  }, [currentDate]); // Only depend on the date
+  }, [currentDate, user]); // Depend on date and user to recalculate when role/settings change
   
   // Extract values from dashboard data
   const { 
     weeklyJobs, 
     weekIncome, 
-    cashPayments, 
+    cashPayments,
+    cashPaymentsToEmployee,
+    checkPaymentsToEmployee,
     yourPay, 
     upcomingBills, 
     currentGoal, 
     suggestedPayments,
     dailyExpensesTotal,
-    finalTakeHome
+    finalTakeHome,
+    commissionRate,
+    isOwner
   } = dashboardData;
   
   // Helper function to get suggested bills to pay
@@ -197,7 +244,7 @@ export default function WeeklyDashboardScreen() {
   
   // Calculate progress towards weekly goal
   const progressPercentage = currentGoal && currentGoal.incomeTarget > 0 
-    ? (finalTakeHome / currentGoal.incomeTarget) // Use finalTakeHome instead of yourPay
+    ? (finalTakeHome / currentGoal.incomeTarget) 
     : 0;
   const progressColor = progressPercentage >= 1 ? '#4CAF50' : progressPercentage >= 0.7 ? '#FFC107' : '#F44336';
   
@@ -256,12 +303,10 @@ export default function WeeklyDashboardScreen() {
     navigation.navigate('ExpensesList' as never);
   };
   
-  // New handler for viewing daily expenses
   const handleViewDailyExpenses = () => {
     navigation.navigate('DailyExpenses' as never);
   };
   
-  // New handler for adding daily expense
   const handleAddDailyExpense = () => {
     navigation.navigate('AddDailyExpense' as never);
   };
@@ -331,7 +376,13 @@ export default function WeeklyDashboardScreen() {
         <Card.Content>
           <View style={styles.sectionHeader}>
             <Title>This Week's Jobs</Title>
-            
+            <Button 
+              mode="text" 
+              onPress={handleAddJob} 
+              compact
+            >
+              Add New
+            </Button>
           </View>
           <Divider style={styles.divider} />
           
@@ -341,9 +392,28 @@ export default function WeeklyDashboardScreen() {
             <>
               <View style={styles.jobSummary}>
                 <Paragraph>Completed: {weeklyJobs.filter(job => job.isPaid).length} jobs</Paragraph>
-                <Paragraph>Total Income:     {formatCurrency(weekIncome)}</Paragraph>
-                <Paragraph>Cash Payments: {formatCurrency(cashPayments)}</Paragraph>
-                <Paragraph style={styles.yourPayText}>Your Pay: {formatCurrency(yourPay)}</Paragraph>
+                <Paragraph>Total Income: {formatCurrency(weekIncome)}</Paragraph>
+                
+                {/* Different calculations based on role */}
+                {isOwner ? (
+                  // Owner view
+                  <Paragraph style={styles.yourPayText}>Your Income: {formatCurrency(yourPay)}</Paragraph>
+                ) : (
+                  // Employee view - show commission and payment details
+                  <>
+                    <Paragraph>Commission ({commissionRate}%): {formatCurrency(weekIncome * (commissionRate / 100))}</Paragraph>
+                    
+                    {user?.keepsCash && cashPaymentsToEmployee > 0 && (
+                      <Paragraph style={styles.deductionText}>Cash Kept: -{formatCurrency(cashPaymentsToEmployee)}</Paragraph>
+                    )}
+                    
+                    {user?.keepsCheck && checkPaymentsToEmployee > 0 && (
+                      <Paragraph style={styles.deductionText}>Checks Kept: -{formatCurrency(checkPaymentsToEmployee)}</Paragraph>
+                    )}
+                    
+                    <Paragraph style={styles.yourPayText}>Your Pay: {formatCurrency(yourPay)}</Paragraph>
+                  </>
+                )}
               </View>
               
               <List.Section style={styles.jobList}>
@@ -351,7 +421,14 @@ export default function WeeklyDashboardScreen() {
                   <List.Item
                     key={job.id}
                     title={job.companyName || 'Unlisted Company'}
-                    description={`${job.city || 'No location'} • ${job.yards} yards`}
+                    description={
+                      <View>
+                        <Text>{`${job.city || 'No location'} • ${job.yards} yards`}</Text>
+                        {job.paymentToMe && (job.paymentMethod === 'Cash' || job.paymentMethod === 'Check') && (
+                          <Text style={styles.paymentToMeTag}>To me</Text>
+                        )}
+                      </View>
+                    }
                     left={() => (
                       <List.Icon 
                         icon={job.isPaid ? "check-circle" : "clock-outline"} 
@@ -382,7 +459,7 @@ export default function WeeklyDashboardScreen() {
         </Card.Content>
       </Card>
       
-      {/* NEW: Daily Expenses Card */}
+      {/* Daily Expenses Card */}
       <Card style={styles.expensesCard}>
         <Card.Content>
           <View style={styles.sectionHeader}>
@@ -574,7 +651,7 @@ const styles = StyleSheet.create({
     marginHorizontal: 16,
     marginBottom: 16,
   },
-  // New styles for daily expenses card
+  // Styles for daily expenses card
   expensesCard: {
     marginHorizontal: 16,
     marginBottom: 16,
@@ -620,6 +697,9 @@ const styles = StyleSheet.create({
     color: '#2196F3',
     marginTop: 4,
   },
+  deductionText: {
+    color: '#F44336', // Red color for deductions
+  },
   jobList: {
     marginHorizontal: -16, // Counter the Card padding
   },
@@ -639,6 +719,17 @@ const styles = StyleSheet.create({
   paymentStatus: {
     fontSize: 12,
     marginTop: 4,
+  },
+  paymentToMeTag: {
+    color: '#4CAF50',
+    fontSize: 12,
+    fontWeight: 'bold',
+    marginTop: 2,
+    backgroundColor: '#E8F5E9',
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+    borderRadius: 4,
+    alignSelf: 'flex-start',
   },
   billsCard: {
     marginHorizontal: 16,
