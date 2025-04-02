@@ -144,47 +144,29 @@ export const JobsProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  // This is just the updated calculateWeeklySummary function from JobsContext.tsx
+
   const calculateWeeklySummary = (startDate: string, endDate: string): WeeklySummary => {
     const jobsInRange = getJobsByDateRange(startDate, endDate);
     
-    // Calculate total for all jobs in range
     const totalEarnings = jobsInRange.reduce((sum, job) => sum + job.amount, 0);
     const totalUnpaid = jobsInRange
       .filter(job => !job.isPaid)
       .reduce((sum, job) => sum + job.amount, 0);
-    
-    // Get cash and check payments that go to the employee
+      
+    // Calculate cash payments
     const cashPayments = jobsInRange
-      .filter(job => job.isPaid && job.paymentMethod === 'Cash' && job.paymentToMe)
-      .reduce((sum, job) => sum + job.amount, 0);
-      
-    const checkPayments = jobsInRange
-      .filter(job => job.isPaid && job.paymentMethod === 'Check' && job.paymentToMe)
+      .filter(job => job.isPaid && job.paymentMethod === 'Cash')
       .reduce((sum, job) => sum + job.amount, 0);
     
-    let netEarnings = 0;
-    
-    // Calculate net earnings based on role
-    if (user?.role === 'owner') {
-      // Owner gets 100% of profits
-      netEarnings = totalEarnings;
-    } else {
-      // Employee calculation
-      const commissionRate = (user?.commissionRate || 50) / 100;
+    // Calculate payments made directly to you
+    const paidToMeAmount = jobsInRange
+      .filter(job => job.isPaid && job.isPaidToMe)
+      .reduce((sum, job) => sum + job.amount, 0);
       
-      // Calculate commission on total jobs
-      netEarnings = totalEarnings * commissionRate;
-      
-      // Adjust for cash/check payments the employee kept
-      // Only subtract if the employee is configured to keep these payment types
-      if (user?.keepsCash) {
-        netEarnings -= cashPayments;
-      }
-      
-      if (user?.keepsCheck) {
-        netEarnings -= checkPayments;
-      }
-    }
+    // Calculate net earnings according to the updated formula: 
+    // (Total Earnings / 2) - Cash Payments - Paid To Me Payments
+    const netEarnings = (totalEarnings / 2) - cashPayments - paidToMeAmount;
     
     return {
       startDate,
@@ -193,10 +175,8 @@ export const JobsProvider: React.FC<{ children: React.ReactNode }> = ({ children
       totalEarnings,
       totalUnpaid,
       cashPayments,
-      checkPayments, // New field for tracking check payments separately
-      netEarnings,
-      userRole: user?.role || 'employee',
-      commissionRate: user?.commissionRate || 50
+      paidToMeAmount,
+      netEarnings
     };
   };
 

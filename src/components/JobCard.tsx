@@ -13,6 +13,7 @@ interface Job {
   city: string;
   yards: number;
   isPaid: boolean;
+  isPaidToMe?: boolean; // Add the isPaidToMe field
   paymentMethod: 'Cash' | 'Check' | 'Zelle' | 'Square' | 'Charge';
   amount: number;
   date: string;
@@ -132,8 +133,10 @@ const JobCard: React.FC<JobCardProps> = ({ job, onDelete, onTogglePaid }) => {
             
             <View style={styles.paymentMethodContainer}>
               <IconButton icon={getPaymentIcon()} size={16} style={styles.paymentIcon} />
-              <Text style={styles.paymentMethod}>{job.paymentMethod}</Text>
-              
+              <Text style={styles.paymentMethod}>
+                {job.paymentMethod}
+                {job.isPaidToMe && " (To Me)"}
+              </Text>
             </View>
             
           </View>
@@ -147,6 +150,12 @@ const JobCard: React.FC<JobCardProps> = ({ job, onDelete, onTogglePaid }) => {
               <Text style={styles.detailLabel}>Yards:</Text>
               <Text style={styles.detailValue}>{job.yards}</Text>
             </View>
+            
+            {job.isPaidToMe && (
+              <View style={styles.paidToMeIndicator}>
+                <Text style={styles.paidToMeText}>Paid to Me</Text>
+              </View>
+            )}
           </View>
           
           {expanded && job.notes && (
@@ -273,6 +282,8 @@ const styles = StyleSheet.create({
   detailsRow: {
     flexDirection: 'row',
     marginTop: 4,
+    justifyContent: 'space-between',
+    alignItems: 'center',
   },
   detail: {
     marginRight: 16,
@@ -285,6 +296,16 @@ const styles = StyleSheet.create({
   },
   detailValue: {
     fontSize: 14,
+    fontWeight: 'bold',
+  },
+  paidToMeIndicator: {
+    backgroundColor: '#E1F5FE',
+    padding: 4,
+    borderRadius: 4,
+  },
+  paidToMeText: {
+    fontSize: 12,
+    color: '#0288D1',
     fontWeight: 'bold',
   },
   notesContainer: {
