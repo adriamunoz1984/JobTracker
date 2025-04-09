@@ -4,6 +4,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { format } from 'date-fns';
 import { Job, PaymentMethod, WeeklySummary } from '../types';
 import { useAuth } from './AuthContext';
+import { isDateInRange, toDateString, createLocalDate } from '../utils/DateUtils';
 
 interface JobsContextType {
   jobs: Job[];
@@ -109,27 +110,24 @@ export const JobsProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const getJobsByDateRange = (startDate: string, endDate: string): Job[] => {
     try {
       console.log(`Getting jobs between ${startDate} and ${endDate}`);
-      const start = new Date(startDate);
-      const end = new Date(endDate);
       
-      // Format dates to compare only the date part (yyyy-MM-dd)
-      const startFormatted = format(start, 'yyyy-MM-dd');
-      const endFormatted = format(end, 'yyyy-MM-dd');
+      // Make sure we're working with date strings that have the right format
+      const startDateStr = startDate.split('T')[0];
+      const endDateStr = endDate.split('T')[0];
       
-      console.log(`Formatted date range: ${startFormatted} to ${endFormatted}`);
+      console.log(`Using date range: ${startDateStr} to ${endDateStr}`);
       
       const jobsInRange = jobs.filter((job) => {
         try {
-          // Create date object from job date
-          const jobDate = new Date(job.date);
+          // Get the date part of the job date
+          const jobDateStr = job.date.split('T')[0];
           
-          // Format job date for comparison
-          const jobDateFormatted = format(jobDate, 'yyyy-MM-dd');
+          // Simple string comparison for dates in YYYY-MM-DD format
+          // or use the utility function for more complex cases
+          return jobDateStr >= startDateStr && jobDateStr <= endDateStr;
           
-          // Compare formatted dates as strings
-          const isInRange = jobDateFormatted >= startFormatted && jobDateFormatted <= endFormatted;
-          
-          return isInRange;
+          // Alternative using the utility function:
+          // return isDateInRange(job.date, startDate, endDate);
         } catch (error) {
           console.error(`Error filtering job ${job.id}:`, error);
           return false;

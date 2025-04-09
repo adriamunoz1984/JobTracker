@@ -238,7 +238,7 @@ export default function ProfileScreen() {
               <Text style={styles.formula}>
                 {user?.role === 'owner' 
                   ? 'Total Amount = 100% of all jobs'
-                  : `Your Pay = (Total Jobs × ${user?.commissionRate || 50}%) ${user?.keepsCash ? '- Cash' : ''} ${user?.keepsCheck ? '- Checks' : ''}`
+                  : `Your Pay = (Total Jobs / ${user?.commissionRate || 50}%) ${user?.keepsCash ? '- Cash' : ''} ${user?.keepsCheck ? '- Checks' : ''}`
                 }
               </Text>
             </View>

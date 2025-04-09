@@ -1,249 +1,252 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { View, StyleSheet, ScrollView } from 'react-native';
-import { Card, Title, Paragraph, Button, ProgressBar, Divider, Text, List, IconButton } from 'react-native-paper';
+import React, { useState, useEffect } from 'react';
+import { View, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import { Card, Title, Paragraph, Button, Divider, Text } from 'react-native-paper';
 import { useNavigation } from '@react-navigation/native';
-import { format, startOfWeek, endOfWeek, addDays, isBefore, addWeeks, subWeeks } from 'date-fns';
+import { startOfMonth, endOfMonth, addMonths, subMonths } from 'date-fns';
 
 import { useJobs } from '../context/JobsContext';
 import { useExpenses } from '../context/ExpensesContext';
-import { useWeeklyGoals } from '../context/WeeklyGoalsContext';
-import { Job, Expense, WeeklyGoal } from '../types';
+import { useAuth } from '../context/AuthContext';
+import { Job, Expense } from '../types';
+import { formatDate, toDateString, getMonthBoundaries, groupItemsByDate } from '../utils/DateUtil';
 
-export default function WeeklyDashboardScreen() {
+// Simple Toggle Component
+const EarningsToggle = ({ currentView, onToggle }) => {
+  return (
+    <View style={toggleStyles.container}>
+      <Text style={toggleStyles.label}>Show earnings:</Text>
+      <View style={toggleStyles.buttonGroup}>
+        <TouchableOpacity 
+          onPress={() => onToggle('gross')}
+          style={[
+            toggleStyles.button,
+            currentView === 'gross' ? toggleStyles.activeButton : toggleStyles.inactiveButton
+          ]}
+        >
+          <Text style={[
+            toggleStyles.buttonText,
+            currentView === 'gross' ? toggleStyles.activeButtonText : toggleStyles.inactiveButtonText
+          ]}>
+            Before Expenses
+          </Text>
+        </TouchableOpacity>
+        
+        <TouchableOpacity 
+          onPress={() => onToggle('net')}
+          style={[
+            toggleStyles.button,
+            currentView === 'net' ? toggleStyles.activeButton : toggleStyles.inactiveButton
+          ]}
+        >
+          <Text style={[
+            toggleStyles.buttonText,
+            currentView === 'net' ? toggleStyles.activeButtonText : toggleStyles.inactiveButtonText
+          ]}>
+            After Expenses
+          </Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+};
+
+// Simple Checkbox Component
+const Checkbox = ({ label, value, onValueChange }) => {
+  return (
+    <TouchableOpacity 
+      style={toggleStyles.checkbox}
+      onPress={() => onValueChange(!value)}
+    >
+      <View style={[
+        toggleStyles.checkboxBox,
+        value ? toggleStyles.checkboxChecked : toggleStyles.checkboxUnchecked
+      ]}>
+        {value && <Text style={toggleStyles.checkmark}>✓</Text>}
+      </View>
+      <Text style={toggleStyles.checkboxLabel}>{label}</Text>
+    </TouchableOpacity>
+  );
+};
+
+// Add this utility function if it's not already in DateUtils.ts
+const getMonthBoundaries = (date: Date): { start: Date, end: Date } => {
+  const start = startOfMonth(date);
+  const end = endOfMonth(date);
+  
+  // Create timezone-safe dates at noon
+  return {
+    start: new Date(`${toDateString(start)}T12:00:00`),
+    end: new Date(`${toDateString(end)}T12:00:00`)
+  };
+};
+
+export default function MonthlySummaryScreen() {
   const navigation = useNavigation();
   const { getJobsByDateRange } = useJobs();
-  const { getUpcomingExpenses, getTotalDailyExpensesForRange } = useExpenses();
-  const { getCurrentWeekGoal, updateWeeklyGoal } = useWeeklyGoals();
+  const { getTotalDailyExpensesForRange, expenses } = useExpenses();
+  const { user } = useAuth();
   
-  // State for current date and data fetched from it
   const [currentDate, setCurrentDate] = useState(new Date());
+  const [monthlyJobs, setMonthlyJobs] = useState<Job[]>([]);
   
-  // Refs to prevent infinite loops
-  const weekStartRef = useRef(startOfWeek(currentDate, { weekStartsOn: 0 }));
-  const weekEndRef = useRef(endOfWeek(currentDate, { weekStartsOn: 0 }));
+  // State for display toggles
+  const [earningsView, setEarningsView] = useState<'gross' | 'net'>('net');
+  const [includeDailyExpenses, setIncludeDailyExpenses] = useState(true);
+  const [includeBills, setIncludeBills] = useState(true);
   
-  // State for fetched data
-  const [dashboardData, setDashboardData] = useState({
-    weeklyJobs: [] as Job[],
-    weekIncome: 0,
+  // Calculate start and end of month using the utility function
+  const { start: monthStart, end: monthEnd } = getMonthBoundaries(currentDate);
+  
+  // Format month for display
+  const monthText = formatDate(toDateString(monthStart), 'MMMM yyyy');
+  
+  // Get user's role and commission rate
+  const isOwner = user?.role === 'owner';
+  const commissionRate = user?.commissionRate || 50;
+  
+  // State for calculated totals
+  const [totals, setTotals] = useState({
+    income: 0,
+    commission: 0,
     cashPayments: 0,
-    paidToMeAmount: 0, // Amount of payments marked as "Paid to Me"
+    paidToMeAmount: 0,
     yourPay: 0,
-    upcomingBills: [] as Expense[],
-    currentGoal: null as WeeklyGoal | null,
-    suggestedPayments: [] as Expense[],
-    dailyExpensesTotal: 0,
+    dailyExpenses: 0,
+    bills: 0,
     finalTakeHome: 0
   });
   
-  // Update refs when currentDate changes
-  useEffect(() => {
-    weekStartRef.current = startOfWeek(currentDate, { weekStartsOn: 0 });
-    weekEndRef.current = endOfWeek(currentDate, { weekStartsOn: 0 });
-  }, [currentDate]);
-  
-  // Single data-fetching effect that runs only when the date changes
-  useEffect(() => {
-    const fetchDashboardData = async () => {
-      try {
-        const weekStart = weekStartRef.current;
-        const weekEnd = weekEndRef.current;
-        
-        // Fetch jobs and calculate income
-        const jobs = getJobsByDateRange(weekStart.toISOString(), weekEnd.toISOString());
-        const totalIncome = jobs.reduce((sum, job) => sum + job.amount, 0);
-        
-        // Calculate all cash payments
-        const cashPayments = jobs
-          .filter(job => job.isPaid && job.paymentMethod === 'Cash')
-          .reduce((sum, job) => sum + job.amount, 0);
-        
-        // Calculate jobs specifically marked as "Paid To Me"
-        const paidToMeAmount = jobs
-          .filter(job => job.isPaid && job.isPaidToMe)
-          .reduce((sum, job) => sum + job.amount, 0);
-        
-        // Calculate your pay - using the formula: (Total / 2) - cash - paidToMe
-        const yourPay = (totalIncome / 2) - cashPayments - paidToMeAmount;
-        
-        // Get daily expenses total
-        const dailyExpensesTotal = getTotalDailyExpensesForRange(
-          weekStart.toISOString(),
-          weekEnd.toISOString()
-        );
-        
-        // Calculate final take home after daily expenses
-        const finalTakeHome = yourPay - dailyExpensesTotal;
-        
-        // Fetch upcoming bills
-        const nextMonth = addDays(weekEnd, 28);
-        const bills = getUpcomingExpenses(weekStart.toISOString(), nextMonth.toISOString());
-        
-        // Sort bills by due date
-        const sortedBills = [...bills].sort((a, b) => {
-          return new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime();
-        });
-        
-        // Get or suggest a goal
-        let goal = getCurrentWeekGoal(weekStart.toISOString(), weekEnd.toISOString());
-        
-        // Update the goal with current income if it exists
-        if (goal && goal.actualIncome !== finalTakeHome) {
-          try {
-            const updatedGoal = {
-              ...goal,
-              actualIncome: finalTakeHome // Use final take home pay
-            };
-            await updateWeeklyGoal(updatedGoal);
-            goal = updatedGoal;
-          } catch (error) {
-            console.error('Error updating weekly goal:', error);
-          }
-        }
-        
-        // Calculate suggested payments
-        const suggestedPayments = getSuggestedPayments(sortedBills, finalTakeHome, goal);
-        
-        // Update all state at once to prevent cascading updates
-        setDashboardData({
-          weeklyJobs: jobs,
-          weekIncome: totalIncome,
-          cashPayments,
-          paidToMeAmount,
-          yourPay,
-          upcomingBills: sortedBills,
-          currentGoal: goal,
-          suggestedPayments,
-          dailyExpensesTotal,
-          finalTakeHome
-        });
-      } catch (error) {
-        console.error('Error fetching dashboard data:', error);
-      }
-    };
-    
-    fetchDashboardData();
-  }, [currentDate]); // Depend on current date
-  
-  // Extract values from dashboard data
-  const { 
-    weeklyJobs, 
-    weekIncome, 
-    cashPayments,
-    paidToMeAmount,
-    yourPay, 
-    upcomingBills, 
-    currentGoal, 
-    suggestedPayments,
-    dailyExpensesTotal,
-    finalTakeHome
-  } = dashboardData;
-  
-  // Helper function to get suggested bills to pay
-  function getSuggestedPayments(bills, income, goal) {
-    if (!goal) return [];
-    
-    let remainingFunds = income;
-    const suggestions = [];
-    
-    // First prioritize overdue bills
-    const overdueBills = bills.filter(bill => 
-      !bill.isPaid && isBefore(new Date(bill.dueDate), new Date())
-    );
-    
-    // Then upcoming bills
-    const upcomingDueBills = bills.filter(bill => 
-      !bill.isPaid && !isBefore(new Date(bill.dueDate), new Date())
-    );
-    
-    // Combine them with overdue first
-    const prioritizedBills = [...overdueBills, ...upcomingDueBills];
-    
-    // Suggest payments based on available funds
-    for (const bill of prioritizedBills) {
-      if (remainingFunds >= bill.amount) {
-        suggestions.push(bill);
-        remainingFunds -= bill.amount;
-      }
-    }
-    
-    return suggestions;
-  }
-  
-  // Navigation between weeks
-  const goToNextWeek = () => {
-    setCurrentDate(addWeeks(currentDate, 1));
-  };
-  
-  const goToPreviousWeek = () => {
-    setCurrentDate(subWeeks(currentDate, 1));
-  };
-  
-  const goToCurrentWeek = () => {
-    setCurrentDate(new Date());
-  };
-  
-  // Format dates for display
-  const weekRangeText = `${format(weekStartRef.current, 'MMM d')} - ${format(weekEndRef.current, 'MMM d, yyyy')}`;
-  
-  // Calculate progress towards weekly goal
-  const progressPercentage = currentGoal && currentGoal.incomeTarget > 0 
-    ? (finalTakeHome / currentGoal.incomeTarget) 
-    : 0;
-  const progressColor = progressPercentage >= 1 ? '#4CAF50' : progressPercentage >= 0.7 ? '#FFC107' : '#F44336';
-  
-  // Format currency for display
-  const formatCurrency = (amount) => {
-    if (amount === undefined) return '$0.00';
-    return amount.toLocaleString('en-US', {
-      style: 'currency',
-      currency: 'USD',
-    });
-  };
-  
-  // Modified getDaysUntilDue function with validation
-  const getDaysUntilDue = (dueDate) => {
-    if (!dueDate) return 0;
-    
+  // Get monthly bills total (manual implementation to avoid using missing functions)
+  const getBillsTotal = () => {
     try {
-      const today = new Date();
-      const due = new Date(dueDate);
+      // Convert to string format for consistent comparison
+      const startStr = toDateString(monthStart);
+      const endStr = toDateString(monthEnd);
       
-      // Check if date is valid
-      if (isNaN(due.getTime())) {
-        return 0;
-      }
-      
-      const diffTime = due.getTime() - today.getTime();
-      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-      return diffDays;
+      // Filter expenses that are regular bills (not daily expenses)
+      return expenses
+        .filter(expense => {
+          if (expense.isDailyExpense) return false;
+          
+          // Get the date part only for comparison
+          const dueDateStr = expense.dueDate.split('T')[0];
+          return dueDateStr >= startStr && dueDateStr <= endStr;
+        })
+        .reduce((sum, bill) => sum + bill.amount, 0);
     } catch (error) {
+      console.error('Error calculating bills total:', error);
       return 0;
     }
   };
   
-  // Handler functions
-  const handleEditGoal = () => {
-    navigation.navigate('SetWeeklyGoal' as never, { weekStart: weekStartRef.current.toISOString() } as never);
-  };
-  
-  const handlePayBills = () => {
-    navigation.navigate('PayBills' as never, { suggestions: suggestedPayments } as never);
-  };
-  
-  const handleAddJob = () => {
-    navigation.navigate('AddJob' as never);
-  };
-  
-  const handleViewJobDetails = (jobId) => {
-    // Navigate to the Home tab first, then to JobDetail screen
-    navigation.navigate('Home', {
-      screen: 'JobDetail',
-      params: { jobId }
+  // Calculate payment method totals
+  const calculatePaymentMethodTotals = (jobs: Job[]) => {
+    const methods = ['Cash', 'Check', 'Zelle', 'Square', 'Charge'];
+    return methods.map(method => {
+      const methodJobs = jobs.filter(job => job.paymentMethod === method);
+      const total = methodJobs.reduce((sum, job) => sum + job.amount, 0);
+      return { method, count: methodJobs.length, total };
     });
   };
   
-  const handleViewExpenses = () => {
+  // Fetch data and calculate totals
+  useEffect(() => {
+    try {
+      // Convert to string format for job fetching
+      const startStr = toDateString(monthStart);
+      const endStr = toDateString(monthEnd);
+      
+      // Get jobs for the current month
+      const jobs = getJobsByDateRange(`${startStr}T00:00:00Z`, `${endStr}T23:59:59Z`);
+      setMonthlyJobs(jobs);
+      
+      // Get daily expenses
+      const dailyExpensesTotal = getTotalDailyExpensesForRange(
+        `${startStr}T00:00:00Z`, 
+        `${endStr}T23:59:59Z`
+      );
+      
+      // Get bills total
+      const billsTotal = getBillsTotal();
+      
+      // Calculate income
+      const totalIncome = jobs.reduce((sum, job) => sum + job.amount, 0);
+      
+      // Calculate cash payments
+      const cashPayments = jobs
+        .filter(job => job.isPaid && job.paymentMethod === 'Cash')
+        .reduce((sum, job) => sum + job.amount, 0);
+      
+      // Calculate paid to me amounts
+      const paidToMeAmount = jobs
+        .filter(job => job.isPaid && job.isPaidToMe)
+        .reduce((sum, job) => sum + job.amount, 0);
+      
+      // Calculate commission
+      const commission = totalIncome * (commissionRate / 100);
+      
+      // Calculate base pay (before expenses)
+      let yourPay = 0;
+      if (isOwner) {
+        yourPay = totalIncome;
+      } else {
+        yourPay = commission;
+        // Subtract direct payments if employee is configured to keep them
+        if (user?.keepsCash) {
+          yourPay -= cashPayments;
+        }
+        yourPay -= paidToMeAmount;
+      }
+      
+      // Calculate final take home (after applicable expenses)
+      let finalTakeHome = yourPay;
+      
+      // These deductions will be applied based on toggle state
+      if (earningsView === 'net') {
+        const expenseDeduction = includeDailyExpenses ? dailyExpensesTotal : 0;
+        const billsDeduction = includeBills ? billsTotal : 0;
+        finalTakeHome -= (expenseDeduction + billsDeduction);
+      }
+      
+      setTotals({
+        income: totalIncome,
+        commission,
+        cashPayments,
+        paidToMeAmount,
+        yourPay,
+        dailyExpenses: dailyExpensesTotal,
+        bills: billsTotal,
+        finalTakeHome
+      });
+    } catch (error) {
+      console.error('Error fetching monthly data:', error);
+    }
+  }, [
+    currentDate, 
+    getJobsByDateRange, 
+    getTotalDailyExpensesForRange,
+    isOwner,
+    commissionRate,
+    user,
+    earningsView,
+    includeDailyExpenses,
+    includeBills
+  ]);
+  
+  const navigateToPreviousMonth = () => {
+    setCurrentDate(subMonths(currentDate, 1));
+  };
+  
+  const navigateToNextMonth = () => {
+    setCurrentDate(addMonths(currentDate, 1));
+  };
+  
+  const navigateToCurrentMonth = () => {
+    setCurrentDate(new Date());
+  };
+  
+  // Navigation handlers
+  const handleViewBills = () => {
     navigation.navigate('ExpensesList' as never);
   };
   
@@ -251,351 +254,390 @@ export default function WeeklyDashboardScreen() {
     navigation.navigate('DailyExpenses' as never);
   };
   
-  const handleAddDailyExpense = () => {
-    navigation.navigate('AddDailyExpense' as never);
+  const handleViewJobDetails = (jobId: string) => {
+    navigation.navigate('JobDetail' as never, { jobId } as never);
   };
+  
+  const handleAddJob = () => {
+    navigation.navigate('AddJob' as never);
+  };
+  
+  // Format currency for display
+  const formatCurrency = (amount: number | undefined) => {
+    if (amount === undefined) return '$0.00';
+    return amount.toLocaleString('en-US', {
+      style: 'currency',
+      currency: 'USD',
+    });
+  };
+  
+  // Get payment method breakdowns
+  const paymentBreakdown = calculatePaymentMethodTotals(monthlyJobs);
   
   return (
     <ScrollView style={styles.container}>
-      {/* Week navigation */}
-      <View style={styles.weekNavigation}>
-        <IconButton
-          icon="chevron-left"
-          size={24}
-          onPress={goToPreviousWeek}
-        />
-        <Button mode="text" onPress={goToCurrentWeek}>
+      <View style={styles.monthSelector}>
+        <Button icon="chevron-left" onPress={navigateToPreviousMonth} mode="text">
+          Prev
+        </Button>
+        <Button onPress={navigateToCurrentMonth} mode="text">
           Today
         </Button>
-        <IconButton
-          icon="chevron-right"
-          size={24}
-          onPress={goToNextWeek}
-        />
+        <Button icon="chevron-right" onPress={navigateToNextMonth} mode="text" contentStyle={{ flexDirection: 'row-reverse' }}>
+          Next
+        </Button>
       </View>
       
-      {/* Header card */}
-      <Card style={styles.headerCard}>
-        <Card.Content>
-          <Title>Weekly Dashboard</Title>
-          <Paragraph>{weekRangeText}</Paragraph>
-        </Card.Content>
-      </Card>
+      <Title style={styles.monthTitle}>{monthText}</Title>
       
-      {/* Goal card */}
-      <Card style={styles.goalCard}>
+      {/* Add the earning view toggle */}
+      <Card style={styles.toggleCard}>
         <Card.Content>
-          <View style={styles.goalHeader}>
-            <Title>This Week's Goal</Title>
-            <Button mode="text" onPress={handleEditGoal}>Edit</Button>
-          </View>
-          
-          <View style={styles.goalDetails}>
-            <Paragraph style={styles.goalTarget}>
-              Target: {formatCurrency(currentGoal?.incomeTarget || 0)}
-            </Paragraph>
-            <Paragraph style={styles.goalActual}>
-              Actual: {formatCurrency(finalTakeHome)}
-            </Paragraph>
-          </View>
-          
-          <ProgressBar
-            progress={Math.min(progressPercentage, 1)}
-            color={progressColor}
-            style={styles.progressBar}
+          <EarningsToggle 
+            currentView={earningsView}
+            onToggle={setEarningsView}
           />
           
-          <Paragraph style={{
-            textAlign: 'center',
-            marginTop: 8,
-            color: progressColor
-          }}>
-            {Math.round(progressPercentage * 100)}% of weekly target
-          </Paragraph>
+          {/* Add expense inclusion checkboxes */}
+          {earningsView === 'net' && (
+            <View style={styles.checkboxContainer}>
+              <Text style={styles.checkboxTitle}>Include in calculations:</Text>
+              <Checkbox 
+                label="Daily Expenses"
+                value={includeDailyExpenses}
+                onValueChange={setIncludeDailyExpenses}
+              />
+              <Checkbox 
+                label="Monthly Bills"
+                value={includeBills}
+                onValueChange={setIncludeBills}
+              />
+            </View>
+          )}
         </Card.Content>
       </Card>
       
-      {/* Jobs card */}
-      <Card style={styles.jobsCard}>
+      <Card style={styles.summaryCard}>
         <Card.Content>
-          <View style={styles.sectionHeader}>
-            <Title>This Week's Jobs</Title>
-            <Button 
-              mode="text" 
-              onPress={handleAddJob} 
-              compact
-            >
-              Add New
-            </Button>
-          </View>
+          <Title>Monthly Summary</Title>
           <Divider style={styles.divider} />
           
-          {weeklyJobs.length === 0 ? (
-            <Paragraph style={styles.emptyState}>No jobs recorded for this week yet</Paragraph>
+          <View style={styles.summaryRow}>
+            <Paragraph style={styles.label}>Total Jobs:</Paragraph>
+            <Paragraph>{monthlyJobs.length}</Paragraph>
+          </View>
+          
+          <View style={styles.summaryRow}>
+            <Paragraph style={styles.label}>Total Income:</Paragraph>
+            <Paragraph style={styles.amount}>{formatCurrency(totals.income)}</Paragraph>
+          </View>
+          
+          {/* Show different calculations based on role */}
+          {isOwner ? (
+            // Owner view - simpler calculation
+            <View style={styles.summaryRow}>
+              <Paragraph style={styles.label}>Your Income:</Paragraph>
+              <Paragraph style={styles.amount}>{formatCurrency(totals.yourPay)}</Paragraph>
+            </View>
           ) : (
+            // Employee view - show commission and payment details
             <>
-              <View style={styles.jobSummary}>
-                <Paragraph>Completed: {weeklyJobs.filter(job => job.isPaid).length} jobs</Paragraph>
-                <Paragraph>Total Income: {formatCurrency(weekIncome)}</Paragraph>
-                
-                {/* Income calculation breakdown */}
-                <Paragraph>Your Share (50%): {formatCurrency(weekIncome / 2)}</Paragraph>
-                
-                <Paragraph style={styles.deductionText}>Cash Payments: -{formatCurrency(cashPayments)}</Paragraph>
-                
-                {paidToMeAmount > 0 && (
-                  <Paragraph style={styles.deductionText}>
-                    "Paid To Me" Jobs: -{formatCurrency(paidToMeAmount)}
-                  </Paragraph>
-                )}
-                
-                <Paragraph style={styles.yourPayText}>Your Pay: {formatCurrency(yourPay)}</Paragraph>
+              <View style={styles.summaryRow}>
+                <Paragraph style={styles.label}>Your Commission ({commissionRate}%):</Paragraph>
+                <Paragraph style={styles.amount}>{formatCurrency(totals.commission)}</Paragraph>
               </View>
               
-              <List.Section style={styles.jobList}>
-                {weeklyJobs.map(job => (
-                  <List.Item
-                    key={job.id}
-                    title={job.companyName || 'Unlisted Company'}
-                    description={
-                      <View>
-                        <Text>{`${job.city || 'No location'} • ${job.yards} yards`}</Text>
-                        {job.isPaidToMe && (
-                          <Text style={styles.paymentToMeTag}>Paid To Me</Text>
-                        )}
-                      </View>
-                    }
-                    left={() => (
-                      <List.Icon 
-                        icon={job.isPaid ? "check-circle" : "clock-outline"} 
-                        color={job.isPaid ? "#4CAF50" : "#FFC107"} 
-                      />
-                    )}
-                    right={() => (
-                      <View style={styles.jobRight}>
-                        <Text style={styles.jobAmount}>{formatCurrency(job.amount)}</Text>
-                        <Text style={[
-                          styles.paymentStatus, 
-                          { color: job.isPaid ? "#4CAF50" : "#F44336" }
-                        ]}>
-                          {job.isPaid ? job.paymentMethod || 'Paid' : 'Unpaid'}
-                        </Text>
-                      </View>
-                    )}
-                    onPress={() => handleViewJobDetails(job.id)}
-                    style={[
-                      styles.jobItem,
-                      { backgroundColor: job.isPaid ? 'rgba(76, 175, 80, 0.05)' : 'rgba(255, 193, 7, 0.05)' },
-                      job.isPaidToMe ? styles.paidToMeJob : null
-                    ]}
-                  />
-                ))}
-              </List.Section>
+              {user?.keepsCash && totals.cashPayments > 0 && (
+                <View style={styles.summaryRow}>
+                  <Paragraph style={styles.label}>Cash Kept:</Paragraph>
+                  <Paragraph style={styles.deductionText}>- {formatCurrency(totals.cashPayments)}</Paragraph>
+                </View>
+              )}
+              
+              {totals.paidToMeAmount > 0 && (
+                <View style={styles.summaryRow}>
+                  <Paragraph style={styles.label}>"Paid To Me" Jobs:</Paragraph>
+                  <Paragraph style={styles.deductionText}>- {formatCurrency(totals.paidToMeAmount)}</Paragraph>
+                </View>
+              )}
+              
+              <View style={styles.summaryRow}>
+                <Paragraph style={styles.label}>Your Pay:</Paragraph>
+                <Paragraph style={styles.yourPay}>{formatCurrency(totals.yourPay)}</Paragraph>
+              </View>
+            </>
+          )}
+          
+          {/* Only show expense deductions if viewing net earnings */}
+          {earningsView === 'net' && (
+            <>
+              <Divider style={styles.divider} />
+              
+              {includeDailyExpenses && totals.dailyExpenses > 0 && (
+                <View style={styles.summaryRow}>
+                  <Paragraph style={styles.label}>Daily Expenses:</Paragraph>
+                  <Paragraph style={styles.deductionText}>- {formatCurrency(totals.dailyExpenses)}</Paragraph>
+                </View>
+              )}
+              
+              {includeBills && totals.bills > 0 && (
+                <View style={styles.summaryRow}>
+                  <Paragraph style={styles.label}>Monthly Bills:</Paragraph>
+                  <Paragraph style={styles.deductionText}>- {formatCurrency(totals.bills)}</Paragraph>
+                </View>
+              )}
+              
+              <Divider style={styles.divider} />
+              
+              <View style={styles.summaryRow}>
+                <Paragraph style={styles.label}>Final Take Home:</Paragraph>
+                <Paragraph style={[
+                  styles.netEarnings,
+                  totals.finalTakeHome >= 0 ? styles.positiveAmount : styles.negativeAmount
+                ]}>
+                  {formatCurrency(totals.finalTakeHome)}
+                </Paragraph>
+              </View>
             </>
           )}
         </Card.Content>
       </Card>
       
-      {/* Daily Expenses Card */}
-      <Card style={styles.expensesCard}>
-        <Card.Content>
-          <View style={styles.sectionHeader}>
-            <Title>Daily Expenses</Title>
+      <Title style={styles.jobsTitle}>Jobs This Month ({monthlyJobs.length})</Title>
+      
+      {monthlyJobs.length === 0 ? (
+        <Card style={styles.noJobsCard}>
+          <Card.Content>
+            <Paragraph style={styles.noJobsText}>No jobs recorded for this month</Paragraph>
             <Button 
-              mode="text" 
-              onPress={handleAddDailyExpense} 
-              compact
+              mode="contained"
+              onPress={handleAddJob}
+              style={styles.addButton}
             >
-              Add Expense
+              Add Job
             </Button>
-          </View>
-          <Divider style={styles.divider} />
-          
-          <View style={styles.expensesSummary}>
-            <View style={styles.summaryRow}>
-              <Paragraph style={styles.label}>Your Pay:</Paragraph>
-              <Paragraph style={styles.amount}>{formatCurrency(yourPay)}</Paragraph>
-            </View>
-            
-            <View style={styles.summaryRow}>
-              <Paragraph style={styles.label}>Daily Expenses:</Paragraph>
-              <Paragraph style={styles.expenseAmount}>- {formatCurrency(dailyExpensesTotal)}</Paragraph>
+          </Card.Content>
+        </Card>
+      ) : (
+        <Card style={styles.jobListCard}>
+          <Card.Content>
+            <View style={styles.paymentBreakdown}>
+              <View style={styles.paymentMethod}>
+                <Title style={styles.paymentTitle}>Payment Methods</Title>
+                {paymentBreakdown.map(item => (
+                  <View key={item.method} style={styles.methodRow}>
+                    <Text style={styles.methodName}>{item.method}</Text>
+                    <Text style={styles.methodCount}>{item.count} jobs</Text>
+                    <Text style={styles.methodAmount}>{formatCurrency(item.total)}</Text>
+                  </View>
+                ))}
+              </View>
             </View>
             
             <Divider style={styles.divider} />
             
-            <View style={styles.summaryRow}>
-              <Paragraph style={styles.label}>Final Take Home:</Paragraph>
-              <Paragraph style={[
-                styles.finalAmount,
-                finalTakeHome >= 0 ? styles.positiveAmount : styles.negativeAmount
-              ]}>
-                {formatCurrency(finalTakeHome)}
-              </Paragraph>
-            </View>
-          </View>
-          
-          <Button
-            mode="outlined"
-            onPress={handleViewDailyExpenses}
-            icon="receipt"
-            style={styles.viewButton}
-          >
-            View All Daily Expenses
-          </Button>
-        </Card.Content>
-      </Card>
-      
-      {/* Bills card */}
-      <Card style={styles.billsCard}>
-        <Card.Content>
-          <View style={styles.sectionHeader}>
-            <Title>Upcoming Bills</Title>
-            <Button 
-              mode="text" 
-              onPress={handleViewExpenses} 
-              compact
-            >
-              View All
-            </Button>
-          </View>
-          <Divider style={styles.divider} />
-          
-          {upcomingBills.length === 0 ? (
-            <Paragraph style={styles.emptyState}>No upcoming bills</Paragraph>
-          ) : (
-            <List.Section>
-              {upcomingBills.slice(0, 5).map(bill => {
-                const daysUntil = getDaysUntilDue(bill.dueDate);
-                let urgencyColor = '#4CAF50';
-                if (daysUntil <= 0) urgencyColor = '#F44336';
-                else if (daysUntil <= 7) urgencyColor = '#FFC107';
-                
-                return (
-                  <List.Item
-                    key={bill.id}
-                    title={bill.name}
-                    description={`Due: ${format(new Date(bill.dueDate), 'MMM d, yyyy')}`}
-                    right={() => (
-                      <View style={styles.billRight}>
-                        <Text style={styles.billAmount}>{formatCurrency(bill.amount)}</Text>
-                        <Text style={[styles.daysUntil, { color: urgencyColor }]}>
-                          {daysUntil <= 0 ? 'OVERDUE' : `${daysUntil} days`}
-                        </Text>
+            {/* Group jobs by date with fixed date handling */}
+            {Object.entries(
+              groupItemsByDate(monthlyJobs)
+            )
+              .sort((a, b) => new Date(b[0]).getTime() - new Date(a[0]).getTime())
+              .map(([dateKey, jobs]) => (
+                <View key={dateKey} style={styles.dateGroup}>
+                  <Text style={styles.dateHeader}>
+                    {formatDate(`${dateKey}T00:00:00Z`, 'EEE, MMM d')} - {jobs.length} jobs
+                  </Text>
+                  
+                  {jobs.map(job => (
+                    <TouchableOpacity
+                      key={job.id}
+                      style={styles.jobItem}
+                      onPress={() => handleViewJobDetails(job.id)}
+                    >
+                      <View style={styles.jobDetails}>
+                        <Text style={styles.jobName}>{job.companyName || 'Unnamed Job'}</Text>
+                        <Text style={styles.jobAddress}>{job.city}</Text>
+                        <View style={styles.jobInfoRow}>
+                          <Text style={styles.jobYards}>{job.yards} yards</Text>
+                          {job.isPaidToMe && (
+                            <View style={styles.paidToMeBadge}>
+                              <Text style={styles.paidToMeText}>Paid To Me</Text>
+                            </View>
+                          )}
+                        </View>
                       </View>
-                    )}
-                    style={styles.billItem}
-                  />
-                );
-              })}
-            </List.Section>
-          )}
-        </Card.Content>
-      </Card>
+                      <View style={styles.jobPayment}>
+                        <Text style={[
+                          styles.jobStatus, 
+                          job.isPaid ? styles.paidText : styles.unpaidText
+                        ]}>
+                          {job.isPaid ? 'PAID' : 'UNPAID'}
+                        </Text>
+                        <Text style={styles.jobAmount}>{formatCurrency(job.amount)}</Text>
+                        <Text style={styles.paymentMethod}>{job.paymentMethod}</Text>
+                      </View>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              ))
+            }
+          </Card.Content>
+        </Card>
+      )}
       
-      {/* Payment suggestions card */}
-      <Card style={styles.suggestionsCard}>
-        <Card.Content>
-          <Title>Payment Suggestions</Title>
-          <Divider style={styles.divider} />
-          
-          <Paragraph>Based on your current take-home pay of {formatCurrency(finalTakeHome)}, you can pay:</Paragraph>
-          
-          {suggestedPayments.length === 0 ? (
-            <Paragraph style={styles.emptyState}>
-              No bills can be paid with current income
-            </Paragraph>
-          ) : (
-            <List.Section>
-              {suggestedPayments.map(bill => (
-                <List.Item
-                  key={bill.id}
-                  title={bill.name}
-                  description={formatCurrency(bill.amount)}
-                  left={() => <List.Icon icon="check-circle" color="#4CAF50" />}
-                  style={styles.suggestionItem}
-                />
-              ))}
-              
-              <Button
-                mode="contained"
-                style={styles.payBillsButton}
-                onPress={handlePayBills}
-                disabled={suggestedPayments.length === 0}
-              >
-                Pay Selected Bills
-              </Button>
-            </List.Section>
-          )}
-          
-          {finalTakeHome < (currentGoal?.incomeTarget || 0) && (
-            <Card style={styles.shortfallCard}>
-              <Card.Content>
-                <Paragraph style={styles.shortfallText}>
-                  You need {formatCurrency((currentGoal?.incomeTarget || 0) - finalTakeHome)} more to reach your weekly goal
-                </Paragraph>
-              </Card.Content>
-            </Card>
-          )}
-        </Card.Content>
-      </Card>
+      {/* Daily Expenses Summary - Only show if including expenses */}
+      {earningsView === 'net' && includeDailyExpenses && totals.dailyExpenses > 0 && (
+        <Card style={styles.expensesCard}>
+          <Card.Content>
+            <Title>Daily Expenses</Title>
+            <Divider style={styles.divider} />
+            
+            <View style={styles.expensesTotalRow}>
+              <Text style={styles.expensesTotalLabel}>Total Daily Expenses:</Text>
+              <Text style={styles.expensesTotalAmount}>{formatCurrency(totals.dailyExpenses)}</Text>
+            </View>
+            
+            <Button 
+              mode="outlined" 
+              icon="receipt"
+              onPress={handleViewDailyExpenses}
+              style={styles.viewButton}
+            >
+              View Expense Details
+            </Button>
+          </Card.Content>
+        </Card>
+      )}
+      
+      {/* Bills Summary - Only show if including bills */}
+      {earningsView === 'net' && includeBills && totals.bills > 0 && (
+        <Card style={styles.billsCard}>
+          <Card.Content>
+            <Title>Monthly Bills</Title>
+            <Divider style={styles.divider} />
+            
+            <View style={styles.expensesTotalRow}>
+              <Text style={styles.expensesTotalLabel}>Total Monthly Bills:</Text>
+              <Text style={styles.expensesTotalAmount}>{formatCurrency(totals.bills)}</Text>
+            </View>
+            
+            <Button 
+              mode="outlined" 
+              icon="file-document"
+              onPress={handleViewBills}
+              style={styles.viewButton}
+            >
+              View Bills
+            </Button>
+          </Card.Content>
+        </Card>
+      )}
     </ScrollView>
   );
 }
 
+// Styles for the toggle components
+const toggleStyles = StyleSheet.create({
+  container: {
+    marginVertical: 12,
+  },
+  label: {
+    marginBottom: 8,
+    fontWeight: 'bold',
+  },
+  buttonGroup: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    borderRadius: 4,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: '#2196F3',
+  },
+  button: {
+    flex: 1,
+    paddingVertical: 8,
+    alignItems: 'center',
+  },
+  activeButton: {
+    backgroundColor: '#2196F3',
+  },
+  inactiveButton: {
+    backgroundColor: 'transparent',
+  },
+  buttonText: {
+    fontSize: 14,
+    fontWeight: 'bold',
+  },
+  activeButtonText: {
+    color: 'white',
+  },
+  inactiveButtonText: {
+    color: '#2196F3',
+  },
+  checkbox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: 6,
+  },
+  checkboxBox: {
+    width: 20,
+    height: 20,
+    borderRadius: 3,
+    borderWidth: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 10,
+  },
+  checkboxChecked: {
+    backgroundColor: '#2196F3',
+    borderColor: '#2196F3',
+  },
+  checkboxUnchecked: {
+    backgroundColor: 'transparent',
+    borderColor: '#757575',
+  },
+  checkmark: {
+    color: 'white',
+    fontSize: 14,
+    fontWeight: 'bold',
+  },
+  checkboxLabel: {
+    fontSize: 16,
+  },
+  checkboxTitle: {
+    fontWeight: 'bold',
+    marginBottom: 8,
+    marginTop: 12,
+  }
+});
+
+// Main styles
 const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f5f5f5',
   },
-  weekNavigation: {
+  monthSelector: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
+    padding: 8,
   },
-  headerCard: {
-    marginHorizontal: 16,
+  monthTitle: {
+    textAlign: 'center',
+    marginVertical: 8,
+  },
+  toggleCard: {
+    margin: 16,
     marginBottom: 8,
   },
-  goalCard: {
-    marginHorizontal: 16,
-    marginBottom: 16,
+  checkboxContainer: {
+    marginTop: 8,
+  },
+  summaryCard: {
+    margin: 16,
     elevation: 4,
   },
-  goalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  goalDetails: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+  divider: {
     marginVertical: 12,
-  },
-  goalTarget: {
-    fontWeight: 'bold',
-  },
-  goalActual: {
-    fontWeight: 'bold',
-  },
-  progressBar: {
-    height: 12,
-    borderRadius: 6,
-  },
-  jobsCard: {
-    marginHorizontal: 16,
-    marginBottom: 16,
-  },
-  // Styles for daily expenses card
-  expensesCard: {
-    marginHorizontal: 16,
-    marginBottom: 16,
-    backgroundColor: '#f8f8ff', // Light blue-ish background to differentiate
-  },
-  expensesSummary: {
-    marginVertical: 8,
   },
   summaryRow: {
     flexDirection: 'row',
@@ -608,123 +650,179 @@ const styles = StyleSheet.create({
   amount: {
     fontWeight: 'bold',
   },
-  expenseAmount: {
+  deductionText: {
+    color: '#F44336',
     fontWeight: 'bold',
-    color: '#F44336', // Red for expenses
   },
-  finalAmount: {
-    fontWeight: 'bold',
-    fontSize: 18,
-  },
-  positiveAmount: {
-    color: '#4CAF50', // Green for positive balance
-  },
-  negativeAmount: {
-    color: '#F44336', // Red for negative balance
-  },
-  viewButton: {
-    marginTop: 8,
-  },
-  // End of new styles
-  jobSummary: {
-    marginBottom: 12,
-  },
-  yourPayText: {
+  yourPay: {
     fontWeight: 'bold',
     color: '#2196F3',
-    marginTop: 4,
   },
-  deductionText: {
-    color: '#F44336', // Red color for deductions
+  netEarnings: {
+    fontSize: 18,
+    fontWeight: 'bold',
   },
-  jobList: {
-    marginHorizontal: -16, // Counter the Card padding
+  positiveAmount: {
+    color: '#4CAF50',
+  },
+  negativeAmount: {
+    color: '#F44336',
+  },
+  jobsTitle: {
+    marginHorizontal: 16,
+    marginTop: 16,
+  },
+  noJobsCard: {
+    margin: 16,
+  },
+  noJobsText: {
+    textAlign: 'center',
+    fontStyle: 'italic',
+    marginBottom: 16,
+  },
+  addButton: {
+    backgroundColor: '#2196F3',
+  },
+  jobListCard: {
+    margin: 16,
+    elevation: 2,
+  },
+  paymentBreakdown: {
+    marginBottom: 16,
+  },
+  paymentMethod: {
+    marginBottom: 8,
+  },
+  paymentTitle: {
+    fontSize: 18,
+    marginBottom: 8,
+  },
+  methodRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 4,
+    paddingVertical: 4,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+  },
+  methodName: {
+    flex: 1,
+    fontWeight: 'bold',
+  },
+  methodCount: {
+    flex: 1,
+    textAlign: 'center',
+  },
+  methodAmount: {
+    flex: 1,
+    textAlign: 'right',
+    fontWeight: 'bold',
+  },
+  dateGroup: {
+    marginBottom: 16,
+  },
+  dateHeader: {
+    fontWeight: 'bold',
+    fontSize: 16,
+    backgroundColor: '#f0f0f0',
+    padding: 8,
+    borderRadius: 4,
+    marginBottom: 8,
   },
   jobItem: {
-    paddingLeft: 0,
-    borderRadius: 4,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingVertical: 12,
+    paddingHorizontal: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+    borderLeftWidth: 3,
+    borderLeftColor: '#e0e0e0',
+  },
+  jobDetails: {
+    flex: 2,
+  },
+  jobName: {
+    fontSize: 16,
+    fontWeight: 'bold',
     marginBottom: 4,
   },
-  paidToMeJob: {
-    borderLeftWidth: 4,
-    borderLeftColor: '#2196F3',
+  jobAddress: {
+    color: '#757575',
+    fontSize: 14,
+    marginBottom: 4,
   },
-  jobRight: {
+  jobInfoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  jobYards: {
+    fontSize: 14,
+    color: '#616161',
+    marginRight: 8,
+  },
+  paidToMeBadge: {
+    backgroundColor: '#E3F2FD',
+    borderRadius: 4,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+  },
+  paidToMeText: {
+    color: '#2196F3',
+    fontSize: 12,
+    fontWeight: 'bold',
+  },
+  jobPayment: {
+    flex: 1,
     alignItems: 'flex-end',
     justifyContent: 'center',
-    paddingRight: 12,
+  },
+  jobStatus: {
+    fontSize: 12,
+    fontWeight: 'bold',
+    marginBottom: 4,
+  },
+  paidText: {
+    color: '#4CAF50',
+  },
+  unpaidText: {
+    color: '#F44336',
   },
   jobAmount: {
     fontWeight: 'bold',
+    fontSize: 16,
+    marginBottom: 4,
   },
-  paymentStatus: {
+  paymentMethod: {
     fontSize: 12,
-    marginTop: 4,
+    color: '#757575',
   },
-  paymentToMeTag: {
-    color: '#2196F3',
-    fontSize: 12,
-    fontWeight: 'bold',
-    marginTop: 2,
-    backgroundColor: '#E3F2FD',
-    paddingHorizontal: 6,
-    paddingVertical: 1,
-    borderRadius: 4,
-    alignSelf: 'flex-start',
+  expensesCard: {
+    marginHorizontal: 16,
+    marginBottom: 16,
+    backgroundColor: '#FFF8E1',
   },
   billsCard: {
     marginHorizontal: 16,
-    marginBottom: 16,
+    marginBottom: 24,
+    backgroundColor: '#E8F5E9',
   },
-  suggestionsCard: {
-    marginHorizontal: 16,
-    marginBottom: 32,
-  },
-  sectionHeader: {
+  expensesTotalRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    marginBottom: 16,
   },
-  divider: {
-    marginVertical: 12,
-  },
-  emptyState: {
-    textAlign: 'center',
-    fontStyle: 'italic',
-    marginVertical: 12,
-  },
-  billItem: {
-    paddingLeft: 0,
-  },
-  billRight: {
-    alignItems: 'flex-end',
-    justifyContent: 'center',
-    paddingRight: 12,
-  },
-  billAmount: {
+  expensesTotalLabel: {
     fontWeight: 'bold',
+    fontSize: 16,
   },
-  daysUntil: {
-    fontSize: 12,
-    marginTop: 4,
-  },
-  suggestionItem: {
-    paddingLeft: 0,
-    backgroundColor: 'rgba(76, 175, 80, 0.05)',
-    borderRadius: 4,
-    marginBottom: 4,
-  },
-  payBillsButton: {
-    marginTop: 12,
-    backgroundColor: '#4CAF50',
-  },
-  shortfallCard: {
-    marginTop: 16,
-    backgroundColor: 'rgba(244, 67, 54, 0.05)',
-  },
-  shortfallText: {
-    textAlign: 'center',
+  expensesTotalAmount: {
     fontWeight: 'bold',
+    fontSize: 18,
     color: '#F44336',
   },
+  viewButton: {
+    marginTop: 8,
+  }
 });

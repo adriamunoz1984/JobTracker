@@ -30,7 +30,23 @@ export const useExpenses = () => {
   }
   return context;
 };
-
+interface ExpensesContextType {
+  expenses: Expense[];
+  addExpense: (expense: Omit<Expense, 'id' | 'createdAt' | 'updatedAt'>) => Promise<void>;
+  updateExpense: (expense: Expense) => Promise<void>;
+  deleteExpense: (id: string) => Promise<void>;
+  markAsPaid: (id: string, paidDate?: string) => Promise<void>;
+  markAsUnpaid: (id: string) => Promise<void>;
+  getExpenseById: (id: string) => Expense | undefined;
+  getUpcomingExpenses: (startDate: string, endDate: string) => Expense[];
+  getDailyExpenses: (startDate: string, endDate: string) => Expense[];
+  getDailyExpensesByDate: (date: string) => Expense[];
+  getDailyExpensesByDateRange: (startDate: string, endDate: string) => Expense[]; // Add this line
+  getDailyExpenseSummary: (startDate: string, endDate: string) => DailyExpenseSummary[];
+  getTotalDailyExpensesForRange: (startDate: string, endDate: string) => number;
+  generateNextRecurringExpense: (expenseId: string) => Promise<void>;
+  isLoading: boolean;
+}
 export const ExpensesProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -197,7 +213,24 @@ export const ExpensesProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       return expenseDate >= dayStart && expenseDate <= dayEnd;
     });
   };
-
+// Get regular (non-daily) expenses within a date range
+const getExpensesByDateRange = (startDate: string, endDate: string): Expense[] => {
+  try {
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    
+    return expenses.filter(expense => {
+      // Only include regular expenses (not daily expenses)
+      if (expense.isDailyExpense) return false;
+      
+      const dueDate = new Date(expense.dueDate);
+      return dueDate >= start && dueDate <= end;
+    });
+  } catch (error) {
+    console.error('Error in getExpensesByDateRange:', error);
+    return [];
+  }
+};
   // Get daily expense summaries grouped by date
   const getDailyExpenseSummary = (startDate: string, endDate: string): DailyExpenseSummary[] => {
     const dailyExpenses = getDailyExpenses(startDate, endDate);
@@ -236,6 +269,19 @@ export const ExpensesProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     const dailyExpenses = getDailyExpenses(startDate, endDate);
     return dailyExpenses.reduce((total, expense) => total + expense.amount, 0);
   };
+
+  // Get only daily expenses within a date range
+const getDailyExpensesByDateRange = (startDate: string, endDate: string): Expense[] => {
+  const start = new Date(startDate);
+  const end = new Date(endDate);
+  
+  return expenses.filter(expense => {
+    if (!expense.isDailyExpense) return false;
+    
+    const expenseDate = new Date(expense.expenseDate || expense.dueDate);
+    return expenseDate >= start && expenseDate <= end;
+  });
+};
 
   const generateNextRecurringExpense = async (expenseId: string) => {
     const expense = expenses.find(e => e.id === expenseId);
@@ -279,10 +325,15 @@ export const ExpensesProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     getDailyExpenses,
     getDailyExpensesByDate,
     getDailyExpenseSummary,
+    getDailyExpensesByDateRange, // Add this new function
     getTotalDailyExpensesForRange,
     generateNextRecurringExpense,
     isLoading
   };
+
+  
+
+ 
 
   return <ExpensesContext.Provider value={value}>{children}</ExpensesContext.Provider>;
 };
