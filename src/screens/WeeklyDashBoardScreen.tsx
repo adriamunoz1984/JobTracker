@@ -1,14 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { View, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
-import { Card, Title, Paragraph, Button, Divider, Text } from 'react-native-paper';
+import { Card, Title, Paragraph, Button, Divider, Text, FAB } from 'react-native-paper';
 import { useNavigation } from '@react-navigation/native';
-import { startOfMonth, endOfMonth, addMonths, subMonths } from 'date-fns';
+import { format, startOfWeek, endOfWeek, addWeeks, subWeeks } from 'date-fns';
 
 import { useJobs } from '../context/JobsContext';
 import { useExpenses } from '../context/ExpensesContext';
+import { useWeeklyGoals } from '../context/WeeklyGoalsContext';
 import { useAuth } from '../context/AuthContext';
-import { Job, Expense } from '../types';
-import { formatDate, toDateString, getMonthBoundaries, groupItemsByDate } from '../utils/DateUtil';
+import { Job } from '../types';
 
 // Simple Toggle Component
 const EarningsToggle = ({ currentView, onToggle }) => {
@@ -68,37 +68,27 @@ const Checkbox = ({ label, value, onValueChange }) => {
   );
 };
 
-// Add this utility function if it's not already in DateUtils.ts
-const getMonthBoundaries = (date: Date): { start: Date, end: Date } => {
-  const start = startOfMonth(date);
-  const end = endOfMonth(date);
-  
-  // Create timezone-safe dates at noon
-  return {
-    start: new Date(`${toDateString(start)}T12:00:00`),
-    end: new Date(`${toDateString(end)}T12:00:00`)
-  };
-};
-
-export default function MonthlySummaryScreen() {
+export default function WeeklyDashboardScreen() {
   const navigation = useNavigation();
-  const { getJobsByDateRange } = useJobs();
-  const { getTotalDailyExpensesForRange, expenses } = useExpenses();
+  const { getJobsByDateRange, calculateWeeklySummary } = useJobs();
+  const { getDailyExpenses, getUpcomingExpenses, getTotalDailyExpensesForRange } = useExpenses();
+  const { getCurrentWeekGoal } = useWeeklyGoals();
   const { user } = useAuth();
   
   const [currentDate, setCurrentDate] = useState(new Date());
-  const [monthlyJobs, setMonthlyJobs] = useState<Job[]>([]);
+  const [weeklyJobs, setWeeklyJobs] = useState<Job[]>([]);
   
   // State for display toggles
   const [earningsView, setEarningsView] = useState<'gross' | 'net'>('net');
   const [includeDailyExpenses, setIncludeDailyExpenses] = useState(true);
   const [includeBills, setIncludeBills] = useState(true);
   
-  // Calculate start and end of month using the utility function
-  const { start: monthStart, end: monthEnd } = getMonthBoundaries(currentDate);
+  // Calculate start and end of week
+  const weekStart = startOfWeek(currentDate, { weekStartsOn: 0 }); // Sunday
+  const weekEnd = endOfWeek(currentDate, { weekStartsOn: 0 }); // Saturday
   
-  // Format month for display
-  const monthText = formatDate(toDateString(monthStart), 'MMMM yyyy');
+  // Format dates for display
+  const weekRangeText = `${format(weekStart, 'MMM d')} - ${format(weekEnd, 'MMM d, yyyy')}`;
   
   // Get user's role and commission rate
   const isOwner = user?.role === 'owner';
@@ -115,93 +105,74 @@ export default function MonthlySummaryScreen() {
     bills: 0,
     finalTakeHome: 0
   });
-  
-  // Get monthly bills total (manual implementation to avoid using missing functions)
-  const getBillsTotal = () => {
-    try {
-      // Convert to string format for consistent comparison
-      const startStr = toDateString(monthStart);
-      const endStr = toDateString(monthEnd);
-      
-      // Filter expenses that are regular bills (not daily expenses)
-      return expenses
-        .filter(expense => {
-          if (expense.isDailyExpense) return false;
-          
-          // Get the date part only for comparison
-          const dueDateStr = expense.dueDate.split('T')[0];
-          return dueDateStr >= startStr && dueDateStr <= endStr;
-        })
-        .reduce((sum, bill) => sum + bill.amount, 0);
-    } catch (error) {
-      console.error('Error calculating bills total:', error);
-      return 0;
-    }
-  };
-  
-  // Calculate payment method totals
-  const calculatePaymentMethodTotals = (jobs: Job[]) => {
-    const methods = ['Cash', 'Check', 'Zelle', 'Square', 'Charge'];
-    return methods.map(method => {
-      const methodJobs = jobs.filter(job => job.paymentMethod === method);
-      const total = methodJobs.reduce((sum, job) => sum + job.amount, 0);
-      return { method, count: methodJobs.length, total };
-    });
-  };
+
+  // State for weekly goal
+  const [weeklyGoal, setWeeklyGoal] = useState({
+    exists: false,
+    incomeTarget: 0,
+    progress: 0
+  });
   
   // Fetch data and calculate totals
   useEffect(() => {
     try {
-      // Convert to string format for job fetching
-      const startStr = toDateString(monthStart);
-      const endStr = toDateString(monthEnd);
+      // Format dates for API calls
+      const startStr = weekStart.toISOString();
+      const endStr = weekEnd.toISOString();
       
-      // Get jobs for the current month
-      const jobs = getJobsByDateRange(`${startStr}T00:00:00Z`, `${endStr}T23:59:59Z`);
-      setMonthlyJobs(jobs);
+      // Get jobs for the current week
+      const jobs = getJobsByDateRange(startStr, endStr);
+      setWeeklyJobs(jobs);
+      
+      // Get weekly summary
+      const summary = calculateWeeklySummary(startStr, endStr);
       
       // Get daily expenses
-      const dailyExpensesTotal = getTotalDailyExpensesForRange(
-        `${startStr}T00:00:00Z`, 
-        `${endStr}T23:59:59Z`
-      );
+      const dailyExpensesTotal = getTotalDailyExpensesForRange(startStr, endStr);
       
-      // Get bills total
-      const billsTotal = getBillsTotal();
+      // Get bills for this week
+      const weeklyBills = getUpcomingExpenses(startStr, endStr);
+      const billsTotal = weeklyBills.reduce((sum, bill) => sum + bill.amount, 0);
+      
+      // Get weekly goal
+      const goal = getCurrentWeekGoal(startStr, endStr);
+      if (goal) {
+        setWeeklyGoal({
+          exists: true,
+          incomeTarget: goal.incomeTarget,
+          progress: Math.min(100, Math.round((summary.totalEarnings / goal.incomeTarget) * 100)) || 0
+        });
+      } else {
+        setWeeklyGoal({
+          exists: false,
+          incomeTarget: 0,
+          progress: 0
+        });
+      }
       
       // Calculate income
-      const totalIncome = jobs.reduce((sum, job) => sum + job.amount, 0);
+      const totalIncome = summary.totalEarnings;
       
-      // Calculate cash payments
-      const cashPayments = jobs
-        .filter(job => job.isPaid && job.paymentMethod === 'Cash')
-        .reduce((sum, job) => sum + job.amount, 0);
-      
-      // Calculate paid to me amounts
-      const paidToMeAmount = jobs
-        .filter(job => job.isPaid && job.isPaidToMe)
-        .reduce((sum, job) => sum + job.amount, 0);
-      
-      // Calculate commission
-      const commission = totalIncome * (commissionRate / 100);
-      
-      // Calculate base pay (before expenses)
+      // Calculate commission based on user role
       let yourPay = 0;
       if (isOwner) {
         yourPay = totalIncome;
       } else {
+        // Calculate based on commission rate
+        const commission = totalIncome * (commissionRate / 100);
         yourPay = commission;
-        // Subtract direct payments if employee is configured to keep them
+        
+        // Adjust for direct payments
         if (user?.keepsCash) {
-          yourPay -= cashPayments;
+          yourPay -= summary.cashPayments;
         }
-        yourPay -= paidToMeAmount;
+        yourPay -= summary.paidToMeAmount;
       }
       
       // Calculate final take home (after applicable expenses)
       let finalTakeHome = yourPay;
       
-      // These deductions will be applied based on toggle state
+      // Apply deductions based on toggle state
       if (earningsView === 'net') {
         const expenseDeduction = includeDailyExpenses ? dailyExpensesTotal : 0;
         const billsDeduction = includeBills ? billsTotal : 0;
@@ -210,21 +181,24 @@ export default function MonthlySummaryScreen() {
       
       setTotals({
         income: totalIncome,
-        commission,
-        cashPayments,
-        paidToMeAmount,
+        commission: totalIncome * (commissionRate / 100),
+        cashPayments: summary.cashPayments,
+        paidToMeAmount: summary.paidToMeAmount,
         yourPay,
         dailyExpenses: dailyExpensesTotal,
         bills: billsTotal,
         finalTakeHome
       });
     } catch (error) {
-      console.error('Error fetching monthly data:', error);
+      console.error('Error fetching weekly data:', error);
     }
   }, [
     currentDate, 
     getJobsByDateRange, 
+    calculateWeeklySummary,
     getTotalDailyExpensesForRange,
+    getUpcomingExpenses,
+    getCurrentWeekGoal,
     isOwner,
     commissionRate,
     user,
@@ -233,33 +207,47 @@ export default function MonthlySummaryScreen() {
     includeBills
   ]);
   
-  const navigateToPreviousMonth = () => {
-    setCurrentDate(subMonths(currentDate, 1));
+  const navigateToPreviousWeek = () => {
+    setCurrentDate(subWeeks(currentDate, 1));
   };
   
-  const navigateToNextMonth = () => {
-    setCurrentDate(addMonths(currentDate, 1));
+  const navigateToNextWeek = () => {
+    setCurrentDate(addWeeks(currentDate, 1));
   };
   
-  const navigateToCurrentMonth = () => {
+  const navigateToCurrentWeek = () => {
     setCurrentDate(new Date());
   };
   
   // Navigation handlers
+  const handleAddJob = () => {
+    navigation.navigate('AddJob' as never);
+  };
+  
+  const handleSetWeeklyGoal = () => {
+    navigation.navigate('SetWeeklyGoal' as never, { 
+      weekStart: weekStart.toISOString() 
+    } as never);
+  };
+  
+  const handleViewSummary = () => {
+    navigation.navigate('WeeklySummary' as never);
+  };
+  
   const handleViewBills = () => {
     navigation.navigate('ExpensesList' as never);
   };
   
-  const handleViewDailyExpenses = () => {
-    navigation.navigate('DailyExpenses' as never);
-  };
-  
-  const handleViewJobDetails = (jobId: string) => {
-    navigation.navigate('JobDetail' as never, { jobId } as never);
-  };
-  
-  const handleAddJob = () => {
-    navigation.navigate('AddJob' as never);
+  const handlePayBills = () => {
+    // Get upcoming bills for the week
+    const upcomingBills = getUpcomingExpenses(
+      weekStart.toISOString(), 
+      weekEnd.toISOString()
+    ).filter(bill => !bill.isPaid);
+    
+    navigation.navigate('PayBills' as never, { 
+      suggestions: upcomingBills 
+    } as never);
   };
   
   // Format currency for display
@@ -271,24 +259,86 @@ export default function MonthlySummaryScreen() {
     });
   };
   
-  // Get payment method breakdowns
-  const paymentBreakdown = calculatePaymentMethodTotals(monthlyJobs);
+  // Render progress bar for weekly goal
+  const renderProgressBar = (progress: number) => {
+    return (
+      <View style={styles.progressBarContainer}>
+        <View style={[styles.progressBar, { width: `${progress}%` }]} />
+      </View>
+    );
+  };
   
   return (
     <ScrollView style={styles.container}>
-      <View style={styles.monthSelector}>
-        <Button icon="chevron-left" onPress={navigateToPreviousMonth} mode="text">
+      <View style={styles.weekSelector}>
+        <Button icon="chevron-left" onPress={navigateToPreviousWeek} mode="text">
           Prev
         </Button>
-        <Button onPress={navigateToCurrentMonth} mode="text">
+        <Button onPress={navigateToCurrentWeek} mode="text">
           Today
         </Button>
-        <Button icon="chevron-right" onPress={navigateToNextMonth} mode="text" contentStyle={{ flexDirection: 'row-reverse' }}>
+        <Button icon="chevron-right" onPress={navigateToNextWeek} mode="text" contentStyle={{ flexDirection: 'row-reverse' }}>
           Next
         </Button>
       </View>
       
-      <Title style={styles.monthTitle}>{monthText}</Title>
+      <Title style={styles.weekTitle}>{weekRangeText}</Title>
+      
+      {/* Weekly Goal Card */}
+      <Card style={styles.goalCard}>
+        <Card.Content>
+          <View style={styles.goalHeader}>
+            <Title>Weekly Goal</Title>
+            <Button 
+              mode="text" 
+              onPress={handleSetWeeklyGoal}
+              icon="pencil"
+            >
+              {weeklyGoal.exists ? 'Update' : 'Set Goal'}
+            </Button>
+          </View>
+          <Divider style={styles.divider} />
+          
+          {weeklyGoal.exists ? (
+            <>
+              <View style={styles.goalRow}>
+                <Text style={styles.goalLabel}>Target Income:</Text>
+                <Text style={styles.goalTarget}>{formatCurrency(weeklyGoal.incomeTarget)}</Text>
+              </View>
+              
+              <View style={styles.goalRow}>
+                <Text style={styles.goalLabel}>Current Income:</Text>
+                <Text style={styles.amount}>{formatCurrency(totals.income)}</Text>
+              </View>
+              
+              <View style={styles.goalRow}>
+                <Text style={styles.goalLabel}>Progress:</Text>
+                <Text style={styles.goalProgress}>{weeklyGoal.progress}%</Text>
+              </View>
+              
+              {renderProgressBar(weeklyGoal.progress)}
+              
+              <View style={styles.goalRow}>
+                <Text style={styles.goalLabel}>Remaining:</Text>
+                <Text style={styles.goalRemaining}>
+                  {formatCurrency(Math.max(0, weeklyGoal.incomeTarget - totals.income))}
+                </Text>
+              </View>
+            </>
+          ) : (
+            <View style={styles.noGoalContainer}>
+              <Text style={styles.noGoalText}>No weekly goal set</Text>
+              <Button 
+                mode="contained" 
+                onPress={handleSetWeeklyGoal}
+                style={styles.setGoalButton}
+              >
+                Set Weekly Goal
+              </Button>
+            </View>
+          )}
+        </Card.Content>
+      </Card>
       
       {/* Add the earning view toggle */}
       <Card style={styles.toggleCard}>
@@ -308,7 +358,7 @@ export default function MonthlySummaryScreen() {
                 onValueChange={setIncludeDailyExpenses}
               />
               <Checkbox 
-                label="Monthly Bills"
+                label="Weekly Bills"
                 value={includeBills}
                 onValueChange={setIncludeBills}
               />
@@ -317,14 +367,24 @@ export default function MonthlySummaryScreen() {
         </Card.Content>
       </Card>
       
+      {/* Weekly Summary Card */}
       <Card style={styles.summaryCard}>
         <Card.Content>
-          <Title>Monthly Summary</Title>
+          <View style={styles.summaryHeader}>
+            <Title>Weekly Earnings</Title>
+            <Button 
+              mode="text" 
+              onPress={handleViewSummary}
+              icon="eye"
+            >
+              Details
+            </Button>
+          </View>
           <Divider style={styles.divider} />
           
           <View style={styles.summaryRow}>
             <Paragraph style={styles.label}>Total Jobs:</Paragraph>
-            <Paragraph>{monthlyJobs.length}</Paragraph>
+            <Paragraph>{weeklyJobs.length}</Paragraph>
           </View>
           
           <View style={styles.summaryRow}>
@@ -382,7 +442,7 @@ export default function MonthlySummaryScreen() {
               
               {includeBills && totals.bills > 0 && (
                 <View style={styles.summaryRow}>
-                  <Paragraph style={styles.label}>Monthly Bills:</Paragraph>
+                  <Paragraph style={styles.label}>Weekly Bills:</Paragraph>
                   <Paragraph style={styles.deductionText}>- {formatCurrency(totals.bills)}</Paragraph>
                 </View>
               )}
@@ -403,134 +463,113 @@ export default function MonthlySummaryScreen() {
         </Card.Content>
       </Card>
       
-      <Title style={styles.jobsTitle}>Jobs This Month ({monthlyJobs.length})</Title>
+      {/* Action Buttons */}
+      <Card style={styles.actionsCard}>
+        <Card.Content>
+          <Title>Weekly Actions</Title>
+          <Divider style={styles.divider} />
+          
+          <View style={styles.actionButtonsContainer}>
+            <Button 
+              mode="contained" 
+              icon="plus"
+              onPress={handleAddJob}
+              style={[styles.actionButton, styles.addJobButton]}
+            >
+              Add Job
+            </Button>
+            
+            <Button 
+              mode="contained" 
+              icon="file-document"
+              onPress={handlePayBills}
+              style={[styles.actionButton, styles.payBillsButton]}
+            >
+              Pay Bills
+            </Button>
+            
+            <Button 
+              mode="outlined" 
+              icon="view-dashboard"
+              onPress={handleViewSummary}
+              style={styles.actionButton}
+            >
+              View Summary
+            </Button>
+            
+            <Button 
+              mode="outlined" 
+              icon="format-list-bulleted"
+              onPress={handleViewBills}
+              style={styles.actionButton}
+            >
+              View Bills
+            </Button>
+          </View>
+        </Card.Content>
+      </Card>
       
-      {monthlyJobs.length === 0 ? (
+      {/* Jobs This Week Card */}
+      <Title style={styles.jobsTitle}>Jobs This Week ({weeklyJobs.length})</Title>
+      
+      {weeklyJobs.length === 0 ? (
         <Card style={styles.noJobsCard}>
           <Card.Content>
-            <Paragraph style={styles.noJobsText}>No jobs recorded for this month</Paragraph>
+            <Paragraph style={styles.noJobsText}>No jobs recorded for this week</Paragraph>
             <Button 
               mode="contained"
               onPress={handleAddJob}
               style={styles.addButton}
             >
-              Add Job
+              Add Your First Job
             </Button>
           </Card.Content>
         </Card>
       ) : (
-        <Card style={styles.jobListCard}>
+        <Card style={styles.jobsCard}>
           <Card.Content>
-            <View style={styles.paymentBreakdown}>
-              <View style={styles.paymentMethod}>
-                <Title style={styles.paymentTitle}>Payment Methods</Title>
-                {paymentBreakdown.map(item => (
-                  <View key={item.method} style={styles.methodRow}>
-                    <Text style={styles.methodName}>{item.method}</Text>
-                    <Text style={styles.methodCount}>{item.count} jobs</Text>
-                    <Text style={styles.methodAmount}>{formatCurrency(item.total)}</Text>
+            {weeklyJobs.map((job) => (
+              <TouchableOpacity 
+                key={job.id}
+                onPress={() => navigation.navigate('JobDetail' as never, { jobId: job.id } as never)}
+                style={[
+                  styles.jobItem,
+                  { borderLeftColor: job.isPaid ? '#4CAF50' : '#F44336' }
+                ]}
+              >
+                <View style={styles.jobInfo}>
+                  <Text style={styles.jobCompany}>{job.companyName || 'Unnamed Job'}</Text>
+                  <Text style={styles.jobAddress}>{format(new Date(job.date), 'EEE')} - {job.address}</Text>
+                  <View style={styles.jobDetails}>
+                    <Text style={styles.jobYards}>{job.yards} yards</Text>
+                    <Text style={styles.jobPaymentMethod}>{job.paymentMethod}</Text>
                   </View>
-                ))}
-              </View>
-            </View>
-            
-            <Divider style={styles.divider} />
-            
-            {/* Group jobs by date with fixed date handling */}
-            {Object.entries(
-              groupItemsByDate(monthlyJobs)
-            )
-              .sort((a, b) => new Date(b[0]).getTime() - new Date(a[0]).getTime())
-              .map(([dateKey, jobs]) => (
-                <View key={dateKey} style={styles.dateGroup}>
-                  <Text style={styles.dateHeader}>
-                    {formatDate(`${dateKey}T00:00:00Z`, 'EEE, MMM d')} - {jobs.length} jobs
-                  </Text>
-                  
-                  {jobs.map(job => (
-                    <TouchableOpacity
-                      key={job.id}
-                      style={styles.jobItem}
-                      onPress={() => handleViewJobDetails(job.id)}
-                    >
-                      <View style={styles.jobDetails}>
-                        <Text style={styles.jobName}>{job.companyName || 'Unnamed Job'}</Text>
-                        <Text style={styles.jobAddress}>{job.city}</Text>
-                        <View style={styles.jobInfoRow}>
-                          <Text style={styles.jobYards}>{job.yards} yards</Text>
-                          {job.isPaidToMe && (
-                            <View style={styles.paidToMeBadge}>
-                              <Text style={styles.paidToMeText}>Paid To Me</Text>
-                            </View>
-                          )}
-                        </View>
-                      </View>
-                      <View style={styles.jobPayment}>
-                        <Text style={[
-                          styles.jobStatus, 
-                          job.isPaid ? styles.paidText : styles.unpaidText
-                        ]}>
-                          {job.isPaid ? 'PAID' : 'UNPAID'}
-                        </Text>
-                        <Text style={styles.jobAmount}>{formatCurrency(job.amount)}</Text>
-                        <Text style={styles.paymentMethod}>{job.paymentMethod}</Text>
-                      </View>
-                    </TouchableOpacity>
-                  ))}
                 </View>
-              ))
-            }
-          </Card.Content>
-        </Card>
-      )}
-      
-      {/* Daily Expenses Summary - Only show if including expenses */}
-      {earningsView === 'net' && includeDailyExpenses && totals.dailyExpenses > 0 && (
-        <Card style={styles.expensesCard}>
-          <Card.Content>
-            <Title>Daily Expenses</Title>
-            <Divider style={styles.divider} />
-            
-            <View style={styles.expensesTotalRow}>
-              <Text style={styles.expensesTotalLabel}>Total Daily Expenses:</Text>
-              <Text style={styles.expensesTotalAmount}>{formatCurrency(totals.dailyExpenses)}</Text>
-            </View>
+                <View style={styles.jobAmount}>
+                  <Text style={[
+                    styles.jobStatus,
+                    job.isPaid ? styles.paidStatus : styles.unpaidStatus
+                  ]}>
+                    {job.isPaid ? 'PAID' : 'UNPAID'}
+                  </Text>
+                  <Text style={styles.jobTotal}>{formatCurrency(job.amount)}</Text>
+                </View>
+              </TouchableOpacity>
+            ))}
             
             <Button 
-              mode="outlined" 
-              icon="receipt"
-              onPress={handleViewDailyExpenses}
-              style={styles.viewButton}
+              mode="outlined"
+              onPress={handleViewSummary}
+              icon="eye"
+              style={styles.viewAllButton}
             >
-              View Expense Details
+              View All Details
             </Button>
           </Card.Content>
         </Card>
       )}
       
-      {/* Bills Summary - Only show if including bills */}
-      {earningsView === 'net' && includeBills && totals.bills > 0 && (
-        <Card style={styles.billsCard}>
-          <Card.Content>
-            <Title>Monthly Bills</Title>
-            <Divider style={styles.divider} />
-            
-            <View style={styles.expensesTotalRow}>
-              <Text style={styles.expensesTotalLabel}>Total Monthly Bills:</Text>
-              <Text style={styles.expensesTotalAmount}>{formatCurrency(totals.bills)}</Text>
-            </View>
-            
-            <Button 
-              mode="outlined" 
-              icon="file-document"
-              onPress={handleViewBills}
-              style={styles.viewButton}
-            >
-              View Bills
-            </Button>
-          </Card.Content>
-        </Card>
-      )}
+    
     </ScrollView>
   );
 }
@@ -616,14 +655,65 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#f5f5f5',
   },
-  monthSelector: {
+  weekSelector: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     padding: 8,
   },
-  monthTitle: {
+  weekTitle: {
     textAlign: 'center',
     marginVertical: 8,
+  },
+  goalCard: {
+    margin: 16,
+    marginBottom: 8,
+    backgroundColor: '#E8F5E9',
+  },
+  goalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  goalRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  goalLabel: {
+    fontWeight: 'bold',
+  },
+  goalTarget: {
+    fontWeight: 'bold',
+    color: '#4CAF50',
+  },
+  goalProgress: {
+    fontWeight: 'bold',
+  },
+  goalRemaining: {
+    fontWeight: 'bold',
+    color: '#FF9800',
+  },
+  progressBarContainer: {
+    height: 10,
+    backgroundColor: '#E0E0E0',
+    borderRadius: 5,
+    marginVertical: 12,
+    overflow: 'hidden',
+  },
+  progressBar: {
+    height: '100%',
+    backgroundColor: '#4CAF50',
+  },
+  noGoalContainer: {
+    alignItems: 'center',
+    padding: 16,
+  },
+  noGoalText: {
+    fontStyle: 'italic',
+    marginBottom: 16,
+  },
+  setGoalButton: {
+    backgroundColor: '#4CAF50',
   },
   toggleCard: {
     margin: 16,
@@ -634,7 +724,13 @@ const styles = StyleSheet.create({
   },
   summaryCard: {
     margin: 16,
+    marginBottom: 8,
     elevation: 4,
+  },
+  summaryHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
   },
   divider: {
     marginVertical: 12,
@@ -668,9 +764,28 @@ const styles = StyleSheet.create({
   negativeAmount: {
     color: '#F44336',
   },
+  actionsCard: {
+    margin: 16,
+    marginBottom: 8,
+  },
+  actionButtonsContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+  },
+  actionButton: {
+    width: '48%',
+    marginBottom: 16,
+  },
+  addJobButton: {
+    backgroundColor: '#2196F3',
+  },
+  payBillsButton: {
+    backgroundColor: '#FF9800',
+  },
   jobsTitle: {
     marginHorizontal: 16,
-    marginTop: 16,
+    marginTop: 8,
   },
   noJobsCard: {
     margin: 16,
@@ -683,51 +798,10 @@ const styles = StyleSheet.create({
   addButton: {
     backgroundColor: '#2196F3',
   },
-  jobListCard: {
+  jobsCard: {
     margin: 16,
+    marginBottom: 80, // Extra padding for FAB
     elevation: 2,
-  },
-  paymentBreakdown: {
-    marginBottom: 16,
-  },
-  paymentMethod: {
-    marginBottom: 8,
-  },
-  paymentTitle: {
-    fontSize: 18,
-    marginBottom: 8,
-  },
-  methodRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 4,
-    paddingVertical: 4,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
-  },
-  methodName: {
-    flex: 1,
-    fontWeight: 'bold',
-  },
-  methodCount: {
-    flex: 1,
-    textAlign: 'center',
-  },
-  methodAmount: {
-    flex: 1,
-    textAlign: 'right',
-    fontWeight: 'bold',
-  },
-  dateGroup: {
-    marginBottom: 16,
-  },
-  dateHeader: {
-    fontWeight: 'bold',
-    fontSize: 16,
-    backgroundColor: '#f0f0f0',
-    padding: 8,
-    borderRadius: 4,
-    marginBottom: 8,
   },
   jobItem: {
     flexDirection: 'row',
@@ -737,12 +811,11 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#f0f0f0',
     borderLeftWidth: 3,
-    borderLeftColor: '#e0e0e0',
   },
-  jobDetails: {
-    flex: 2,
+  jobInfo: {
+    flex: 1,
   },
-  jobName: {
+  jobCompany: {
     fontSize: 16,
     fontWeight: 'bold',
     marginBottom: 4,
@@ -752,28 +825,19 @@ const styles = StyleSheet.create({
     fontSize: 14,
     marginBottom: 4,
   },
-  jobInfoRow: {
+  jobDetails: {
     flexDirection: 'row',
-    alignItems: 'center',
   },
   jobYards: {
     fontSize: 14,
     color: '#616161',
     marginRight: 8,
   },
-  paidToMeBadge: {
-    backgroundColor: '#E3F2FD',
-    borderRadius: 4,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
+  jobPaymentMethod: {
+    fontSize: 14,
+    color: '#616161',
   },
-  paidToMeText: {
-    color: '#2196F3',
-    fontSize: 12,
-    fontWeight: 'bold',
-  },
-  jobPayment: {
-    flex: 1,
+  jobAmount: {
     alignItems: 'flex-end',
     justifyContent: 'center',
   },
@@ -782,47 +846,24 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     marginBottom: 4,
   },
-  paidText: {
+  paidStatus: {
     color: '#4CAF50',
   },
-  unpaidText: {
+  unpaidStatus: {
     color: '#F44336',
   },
-  jobAmount: {
-    fontWeight: 'bold',
-    fontSize: 16,
-    marginBottom: 4,
-  },
-  paymentMethod: {
-    fontSize: 12,
-    color: '#757575',
-  },
-  expensesCard: {
-    marginHorizontal: 16,
-    marginBottom: 16,
-    backgroundColor: '#FFF8E1',
-  },
-  billsCard: {
-    marginHorizontal: 16,
-    marginBottom: 24,
-    backgroundColor: '#E8F5E9',
-  },
-  expensesTotalRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  expensesTotalLabel: {
+  jobTotal: {
     fontWeight: 'bold',
     fontSize: 16,
   },
-  expensesTotalAmount: {
-    fontWeight: 'bold',
-    fontSize: 18,
-    color: '#F44336',
+  viewAllButton: {
+    marginTop: 16,
   },
-  viewButton: {
-    marginTop: 8,
-  }
+  fab: {
+    position: 'absolute',
+    margin: 16,
+    right: 0,
+    bottom: 0,
+    backgroundColor: '#2196F3',
+  },
 });

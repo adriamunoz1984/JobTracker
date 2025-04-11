@@ -69,6 +69,8 @@ export const getWeekRange = (date: Date, weekStartsOn: number = 0): { start: str
   };
 };
 
+
+
 /**
  * Gets ISO date strings for start and end of month
  * @param date Current date
