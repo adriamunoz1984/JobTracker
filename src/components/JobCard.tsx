@@ -13,11 +13,12 @@ interface Job {
   city: string;
   yards: number;
   isPaid: boolean;
-  isPaidToMe?: boolean; // Add the isPaidToMe field
+  isPaidToMe?: boolean;
   paymentMethod: 'Cash' | 'Check' | 'Zelle' | 'Square' | 'Charge';
   amount: number;
   date: string;
   sequenceNumber?: number;
+  totalJobsOnDate?: number; // New prop to know if this is part of multiple jobs
   notes?: string;
 }
 
@@ -79,6 +80,11 @@ const JobCard: React.FC<JobCardProps> = ({ job, onDelete, onTogglePaid }) => {
       await updateJob(updatedJob);
     }
   };
+
+  // Show sequence badge only when there are multiple jobs on the same date
+  const showSequenceBadge = job.totalJobsOnDate && job.totalJobsOnDate > 1;
+  // Always indent if not the first job
+  const shouldIndent = job.sequenceNumber > 1;
   
   return (
     <Card 
@@ -86,7 +92,7 @@ const JobCard: React.FC<JobCardProps> = ({ job, onDelete, onTogglePaid }) => {
           styles.card, 
           { borderLeftColor: statusColor, borderLeftWidth: 4 },
           // Add conditional indentation for secondary jobs
-          job.sequenceNumber > 1 ? styles.secondaryJobCard : null
+          shouldIndent ? styles.secondaryJobCard : null
         ]}
         elevation={2}
       >
@@ -94,7 +100,7 @@ const JobCard: React.FC<JobCardProps> = ({ job, onDelete, onTogglePaid }) => {
         <View style={styles.headerRow}>
           <View style={styles.dateContainer}>
             <Text style={styles.date}>{formattedDate}</Text>
-            {job.sequenceNumber && job.sequenceNumber > 1 && (
+            {showSequenceBadge && (
               <Badge style={styles.sequenceBadge}>Job #{job.sequenceNumber}</Badge>
             )}
           </View>
