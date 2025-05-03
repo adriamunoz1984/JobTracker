@@ -61,6 +61,12 @@ export default function ExpensesListScreen() {
     navigation.navigate('BillCalendar' as never);
   };
 
+  const handleEditExpense = (expense: Expense) => {
+    navigation.navigate('AddExpense', {
+      expenseId: expense.id
+    });
+  };
+
   // Get status label and color for expense
   const getStatusInfo = (expense: Expense) => {
     const dueDate = new Date(expense.dueDate);
@@ -171,7 +177,7 @@ export default function ExpensesListScreen() {
         >
           Calendar View
         </Button>
-      <View style={styles.filterContainer}>
+      {/* <View style={styles.filterContainer}>
         <SegmentedButtons
           value={filterPaid === null ? 'all' : filterPaid ? 'paid' : 'unpaid'}
           onValueChange={(value) => {
@@ -186,7 +192,7 @@ export default function ExpensesListScreen() {
           ]}
           style={styles.segmentedButtons}
         />
-      </View>
+      </View> */}
       
       <Divider style={styles.divider} />
       
@@ -213,8 +219,10 @@ export default function ExpensesListScreen() {
       <FAB
         style={styles.fab}
         icon="plus"
-        onPress={handleAddExpense}
-        label="Expense"
+        onPress={() => navigation.navigate('AddExpense', {
+          mode: 'bill'
+        })}
+        label="Add Bill"
       />
     </View>
   );

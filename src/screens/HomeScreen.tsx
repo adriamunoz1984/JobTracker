@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, FlatList, Text } from 'react-native';
-import { FAB, Searchbar, IconButton, Button, Divider } from 'react-native-paper';
+import { View, StyleSheet, FlatList } from 'react-native';
+import { FAB, Searchbar, IconButton, Button } from 'react-native-paper';
 import { useNavigation } from '@react-navigation/native';
-import { format, endOfWeek, startOfWeek, isSameDay, parseISO } from 'date-fns';
+import { format } from 'date-fns';
 
 import { useJobs } from '../context/JobsContext';
-import JobCard from '../components/JobCard';
+import JobCard from '../components/JobCard'; // Back to using regular JobCard
 import { Job } from '../types';
+import { createSafeDate, toDateString } from '../utils/DateUtil';
 
 export default function HomeScreen() {
   const navigation = useNavigation();
@@ -14,14 +15,15 @@ export default function HomeScreen() {
   const [searchQuery, setSearchQuery] = useState('');
   const [sortNewestFirst, setSortNewestFirst] = useState(true); // Default to newest first
   
-  // Function to group jobs by date and assign sequence numbers
-  const processJobs = (jobsList: Job[]): {jobsWithSequence: Job[], jobsByDate: Record<string, Job[]>} => {
+  // Function to assign sequence numbers to jobs with the same date
+  const assignSequenceNumbers = (jobsList: Job[]): Job[] => {
     // Group jobs by date
     const jobsByDate: Record<string, Job[]> = {};
     
     jobsList.forEach(job => {
-      // Get just the date part (without time)
-      const dateKey = job.date.split('T')[0];
+      // Get just the date part (without time) using createSafeDate
+      const jobDate = createSafeDate(job.date);
+      const dateKey = toDateString(jobDate);
       
       if (!jobsByDate[dateKey]) {
         jobsByDate[dateKey] = [];
@@ -30,48 +32,26 @@ export default function HomeScreen() {
       jobsByDate[dateKey].push(job);
     });
     
-    // Sort each date group by id or createdAt (to maintain original posting order)
+    // Sort each group by id (assuming newer jobs have higher ids)
     // and assign sequence numbers
     const jobsWithSequence: Job[] = [];
     
-    Object.entries(jobsByDate).forEach(([dateKey, dateJobs]) => {
-      // Sort jobs by creation timestamp/id to ensure original posting order
-      const sortedJobs = [...dateJobs].sort((a, b) => {
-        // Use createdAt if available, otherwise use id as a fallback
-        const aTime = a.createdAt ? new Date(a.createdAt).getTime() : parseInt(a.id);
-        const bTime = b.createdAt ? new Date(b.createdAt).getTime() : parseInt(b.id);
-        return aTime - bTime; // Always sort in ascending order (oldest first within the date)
-      });
+    Object.values(jobsByDate).forEach(dateJobs => {
+      // Sort jobs by id (assuming id has some chronological aspect)
+      const sortedJobs = [...dateJobs].sort((a, b) => 
+        parseInt(a.id) - parseInt(b.id)
+      );
       
-      // Assign sequence numbers within the date group
+      // Assign sequence numbers
       sortedJobs.forEach((job, index) => {
         jobsWithSequence.push({
           ...job,
-          sequenceNumber: index + 1, // 1-based sequence number
-          totalJobsOnDate: sortedJobs.length // Add total jobs count for this date
+          sequenceNumber: index + 1
         });
       });
     });
     
-    return { jobsWithSequence, jobsByDate };
-  };
-  
-  // Group jobs by week for display
-  const groupJobsByWeek = (processedJobs: Job[]): Record<string, Job[]> => {
-    const jobsByWeek: Record<string, Job[]> = {};
-    
-    processedJobs.forEach(job => {
-      const jobDate = parseISO(job.date);
-      const weekEnd = format(endOfWeek(jobDate), 'yyyy-MM-dd'); // Saturday
-      
-      if (!jobsByWeek[weekEnd]) {
-        jobsByWeek[weekEnd] = [];
-      }
-      
-      jobsByWeek[weekEnd].push(job);
-    });
-    
-    return jobsByWeek;
+    return jobsWithSequence;
   };
   
   // Filter jobs based on search query
@@ -85,67 +65,17 @@ export default function HomeScreen() {
     : jobs;
 
   // Process jobs with sequence numbers
-  const { jobsWithSequence, jobsByDate } = processJobs(filteredJobs);
+  const processedJobs = assignSequenceNumbers(filteredJobs);
   
-  // Group by week
-  const jobsByWeek = groupJobsByWeek(jobsWithSequence);
-  
-  // Create week section data
-  const weekSections = Object.keys(jobsByWeek)
-    .sort((a, b) => {
-      // Parse dates for comparison
-      const dateA = parseISO(a);
-      const dateB = parseISO(b);
-      // Sort based on the direction
-      return sortNewestFirst ? dateB.getTime() - dateA.getTime() : dateA.getTime() - dateB.getTime();
-    })
-    .map(weekEnd => {
-      const jobs = jobsByWeek[weekEnd];
-      
-      // Group jobs by date first
-      const jobsByDateInWeek: Record<string, Job[]> = {};
-      jobs.forEach(job => {
-        const dateKey = job.date.split('T')[0];
-        if (!jobsByDateInWeek[dateKey]) {
-          jobsByDateInWeek[dateKey] = [];
-        }
-        jobsByDateInWeek[dateKey].push(job);
-      });
-      
-      // Sort the dates based on the sort direction
-      const sortedDates = Object.keys(jobsByDateInWeek).sort((a, b) => {
-        const dateA = new Date(a).getTime();
-        const dateB = new Date(b).getTime();
-        return sortNewestFirst ? dateB - dateA : dateA - dateB;
-      });
-      
-      // Create a new sorted job array, maintaining sequence order within dates
-      const sortedJobs: Job[] = [];
-      sortedDates.forEach(dateKey => {
-        // For each date, sort by sequence number (always ascending)
-        const dateJobs = [...jobsByDateInWeek[dateKey]].sort((a, b) => 
-          (a.sequenceNumber || 1) - (b.sequenceNumber || 1)
-        );
-        
-        // Add all jobs for this date to the final array
-        sortedJobs.push(...dateJobs);
-      });
-      
-      return {
-        weekEnd,
-        jobs: sortedJobs
-      };
-    });
-
-  // Flatten the data for rendering
-  const flatListData = weekSections.flatMap(section => [
-    { 
-      type: 'header', 
-      id: `week-${section.weekEnd}`,
-      weekEnd: section.weekEnd
-    },
-    ...section.jobs.map(job => ({ type: 'job', job }))
-  ]);
+  // Sort jobs by date (based on sortNewestFirst flag)
+  const sortedJobs = [...processedJobs].sort(
+    (a, b) => {
+      // Create safe dates for comparison to avoid timezone issues
+      const dateA = createSafeDate(a.date).getTime();
+      const dateB = createSafeDate(b.date).getTime();
+      return sortNewestFirst ? dateB - dateA : dateA - dateB;
+    }
+  );
 
   const handleSearch = (query: string) => {
     setSearchQuery(query);
@@ -166,39 +96,22 @@ export default function HomeScreen() {
   
   // Handle toggle payment status
   const handleTogglePaid = async (jobId: string, isPaid: boolean) => {
+    console.log('Toggle paid called for job:', jobId, 'New isPaid value:', isPaid);
+    
     const jobToUpdate = jobs.find(job => job.id === jobId);
     if (jobToUpdate) {
+      console.log('Found job to update:', jobToUpdate);
       const updatedJob = { ...jobToUpdate, isPaid: isPaid };
       await updateJob(updatedJob);
+      console.log('Job updated successfully');
+    } else {
+      console.log('Job not found for ID:', jobId);
     }
   };
   
   // Handle job deletion
   const handleDeleteJob = async (jobId: string) => {
     await deleteJob(jobId);
-  };
-
-  // Render item based on type
-  const renderItem = ({ item }: { item: any }) => {
-    if (item.type === 'header') {
-      // Parse the date to display
-      const weekEndDate = parseISO(item.weekEnd);
-      return (
-        <View style={styles.weekHeader}>
-          <Divider style={styles.weekDivider} />
-          <Text style={styles.weekEndText}>Week ending {format(weekEndDate, 'MMM d, yyyy')}</Text>
-          <Divider style={styles.weekDivider} />
-        </View>
-      );
-    } else {
-      return (
-        <JobCard 
-          job={item.job} 
-          onTogglePaid={handleTogglePaid}
-          onDelete={handleDeleteJob}
-        />
-      );
-    }
   };
 
   return (
@@ -231,15 +144,19 @@ export default function HomeScreen() {
       </View>
 
       <FlatList
-        data={flatListData}
-        keyExtractor={(item) => 
-          item.type === 'header' ? item.id : `job-card-${item.job.id}`
-        }
-        renderItem={renderItem}
+        data={sortedJobs}
+        keyExtractor={(item) => `job-card-${item.id}`}
+        renderItem={({ item }) => (
+          <JobCard 
+            job={item} 
+            onTogglePaid={handleTogglePaid}
+            onDelete={handleDeleteJob}
+          />
+        )}
         contentContainerStyle={styles.listContent}
       />
 
-    
+      
     </View>
   );
 }
@@ -271,22 +188,6 @@ const styles = StyleSheet.create({
   listContent: {
     padding: 10,
     paddingBottom: 80, // Space for the FAB
-  },
-  weekHeader: {
-    marginTop: 16,
-    marginBottom: 8,
-  },
-  weekDivider: {
-    height: 1,
-    backgroundColor: '#bdbdbd',
-  },
-  weekEndText: {
-    textAlign: 'center',
-    paddingVertical: 8,
-    fontSize: 14,
-    fontWeight: 'bold',
-    color: '#616161',
-    backgroundColor: '#f0f0f0',
   },
   fab: {
     position: 'absolute',

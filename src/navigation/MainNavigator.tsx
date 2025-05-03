@@ -8,7 +8,7 @@ import { Avatar, IconButton } from 'react-native-paper';
 import { useNavigation } from '@react-navigation/native';
 import { useAuth } from '../context/AuthContext';
 
-// Existing screens
+// Screens
 import HomeScreen from '../screens/HomeScreen';
 import WeeklySummaryScreen from '../screens/WeeklySummaryScreen';
 import MonthlySummaryScreen from '../screens/MonthlySummaryScreen';
@@ -18,13 +18,13 @@ import JobDetailScreen from '../screens/JobDetailScreen';
 
 // Expense screens
 import ExpensesListScreen from '../screens/ExpensesListScreen';
-import AddExpenseScreen from '../screens/AddExpenseScreen';
+import UnifiedAddExpenseScreen from '../screens/UnifiedAddExpenseScreen'; // New unified expense screen
 import ExpenseDetailScreen from '../screens/ExpenseDetailScreen';
 import WeeklyDashboardScreen from '../screens/WeeklyDashBoardScreen';
 import SetWeeklyGoalScreen from '../screens/SetWeeklyGoalScreen';
 import PayBillsScreen from '../screens/PayBillsScreen';
 import BillCalendarScreen from '../screens/BillCalendarScreen';
-// Add any other screens you have
+import BusinessExpensesScreen from '../screens/BusinessExpenseScreen';
 
 const Tab = createMaterialTopTabNavigator();
 const Stack = createStackNavigator();
@@ -124,7 +124,6 @@ function WeeklyStack() {
         component={PayBillsScreen} 
         options={{ title: 'Pay Bills' }} 
       />
-      {/* Add other weekly related screens */}
     </Stack.Navigator>
   );
 }
@@ -171,15 +170,24 @@ function ExpensesStack() {
       />
       <Stack.Screen 
         name="AddExpense" 
-        component={AddExpenseScreen} 
-        options={{ title: 'Add Expense' }} 
+        component={UnifiedAddExpenseScreen} 
+        options={({ route }) => ({ 
+          title: route.params?.mode === 'bill' ? 'Add Bill' : 
+                 route.params?.mode === 'job' ? 'Add Job Expense' : 
+                 route.params?.mode === 'business' ? 'Add Business Expense' : 
+                 route.params?.expenseId ? 'Edit Expense' : 'Add Expense'
+        })}
       />
       <Stack.Screen 
         name="BillCalendar" 
         component={BillCalendarScreen} 
         options={{ title: 'Bill Calendar' }} 
       />
-      {/* Add other expense related screens */}
+      <Stack.Screen 
+        name="BusinessExpenses" 
+        component={BusinessExpensesScreen} 
+        options={{ title: 'Business Expenses' }} 
+      />
     </Stack.Navigator>
   );
 }

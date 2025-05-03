@@ -58,15 +58,16 @@ export default function AddJobScreen() {
       return;
     }
 
-    // Create job object
+    // Create job object with proper date handling
     const jobData = {
-      date: date.toISOString(),
+      // Important fix: Convert date to ISO string at noon UTC to avoid timezone issues
+      date: new Date(date.getFullYear(), date.getMonth(), date.getDate(), 12, 0, 0, 0).toISOString(),
       companyName: companyName.trim() || undefined,
       address: address.trim(),
       city: city.trim(),
       yards: parseFloat(yards),
       isPaid,
-      isPaidToMe, // Include the isPaidToMe field
+      isPaidToMe,
       paymentMethod,
       amount: parseFloat(amount),
       checkNumber: paymentMethod === 'Check' ? checkNumber.trim() : undefined,

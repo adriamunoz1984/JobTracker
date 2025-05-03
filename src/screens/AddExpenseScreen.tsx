@@ -6,17 +6,22 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import { format } from 'date-fns';
 
 import { useExpenses } from '../context/ExpensesContext';
+import { useAuth } from '../context/AuthContext';
 import { Expense, ExpenseCategory, RecurrenceType } from '../types';
 
 export default function AddExpenseScreen() {
   const navigation = useNavigation();
   const route = useRoute();
   const { addExpense, updateExpense, getExpenseById } = useExpenses();
+  const { user } = useAuth();
   
   // Check if we're editing an existing expense
   const editExpenseId = route.params?.expenseId as string | undefined;
   const [isEditMode, setIsEditMode] = useState(!!editExpenseId);
   const [existingExpense, setExistingExpense] = useState<Expense | undefined>(undefined);
+  
+  // Determine if user is owner (for business expense flag)
+  const isOwner = user?.role === 'owner';
   
   // Form state
   const [name, setName] = useState('');
@@ -27,6 +32,7 @@ export default function AddExpenseScreen() {
   const [category, setCategory] = useState<ExpenseCategory>('Fixed');
   const [recurrence, setRecurrence] = useState<RecurrenceType>('Monthly');
   const [notes, setNotes] = useState('');
+  const [isBusinessExpense, setIsBusinessExpense] = useState(false);
   
   // Category UI state
   const [showCategories, setShowCategories] = useState(false);
@@ -41,6 +47,15 @@ export default function AddExpenseScreen() {
     { value: 'Personal', label: 'Personal', icon: 'account', color: '#E91E63' },
     { value: 'Other', label: 'Other', icon: 'dots-horizontal', color: '#607D8B' }
   ]);
+
+  // For editing an existing job expense
+    const handleEditExpense = (expenseId: string) => {
+      navigation.navigate('AddExpense', {
+        expenseId: expenseId,
+        mode: 'job',
+        jobId: job.id
+      });
+    };
   
   // Load existing expense data if in edit mode
   useEffect(() => {
@@ -55,6 +70,7 @@ export default function AddExpenseScreen() {
         setCategory(expense.category);
         setRecurrence(expense.recurrence);
         setNotes(expense.notes || '');
+        setIsBusinessExpense(expense.isBusinessExpense || false);
       }
     }
   }, [editExpenseId, getExpenseById]);
@@ -86,7 +102,8 @@ export default function AddExpenseScreen() {
         recurrence,
         notes: notes.trim() || undefined,
         isDailyExpense: false, // Mark as a regular expense (not daily)
-        affectsEarnings: false, // Regular expenses don't affect earnings calculation
+        affectsEarnings: false, // Regular expenses don't affect earnings
+        isBusinessExpense: isOwner ? isBusinessExpense : false, // Only apply if user is owner
       };
       
       if (isEditMode && existingExpense) {
@@ -161,14 +178,14 @@ export default function AddExpenseScreen() {
         />
         
         {/* Due Date */}
-        <Text style={styles.dateLabel}>Due Date: {format(dueDate, 'MMMM dd, yyyy')}</Text>
+        <Text style={styles.dateLabel}>Date set -  {format(dueDate, 'MMMM dd, yyyy')}</Text>
         <Button
           mode="outlined"
           onPress={showDatepicker}
           style={styles.dateButton}
           icon="calendar"
         >
-          Select Due Date
+          Select Date
         </Button>
         
         {showDatePicker && (
@@ -181,10 +198,18 @@ export default function AddExpenseScreen() {
         )}
         
         {/* Paid Status */}
-        <View style={styles.switchContainer}>
+        {/* <View style={styles.switchContainer}>
           <Text>Already Paid</Text>
           <Switch value={isPaid} onValueChange={setIsPaid} />
-        </View>
+        </View> */}
+        
+        {/* Business Expense Option (owner only) */}
+        {isOwner && (
+          <View style={styles.switchContainer}>
+            <Text>Count as Business Expense</Text>
+            <Switch value={isBusinessExpense} onValueChange={setIsBusinessExpense} />
+          </View>
+        )}
         
         <Divider style={styles.divider} />
         
@@ -238,11 +263,13 @@ export default function AddExpenseScreen() {
             </View>
             
             <FAB
-              style={styles.addCategoryButton}
-              small
+              style={styles.fab}
               icon="plus"
-              label="Add Category"
-              onPress={() => setShowAddCategoryDialog(true)}
+              onPress={() => navigation.navigate('AddExpense', {
+                mode: 'job',
+                jobId: job.id
+              })}
+              label="Add Expense"
             />
           </View>
         )}
@@ -269,7 +296,7 @@ export default function AddExpenseScreen() {
         <Divider style={styles.divider} />
         
         {/* Recurrence */}
-        <Text style={styles.sectionLabel}>Recurrence</Text>
+        {/* <Text style={styles.sectionLabel}>Recurrence</Text>
         <SegmentedButtons
           value={recurrence}
           onValueChange={(value) => setRecurrence(value as RecurrenceType)}
@@ -279,10 +306,10 @@ export default function AddExpenseScreen() {
             { value: 'Weekly', label: 'Weekly' },
           ]}
           style={styles.segmentedButtons}
-        />
+        /> */}
         
         {/* More recurrence options */}
-        <SegmentedButtons
+        {/* <SegmentedButtons
           value={recurrence}
           onValueChange={(value) => setRecurrence(value as RecurrenceType)}
           buttons={[
@@ -291,7 +318,7 @@ export default function AddExpenseScreen() {
             { value: 'Yearly', label: 'Yearly' },
           ]}
           style={styles.segmentedButtons}
-        />
+        /> */}
         
         {/* Notes */}
         <TextInput
@@ -316,6 +343,8 @@ export default function AddExpenseScreen() {
     </ScrollView>
   );
 }
+
+
 
 const styles = StyleSheet.create({
   container: {

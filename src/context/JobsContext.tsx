@@ -4,7 +4,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { format } from 'date-fns';
 import { Job, PaymentMethod, WeeklySummary } from '../types';
 import { useAuth } from './AuthContext';
-import { isDateInRange, toDateString, createLocalDate } from '../utils/DateUtils';
+import { createSafeDate, isDateInRange, toDateString, createLocalDate } from '../utils/DateUtil';
 
 interface JobsContextType {
   jobs: Job[];
@@ -107,7 +107,7 @@ export const JobsProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return jobs.find((job) => job.id === id);
   };
 
-  const getJobsByDateRange = (startDate: string, endDate: string): Job[] => {
+  /*const getJobsByDateRange = (startDate: string, endDate: string): Job[] => {
     try {
       console.log(`Getting jobs between ${startDate} and ${endDate}`);
       
@@ -128,6 +128,34 @@ export const JobsProvider: React.FC<{ children: React.ReactNode }> = ({ children
           
           // Alternative using the utility function:
           // return isDateInRange(job.date, startDate, endDate);
+        } catch (error) {
+          console.error(`Error filtering job ${job.id}:`, error);
+          return false;
+        }
+      });
+      
+      console.log(`Found ${jobsInRange.length} jobs in range`);
+      return jobsInRange;
+    } catch (error) {
+      console.error('Error in getJobsByDateRange:', error);
+      return [];
+    }
+  };*/
+  const getJobsByDateRange = (startDate: string, endDate: string): Job[] => {
+    try {
+      console.log(`Getting jobs between ${startDate} and ${endDate}`);
+      
+      // Create safe date objects for comparison using the createSafeDate utility
+      const start = createSafeDate(startDate);
+      const end = createSafeDate(endDate);
+      
+      const jobsInRange = jobs.filter((job) => {
+        try {
+          // Create a safe date object from the job date
+          const jobDate = createSafeDate(job.date);
+          
+          // Compare dates directly as Date objects
+          return jobDate >= start && jobDate <= end;
         } catch (error) {
           console.error(`Error filtering job ${job.id}:`, error);
           return false;
