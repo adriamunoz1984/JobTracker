@@ -1,88 +1,22 @@
-// This is a simplified version of the Monthly Summary screen
-// that avoids using potentially problematic functions
-
+// src/screens/MonthlySummaryScreen.tsx - simplified version without expense references
 import React, { useState, useEffect } from 'react';
 import { View, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { Card, Title, Paragraph, Button, Divider, Text } from 'react-native-paper';
-import { format, startOfMonth, endOfMonth, addMonths, subMonths } from 'date-fns';
 import { useNavigation } from '@react-navigation/native';
+import { format, startOfMonth, endOfMonth, addMonths, subMonths } from 'date-fns';
 
 import { useJobs } from '../context/JobsContext';
-import { useExpenses } from '../context/ExpensesContext';
 import { useAuth } from '../context/AuthContext';
-import { Job } from '../types';
-
-// Simple Toggle Component
-const EarningsToggle = ({ currentView, onToggle }) => {
-  return (
-    <View style={toggleStyles.container}>
-      <Text style={toggleStyles.label}>Show earnings:</Text>
-      <View style={toggleStyles.buttonGroup}>
-        <TouchableOpacity 
-          onPress={() => onToggle('gross')}
-          style={[
-            toggleStyles.button,
-            currentView === 'gross' ? toggleStyles.activeButton : toggleStyles.inactiveButton
-          ]}
-        >
-          <Text style={[
-            toggleStyles.buttonText,
-            currentView === 'gross' ? toggleStyles.activeButtonText : toggleStyles.inactiveButtonText
-          ]}>
-            Before Expenses
-          </Text>
-        </TouchableOpacity>
-        
-        <TouchableOpacity 
-          onPress={() => onToggle('net')}
-          style={[
-            toggleStyles.button,
-            currentView === 'net' ? toggleStyles.activeButton : toggleStyles.inactiveButton
-          ]}
-        >
-          <Text style={[
-            toggleStyles.buttonText,
-            currentView === 'net' ? toggleStyles.activeButtonText : toggleStyles.inactiveButtonText
-          ]}>
-            After Expenses
-          </Text>
-        </TouchableOpacity>
-      </View>
-    </View>
-  );
-};
-
-// Simple Checkbox Component
-const Checkbox = ({ label, value, onValueChange }) => {
-  return (
-    <TouchableOpacity 
-      style={toggleStyles.checkbox}
-      onPress={() => onValueChange(!value)}
-    >
-      <View style={[
-        toggleStyles.checkboxBox,
-        value ? toggleStyles.checkboxChecked : toggleStyles.checkboxUnchecked
-      ]}>
-        {value && <Text style={toggleStyles.checkmark}>✓</Text>}
-      </View>
-      <Text style={toggleStyles.checkboxLabel}>{label}</Text>
-    </TouchableOpacity>
-  );
-};
 
 export default function MonthlySummaryScreen() {
   const navigation = useNavigation();
   const { getJobsByDateRange } = useJobs();
-  const { getTotalDailyExpensesForRange, expenses } = useExpenses();
   const { user } = useAuth();
   
   const [currentDate, setCurrentDate] = useState(new Date());
-  const [monthlyJobs, setMonthlyJobs] = useState<Job[]>([]);
   
   // State for display toggles
-  const [earningsView, setEarningsView] = useState<'gross' | 'net'>('net');
-  const [includeDailyExpenses, setIncludeDailyExpenses] = useState(true);
-  const [includeBills, setIncludeBills] = useState(true);
+  const [earningsView, setEarningsView] = useState('gross');
   
   // Calculate start and end of month
   const monthStart = startOfMonth(currentDate);
@@ -102,51 +36,28 @@ export default function MonthlySummaryScreen() {
     cashPayments: 0,
     paidToMeAmount: 0,
     yourPay: 0,
-    dailyExpenses: 0,
-    bills: 0,
+    totalUnpaid: 0,
     finalTakeHome: 0
   });
-  
-  // Get monthly bills total (manual implementation to avoid using missing functions)
-  const getBillsTotal = () => {
-    try {
-      const start = monthStart;
-      const end = monthEnd;
-      
-      // Filter expenses that are regular bills (not daily expenses)
-      return expenses
-        .filter(expense => {
-          if (expense.isDailyExpense) return false;
-          
-          const dueDate = new Date(expense.dueDate);
-          return dueDate >= start && dueDate <= end;
-        })
-        .reduce((sum, bill) => sum + bill.amount, 0);
-    } catch (error) {
-      console.error('Error calculating bills total:', error);
-      return 0;
-    }
-  };
   
   // Fetch data and calculate totals
   useEffect(() => {
     try {
+      // Format dates for API calls
+      const startStr = monthStart.toISOString();
+      const endStr = monthEnd.toISOString();
+      
       // Get jobs for the current month
-      const jobs = getJobsByDateRange(monthStart.toISOString(), monthEnd.toISOString());
-      setMonthlyJobs(jobs);
-      
-      // Get daily expenses
-      const dailyExpensesTotal = getTotalDailyExpensesForRange(
-        monthStart.toISOString(), 
-        monthEnd.toISOString()
-      );
-      
-      // Get bills total
-      const billsTotal = getBillsTotal();
+      const jobs = getJobsByDateRange(startStr, endStr);
       
       // Calculate income
       const totalIncome = jobs.reduce((sum, job) => sum + job.amount, 0);
       
+      // Calculate unpaid amount
+      const totalUnpaid = jobs
+        .filter(job => !job.isPaid)
+        .reduce((sum, job) => sum + job.amount, 0);
+        
       // Calculate cash payments
       const cashPayments = jobs
         .filter(job => job.isPaid && job.paymentMethod === 'Cash')
@@ -173,39 +84,24 @@ export default function MonthlySummaryScreen() {
         yourPay -= paidToMeAmount;
       }
       
-      // Calculate final take home (after applicable expenses)
-      let finalTakeHome = yourPay;
-      
-      // These deductions will be applied based on toggle state
-      if (earningsView === 'net') {
-        const expenseDeduction = includeDailyExpenses ? dailyExpensesTotal : 0;
-        const billsDeduction = includeBills ? billsTotal : 0;
-        finalTakeHome -= (expenseDeduction + billsDeduction);
-      }
-      
       setTotals({
         income: totalIncome,
         commission,
         cashPayments,
         paidToMeAmount,
         yourPay,
-        dailyExpenses: dailyExpensesTotal,
-        bills: billsTotal,
-        finalTakeHome
+        totalUnpaid,
+        finalTakeHome: yourPay
       });
     } catch (error) {
       console.error('Error fetching monthly data:', error);
     }
   }, [
     currentDate, 
-    getJobsByDateRange, 
-    getTotalDailyExpensesForRange,
+    getJobsByDateRange,
     isOwner,
     commissionRate,
-    user,
-    earningsView,
-    includeDailyExpenses,
-    includeBills
+    user
   ]);
   
   const navigateToPreviousMonth = () => {
@@ -229,6 +125,46 @@ export default function MonthlySummaryScreen() {
     });
   };
   
+  // Simple toggle component
+  const EarningsToggle = ({ currentView, onToggle }) => {
+    return (
+      <View style={styles.toggleContainer}>
+        <Text style={styles.toggleLabel}>Show earnings:</Text>
+        <View style={styles.buttonGroup}>
+          <TouchableOpacity 
+            onPress={() => onToggle('gross')}
+            style={[
+              styles.toggleButton,
+              currentView === 'gross' ? styles.activeButton : styles.inactiveButton
+            ]}
+          >
+            <Text style={[
+              styles.buttonText,
+              currentView === 'gross' ? styles.activeButtonText : styles.inactiveButtonText
+            ]}>
+              Gross Income
+            </Text>
+          </TouchableOpacity>
+          
+          <TouchableOpacity 
+            onPress={() => onToggle('net')}
+            style={[
+              styles.toggleButton,
+              currentView === 'net' ? styles.activeButton : styles.inactiveButton
+            ]}
+          >
+            <Text style={[
+              styles.buttonText,
+              currentView === 'net' ? styles.activeButtonText : styles.inactiveButtonText
+            ]}>
+              Net Income
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  };
+  
   return (
     <ScrollView style={styles.container}>
       <View style={styles.monthSelector}>
@@ -245,46 +181,19 @@ export default function MonthlySummaryScreen() {
       
       <Title style={styles.monthTitle}>{monthText}</Title>
       
-      {/* Add the earning view toggle */}
-      <Card style={styles.toggleCard}>
-        <Card.Content>
-          <EarningsToggle 
-            currentView={earningsView}
-            onToggle={setEarningsView}
-          />
-          
-          {/* Add expense inclusion checkboxes */}
-          {earningsView === 'net' && (
-            <View style={styles.checkboxContainer}>
-              <Text style={styles.checkboxTitle}>Include in calculations:</Text>
-              <Checkbox 
-                label="Daily Expenses"
-                value={includeDailyExpenses}
-                onValueChange={setIncludeDailyExpenses}
-              />
-              <Checkbox 
-                label="Monthly Bills"
-                value={includeBills}
-                onValueChange={setIncludeBills}
-              />
-            </View>
-          )}
-        </Card.Content>
-      </Card>
-      
       <Card style={styles.summaryCard}>
         <Card.Content>
           <Title>Monthly Summary</Title>
           <Divider style={styles.divider} />
           
           <View style={styles.summaryRow}>
-            <Paragraph style={styles.label}>Total Jobs:</Paragraph>
-            <Paragraph>{monthlyJobs.length}</Paragraph>
+            <Paragraph style={styles.label}>Total Income:</Paragraph>
+            <Paragraph style={styles.amount}>{formatCurrency(totals.income)}</Paragraph>
           </View>
           
           <View style={styles.summaryRow}>
-            <Paragraph style={styles.label}>Total Income:</Paragraph>
-            <Paragraph style={styles.amount}>{formatCurrency(totals.income)}</Paragraph>
+            <Paragraph style={styles.label}>Unpaid Amount:</Paragraph>
+            <Paragraph style={styles.unpaidAmount}>{formatCurrency(totals.totalUnpaid)}</Paragraph>
           </View>
           
           {/* Show different calculations based on role */}
@@ -316,36 +225,10 @@ export default function MonthlySummaryScreen() {
                 </View>
               )}
               
+              <Divider style={styles.divider} />
+              
               <View style={styles.summaryRow}>
                 <Paragraph style={styles.label}>Your Pay:</Paragraph>
-                <Paragraph style={styles.yourPay}>{formatCurrency(totals.yourPay)}</Paragraph>
-              </View>
-            </>
-          )}
-          
-          {/* Only show expense deductions if viewing net earnings */}
-          {earningsView === 'net' && (
-            <>
-              <Divider style={styles.divider} />
-              
-              {includeDailyExpenses && totals.dailyExpenses > 0 && (
-                <View style={styles.summaryRow}>
-                  <Paragraph style={styles.label}>Daily Expenses:</Paragraph>
-                  <Paragraph style={styles.deductionText}>- {formatCurrency(totals.dailyExpenses)}</Paragraph>
-                </View>
-              )}
-              
-              {includeBills && totals.bills > 0 && (
-                <View style={styles.summaryRow}>
-                  <Paragraph style={styles.label}>Monthly Bills:</Paragraph>
-                  <Paragraph style={styles.deductionText}>- {formatCurrency(totals.bills)}</Paragraph>
-                </View>
-              )}
-              
-              <Divider style={styles.divider} />
-              
-              <View style={styles.summaryRow}>
-                <Paragraph style={styles.label}>Final Take Home:</Paragraph>
                 <Paragraph style={[
                   styles.netEarnings,
                   totals.finalTakeHome >= 0 ? styles.positiveAmount : styles.negativeAmount
@@ -358,19 +241,66 @@ export default function MonthlySummaryScreen() {
         </Card.Content>
       </Card>
       
-      {/* Job list and other cards would go here */}
-      {/* ... */}
-      
+      {/* You could add more monthly specific cards here */}
     </ScrollView>
   );
 }
 
-// Styles for the toggle components
-const toggleStyles = StyleSheet.create({
+const styles = StyleSheet.create({
   container: {
+    flex: 1,
+    backgroundColor: '#f5f5f5',
+  },
+  monthSelector: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    padding: 8,
+  },
+  monthTitle: {
+    textAlign: 'center',
+    marginVertical: 8,
+  },
+  summaryCard: {
+    margin: 16,
+    elevation: 4,
+  },
+  divider: {
     marginVertical: 12,
   },
+  summaryRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
   label: {
+    fontWeight: 'bold',
+  },
+  amount: {
+    fontWeight: 'bold',
+  },
+  unpaidAmount: {
+    color: '#F44336',
+    fontWeight: 'bold',
+  },
+  deductionText: {
+    color: '#F44336',
+    fontWeight: 'bold',
+  },
+  netEarnings: {
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+  positiveAmount: {
+    color: '#4CAF50',
+  },
+  negativeAmount: {
+    color: '#F44336',
+  },
+  // Toggle styles
+  toggleContainer: {
+    marginVertical: 12,
+  },
+  toggleLabel: {
     marginBottom: 8,
     fontWeight: 'bold',
   },
@@ -382,7 +312,7 @@ const toggleStyles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#2196F3',
   },
-  button: {
+  toggleButton: {
     flex: 1,
     paddingVertical: 8,
     alignItems: 'center',
@@ -403,100 +333,4 @@ const toggleStyles = StyleSheet.create({
   inactiveButtonText: {
     color: '#2196F3',
   },
-  checkbox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginVertical: 6,
-  },
-  checkboxBox: {
-    width: 20,
-    height: 20,
-    borderRadius: 3,
-    borderWidth: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 10,
-  },
-  checkboxChecked: {
-    backgroundColor: '#2196F3',
-    borderColor: '#2196F3',
-  },
-  checkboxUnchecked: {
-    backgroundColor: 'transparent',
-    borderColor: '#757575',
-  },
-  checkmark: {
-    color: 'white',
-    fontSize: 14,
-    fontWeight: 'bold',
-  },
-  checkboxLabel: {
-    fontSize: 16,
-  },
-  checkboxTitle: {
-    fontWeight: 'bold',
-    marginBottom: 8,
-    marginTop: 12,
-  }
-});
-
-// Main styles
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#f5f5f5',
-  },
-  monthSelector: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    padding: 8,
-  },
-  monthTitle: {
-    textAlign: 'center',
-    marginVertical: 8,
-  },
-  toggleCard: {
-    margin: 16,
-    marginBottom: 8,
-  },
-  checkboxContainer: {
-    marginTop: 8,
-  },
-  summaryCard: {
-    margin: 16,
-    elevation: 4,
-  },
-  divider: {
-    marginVertical: 12,
-  },
-  summaryRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 8,
-  },
-  label: {
-    fontWeight: 'bold',
-  },
-  amount: {
-    fontWeight: 'bold',
-  },
-  deductionText: {
-    color: '#F44336',
-    fontWeight: 'bold',
-  },
-  yourPay: {
-    fontWeight: 'bold',
-    color: '#2196F3',
-  },
-  netEarnings: {
-    fontSize: 18,
-    fontWeight: 'bold',
-  },
-  positiveAmount: {
-    color: '#4CAF50',
-  },
-  negativeAmount: {
-    color: '#F44336',
-  },
-  // Other styles would go here...
 });

@@ -10,7 +10,7 @@ import HomeScreen from '../screens/HomeScreen';
 import WeeklyDashboardScreen from '../screens/WeeklyDashBoardScreen';
 import MonthlySummaryScreen from '../screens/MonthlySummaryScreen';
 import YearlySummaryScreen from '../screens/YearlySummaryScreen';
-import ExpensesListScreen from '../screens/ExpensesListScreen';
+
 
 export default function TabViewNavigator() {
   const layout = useWindowDimensions();
@@ -19,7 +19,7 @@ export default function TabViewNavigator() {
   // Define the tabs
   const [index, setIndex] = useState(0);
   const [routes] = useState([
-    { key: 'home', title: 'Home' },
+    { key: 'home',   title: 'Home' },
     { key: 'weekly', title: 'Weekly' },
     { key: 'monthly', title: 'Monthly' },
     { key: 'yearly', title: 'Yearly' },

@@ -16,7 +16,6 @@ import HomeScreen from '../screens/HomeScreen';
 import WeeklyDashboardScreen from '../screens/WeeklyDashBoardScreen';
 import MonthlySummaryScreen from '../screens/MonthlySummaryScreen';
 import YearlySummaryScreen from '../screens/YearlySummaryScreen';
-import ExpensesListScreen from '../screens/ExpensesListScreen';
 
 const { width } = Dimensions.get('window');
 const SWIPE_THRESHOLD = width * 0.25;
@@ -32,7 +31,6 @@ export default function SwipeableTabNavigator() {
     { key: 'weekly', title: 'Weekly', icon: 'calendar' },
     { key: 'monthly', title: 'Monthly', icon: 'bar-chart' },
     { key: 'yearly', title: 'Yearly', icon: 'stats-chart' },
-    { key: 'expenses', title: 'Expenses', icon: 'cash' },
   ]);
   
   // When index changes from tab press, reset animation
@@ -96,8 +94,6 @@ export default function SwipeableTabNavigator() {
         return <MonthlySummaryScreen />;
       case 'yearly':
         return <YearlySummaryScreen />;
-      case 'expenses':
-        return <ExpensesListScreen />;
       default:
         return null;
     }
@@ -119,9 +115,6 @@ export default function SwipeableTabNavigator() {
         break;
       case 'yearly':
         iconName = focused ? 'stats-chart' : 'stats-chart-outline';
-        break;
-      case 'expenses':
-        iconName = focused ? 'cash' : 'cash-outline';
         break;
       default:
         iconName = 'circle';

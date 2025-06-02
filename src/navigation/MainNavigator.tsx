@@ -8,23 +8,13 @@ import { Avatar, IconButton } from 'react-native-paper';
 import { useNavigation } from '@react-navigation/native';
 import { useAuth } from '../context/AuthContext';
 
-// Existing screens
+// Import screens
 import HomeScreen from '../screens/HomeScreen';
-import WeeklySummaryScreen from '../screens/WeeklySummaryScreen';
+import WeeklyDashboardScreen from '../screens/WeeklyDashBoardScreen';
 import MonthlySummaryScreen from '../screens/MonthlySummaryScreen';
 import YearlySummaryScreen from '../screens/YearlySummaryScreen';
 import AddJobScreen from '../screens/AddjobScreen';
 import JobDetailScreen from '../screens/JobDetailScreen';
-
-// Expense screens
-import ExpensesListScreen from '../screens/ExpensesListScreen';
-import AddExpenseScreen from '../screens/AddExpenseScreen';
-import ExpenseDetailScreen from '../screens/ExpenseDetailScreen';
-import WeeklyDashboardScreen from '../screens/WeeklyDashBoardScreen';
-import SetWeeklyGoalScreen from '../screens/SetWeeklyGoalScreen';
-import PayBillsScreen from '../screens/PayBillsScreen';
-import BillCalendarScreen from '../screens/BillCalendarScreen';
-// Add any other screens you have
 
 const Tab = createMaterialTopTabNavigator();
 const Stack = createStackNavigator();
@@ -109,22 +99,6 @@ function WeeklyStack() {
         component={WeeklyDashboardScreen} 
         options={{ title: 'Weekly Dashboard' }} 
       />
-      <Stack.Screen 
-        name="WeeklySummary" 
-        component={WeeklySummaryScreen} 
-        options={{ title: 'Weekly Summary' }} 
-      />
-      <Stack.Screen 
-        name="SetWeeklyGoal" 
-        component={SetWeeklyGoalScreen} 
-        options={{ title: 'Set Weekly Goal' }} 
-      />
-      <Stack.Screen 
-        name="PayBills" 
-        component={PayBillsScreen} 
-        options={{ title: 'Pay Bills' }} 
-      />
-      {/* Add other weekly related screens */}
     </Stack.Navigator>
   );
 }
@@ -155,35 +129,6 @@ function YearlyStack() {
   );
 }
 
-// Expenses stack
-function ExpensesStack() {
-  return (
-    <Stack.Navigator screenOptions={commonScreenOptions}>
-      <Stack.Screen 
-        name="ExpensesList" 
-        component={ExpensesListScreen} 
-        options={{ title: 'My Expenses' }} 
-      />
-      <Stack.Screen 
-        name="ExpenseDetail" 
-        component={ExpenseDetailScreen} 
-        options={{ title: 'Expense Details' }} 
-      />
-      <Stack.Screen 
-        name="AddExpense" 
-        component={AddExpenseScreen} 
-        options={{ title: 'Add Expense' }} 
-      />
-      <Stack.Screen 
-        name="BillCalendar" 
-        component={BillCalendarScreen} 
-        options={{ title: 'Bill Calendar' }} 
-      />
-      {/* Add other expense related screens */}
-    </Stack.Navigator>
-  );
-}
-
 // Main tab navigation
 export default function MainNavigator() {
   const dimensions = useWindowDimensions();
@@ -202,8 +147,6 @@ export default function MainNavigator() {
             iconName = focused ? 'bar-chart' : 'bar-chart-outline';
           } else if (route.name === 'Yearly') {
             iconName = focused ? 'stats-chart' : 'stats-chart-outline';
-          } else if (route.name === 'Expenses') {
-            iconName = focused ? 'cash' : 'cash-outline';
           }
 
           return <Ionicons name={iconName} size={24} color={color} />;
@@ -225,7 +168,6 @@ export default function MainNavigator() {
       <Tab.Screen name="Weekly" component={WeeklyStack} />
       <Tab.Screen name="Monthly" component={MonthlyStack} />
       <Tab.Screen name="Yearly" component={YearlyStack} />
-      <Tab.Screen name="Expenses" component={ExpensesStack} />
     </Tab.Navigator>
   );
 }
