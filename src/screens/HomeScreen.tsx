@@ -3,7 +3,7 @@ import { View, StyleSheet, FlatList, Text } from 'react-native';
 import { FAB, Searchbar, IconButton, Button, Divider } from 'react-native-paper';
 import { useNavigation } from '@react-navigation/native';
 import { format, endOfWeek, startOfWeek, isSameDay, parseISO } from 'date-fns';
-
+import SyncStatus from '../components/SyncStatus'
 import { useJobs } from '../context/JobsContext';
 import JobCard from '../components/JobCard';
 import { Job } from '../types';
@@ -203,6 +203,7 @@ export default function HomeScreen() {
 
   return (
     <View style={styles.container}>
+      <SyncStatus />
       <View style={styles.searchContainer}>
         <Searchbar
           placeholder="Search jobs..."

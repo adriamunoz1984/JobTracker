@@ -1,9 +1,9 @@
 // App.tsx - Updated to show login screen first
 import React from 'react';
 import { View } from 'react-native';
-import { NavigationContainer } from '@react-navigation/native';
+import { NavigationContainer, useNavigation } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
-import { Provider as PaperProvider, ActivityIndicator, Text } from 'react-native-paper';
+import { Provider as PaperProvider, ActivityIndicator, Text, FAB } from 'react-native-paper';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { StatusBar } from 'expo-status-bar';
 
@@ -19,6 +19,9 @@ import ForgotPasswordScreen from './src/screens/ForgotPasswordScreen';
 // Main App Screens
 import MainNavigator from './src/navigation/MainNavigator';
 import ProfileScreen from './src/screens/ProfileScreen';
+
+// Components
+import DraggableFAB from './src/components/DraggableFAB';
 
 // Screen imports for individual screens that aren't in MainNavigator
 import AddJobScreen from './src/screens/AddjobScreen';
@@ -48,6 +51,17 @@ function AuthNavigator() {
 
   return (
     <NavigationContainer>
+      <AppNavigatorWithFAB user={user} />
+    </NavigationContainer>
+  );
+}
+
+// Separate component for navigation + FAB that can use useNavigation
+function AppNavigatorWithFAB({ user }: { user: any }) {
+  const navigation = useNavigation();
+
+  return (
+    <>
       <Stack.Navigator screenOptions={{ headerShown: false }}>
         {!user ? (
           // Authentication Stack - shown when user is not logged in
@@ -83,7 +97,8 @@ function AuthNavigator() {
                 title: 'Add Job',
                 headerStyle: { backgroundColor: '#2196F3' },
                 headerTintColor: '#fff',
-                headerTitleAlign: 'center'
+                headerTitleAlign: 'center',
+                presentation: 'modal'
               }}
             />
             
@@ -113,7 +128,16 @@ function AuthNavigator() {
           </>
         )}
       </Stack.Navigator>
-    </NavigationContainer>
+      
+      {/* Draggable FAB - only show when user is logged in */}
+      {user && (
+        <DraggableFAB
+          onPress={() => {
+            navigation.navigate('AddJob' as never);
+          }}
+        />
+      )}
+    </>
   );
 }
 
