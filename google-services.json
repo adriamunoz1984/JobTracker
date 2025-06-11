@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "365435353785",
+    "project_id": "job-tracker-4b731",
+    "storage_bucket": "job-tracker-4b731.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:365435353785:android:fa73065651457768947968",
+        "android_client_info": {
+          "package_name": "com.munozdev.jobtracker"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "365435353785-ek4i20chh1nkt7a2qv7l71r03sa0eus5.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAyLNwViODkYsamyVLUcT-MIL3y6AYzbiU"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "365435353785-ek4i20chh1nkt7a2qv7l71r03sa0eus5.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

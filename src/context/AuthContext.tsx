@@ -13,7 +13,6 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Alert } from 'react-native';
 
 // Import auth from the centralized config file
-// Note: If you haven't created this file yet, you'll need to create it
 import { auth } from '../firebase/config';
 
 // Define the User type
@@ -22,6 +21,10 @@ interface User {
   email: string | null;
   displayName: string | null;
   photoURL: string | null;
+  role?: 'owner' | 'employee';
+  commissionRate?: number;
+  keepsCash?: boolean;
+  keepsCheck?: boolean;
 }
 
 // Define the context type
@@ -36,7 +39,7 @@ interface AuthContextType {
   resetPassword: (email: string) => Promise<void>;
   error: string | null;
   clearError: () => void;
-  bypassAuthForTesting: () => void; // Added for testing
+  bypassAuthForTesting: () => void;
 }
 
 // Create the context
@@ -144,25 +147,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  // Login with Google - simplified placeholder
+  // Placeholder for Google Sign-In - just bypasses authentication
   const loginWithGoogle = async () => {
-    try {
-      setIsLoading(true);
-      clearError();
-      
-      // This is just a placeholder that will be handled by bypassAuthForTesting
-      console.log("Google Sign-In attempted - using bypass instead");
-      
-      // For a real implementation in the future, we'd handle Google Sign-In
-      // properly with Expo/React Native methods
-      
-      setIsLoading(false);
-    } catch (err: any) {
-      setError(err.message || 'Failed to login with Google');
-      throw err;
-    } finally {
-      setIsLoading(false);
-    }
+    console.log("Google Sign-In: Using test bypass");
+    // For development, just bypass authentication
+    bypassAuthForTesting();
   };
 
   // For development/testing - bypass authentication
@@ -173,6 +162,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       email: 'test@example.com',
       displayName: 'Test User',
       photoURL: null,
+      role: 'owner', // Default to owner
+      commissionRate: 50,
+      keepsCash: true,
+      keepsCheck: true,
     };
     
     // Set the user in state
@@ -235,7 +228,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         photoURL: data.photoURL || currentUser.photoURL,
       });
       
-      // The auth state listener will handle updating the user state
+      // Update local user state with additional properties
+      if (user) {
+        const updatedUser = { ...user, ...data };
+        setUser(updatedUser);
+        await AsyncStorage.setItem('user', JSON.stringify(updatedUser));
+      }
+      
     } catch (err: any) {
       setError(err.message || 'Failed to update profile');
       throw err;
