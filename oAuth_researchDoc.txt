@@ -1,0 +1,80 @@
+# Google OAuth Configuration Solutions for React Native/Expo Firebase Apps
+
+Google OAuth configuration for React Native and Expo Firebase applications has become increasingly complex due to security requirements and evolving APIs. **The primary causes of "Access blocked: Authorization Error", "Parameter not allowed for this message type: code_challenge_method", and "Error 400: invalid_request" errors stem from incorrect PKCE implementation, consent screen misconfiguration, and poor coordination between Firebase Console and Google Cloud Console settings.** These issues can be systematically resolved through proper configuration, alternative access methods, and understanding the nuances of mobile OAuth flows.
+
+Most authentication failures occur because developers attempt to use deprecated libraries or incorrect OAuth flows for mobile applications. The transition from expo-google-app-auth to modern authentication methods requires careful attention to PKCE parameters, certificate fingerprints, and redirect URI configuration. Success depends on coordinating multiple configuration touchpoints and understanding the specific requirements for mobile OAuth implementations.
+
+## Immediate error resolution for common authentication failures
+
+**For "Parameter not allowed for this message type: code_challenge_method" errors**, the root cause is typically mixing OAuth flow types. Remove PKCE parameters entirely if using implicit flow (`response_type=token`), or ensure proper PKCE implementation with authorization code flow (`response_type=code`). In Nuxt.js applications, set `codeChallengeMethod: ''` (empty string) in your OAuth configuration to resolve this immediately.
+
+**For "Access blocked: Authorization Error" issues**, verify your app's verification status and ensure you're not using embedded webviews. Google blocks authentication in WebViews for security reasons - switch to system browsers using Custom Tabs on Android or SFSafariViewController on iOS. Additionally, check that all authorized domains are properly verified through Google Search Console.
+
+**For "Error 400: invalid_request" problems**, the most common cause is redirect URI mismatches. Ensure your configured redirect URIs match exactly between your OAuth provider settings and application configuration. For Expo applications, **never attempt OAuth with Expo Go** - you must use development builds with custom native code for Google authentication.
+
+The **deprecated expo-google-app-auth library** should be replaced with `@react-native-google-signin/google-signin`, which Expo now officially recommends for Google authentication. This newer library handles Google-specific implementation details better and follows current security best practices.
+
+## Alternative methods to access consent screen configuration
+
+When normal Google Cloud Console navigation fails, **use direct URLs to bypass interface issues**. Navigate directly to `https://console.cloud.google.com/apis/credentials/consent?project=[PROJECT_ID]`, replacing [PROJECT_ID] with your actual project ID. This bypasses problematic navigation and loads the consent screen configuration directly.
+
+**Browser extension conflicts** frequently prevent console access. uBlock Origin and similar ad blockers commonly block Google APIs required for console functionality. Disable extensions or use incognito mode to identify conflicts. Specifically whitelist `*.googleapis.com`, `*.google.com`, and `console.cloud.google.com` in your ad blocker settings.
+
+The newer **Google Auth Platform interface** provides an alternative navigation path when legacy interfaces fail. Access this through Menu → Google Auth platform → Branding, or use direct URLs like `https://console.cloud.google.com/auth/branding` for branding configuration and `https://console.cloud.google.com/auth/audience` for test user management.
+
+For programmatic configuration, use the **IAP Brand API** through Google Cloud CLI commands. Create consent screen brands with `gcloud iap oauth-brands create --application_title="Your App Name" --support_email="support@yourdomain.com" --project=[PROJECT_ID]`. Note that API-created brands are initially set to "internal" user type and must be manually changed to "external" via the console.
+
+## Step-by-step OAuth consent screen configuration
+
+**Configure basic app information** by entering a distinctive app name that avoids Google branding confusion, adding a user support email, and uploading a square app logo (120x120px in JPG, PNG, or BMP format). The app name appears on the consent screen and significantly impacts user trust.
+
+**Set up authorized domains** by adding all domains used in your project. These domains must be verified via Google Search Console before use. For mobile-only applications without websites, create a simple landing page on a domain you control - GitHub Pages or similar free hosting services work effectively. The domain must include clear app description, privacy policy links, and contact information.
+
+**Configure domain verification** through Google Search Console for each domain you plan to use. The account performing verification must have project owner or editor permissions. This step is required for homepage URLs, privacy policy URLs, and redirect URIs.
+
+**Select appropriate scopes** by choosing the minimum required permissions for your application. Prefer non-sensitive scopes over sensitive/restricted scopes to avoid lengthy verification processes. Review scope categories carefully - sensitive and restricted scopes trigger OAuth verification requirements that can take weeks or months to complete.
+
+**Add test users** for external applications in testing status. Navigate to the Audience section and add up to 100 test user email addresses. Only these users can access your application while it remains in testing status. Test users must have valid Google accounts (Gmail or Google Workspace).
+
+## Firebase integration and certificate configuration
+
+**Enable Google Sign-in** in Firebase Console under Authentication → Sign-in method first. This critical step creates necessary OAuth clients automatically and enables configuration fields that otherwise remain hidden. Download updated `google-services.json` (Android) and `GoogleService-Info.plist` (iOS) files after enabling Google sign-in.
+
+**Configure multiple SHA-1 certificate fingerprints** for Android applications. Most React Native/Expo apps require debug fingerprints for local development, release fingerprints for EAS builds, and Play App Signing fingerprints for Google Play Store distribution. Add all relevant fingerprints to Firebase Console under Project Settings → Your apps → Add fingerprint.
+
+**Coordinate OAuth clients** between Firebase and Google Cloud Console. Create separate "Android" and "iOS" OAuth 2.0 client IDs in Google Cloud Console for mobile platforms, but **use the Web client ID in your React Native code**, not the mobile client IDs. Find the Web client ID in your `google-services.json` file under `client[].oauth_client[client_type=3].client_id`.
+
+**Configure iOS bundle identifiers** to match exactly between Firebase Console, Google Cloud Console, and your iOS application. Add the URL scheme from `GoogleService-Info.plist` (REVERSED_CLIENT_ID) to your iOS project's URL Types configuration. This coordination is essential for proper iOS authentication flow.
+
+**Set up redirect URIs** appropriately for your development and production environments. Use environment-specific configuration to handle different redirect patterns between Expo Go (development), development builds, and production applications.
+
+## Advanced troubleshooting and platform-specific solutions
+
+**PKCE implementation errors** often stem from incorrect string generation or encoding issues. Ensure `code_verifier` values are between 43-128 characters and properly base64URL-encoded. For Expo applications, use proper Buffer handling when generating PKCE parameters:
+
+```javascript
+import { Buffer } from 'buffer';
+const randomBytes = await Random.getRandomBytesAsync(32);
+const base64String = Buffer.from(randomBytes).toString('base64');
+const code_verifier = URLEncode(base64String);
+```
+
+**Library selection significantly impacts success rates**. For Google-only authentication, use `@react-native-google-signin/google-signin`. For multi-provider OAuth, consider `react-native-app-auth` which follows RFC 8252 best practices and provides native implementation without WebViews. Avoid `expo-auth-session` for production applications requiring robust OAuth implementation.
+
+**Multiple environment management** requires separate Firebase projects for development, staging, and production. Use different package names and bundle IDs for each environment to avoid OAuth client conflicts. Register different redirect URIs for each environment in your OAuth provider dashboard.
+
+**Certificate fingerprint management** becomes complex with multiple build types. Keep detailed records of all signing keys and their SHA-1 fingerprints. Update Firebase configuration whenever adding new certificates. Use EAS credentials management for Expo applications to maintain consistent signing across builds.
+
+**Permission and account issues** can prevent console access even when navigation works. Verify that your Google account has Project Owner or Editor roles, and check organization policies that might restrict external OAuth app creation. Some features require enabled billing on Google Cloud projects.
+
+## Testing and deployment considerations  
+
+**Development testing** should always use development builds rather than Expo Go for OAuth functionality. Create test users in your OAuth consent screen configuration and use separate Google accounts for testing. Remember that refresh tokens for testing apps expire after 7 days, requiring re-authentication.
+
+**Production deployment** requires OAuth verification for apps using sensitive or restricted scopes. Prepare verification materials early, including functional demo videos, scope justifications, and privacy policy compliance documentation. The verification process can take several weeks to months.
+
+**Monitor error patterns** by implementing proper error handling and logging in your authentication flow. Common production issues include certificate expiration, domain verification lapses, and user account access changes. Set up monitoring for authentication success rates and error patterns.
+
+Regular maintenance includes updating certificate fingerprints when renewing signing keys, monitoring OAuth verification status, and reviewing scope usage to minimize verification requirements. Keep configuration documentation updated across all environments and team members.
+
+This comprehensive approach addresses the interconnected nature of OAuth configuration issues while providing practical solutions for each component. Success requires attention to coordination between multiple systems and understanding the specific requirements of mobile OAuth implementations in the current security landscape.

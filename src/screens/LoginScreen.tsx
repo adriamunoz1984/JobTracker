@@ -1,26 +1,26 @@
 // src/screens/LoginScreen.tsx
-import React, {useState, useEffect} from 'react';
-import { View, StyleSheet, ScrollView, KeyboardAvoidingView, Platform, TouchableOpacity } from 'react-native';
-import { TextInput, Button, Text, Title, Surface, Snackbar, IconButton } from 'react-native-paper';
+import React, { useState, useEffect } from 'react';
+import { View, StyleSheet, TouchableOpacity, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
+import { TextInput, Button, Text, Title, Surface, Snackbar } from 'react-native-paper';
 import { useNavigation } from '@react-navigation/native';
 import { useAuth } from '../context/AuthContext';
 
 export default function LoginScreen() {
   const navigation = useNavigation();
-  const { login, loginWithGoogle, error, clearError, isLoading, bypassAuthForTesting } = useAuth();
+  const { login, error, clearError, isLoading, bypassAuthForTesting, loginWithGoogle } = useAuth();
   
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
   const [showError, setShowError] = useState(false);
-
+  
   // Show error message when auth error occurs
   useEffect(() => {
     if (error) {
       setShowError(true);
     }
   }, [error]);
-
+  
+  // Handle login
   const handleLogin = async () => {
     if (!email || !password) {
       return;
@@ -32,20 +32,26 @@ export default function LoginScreen() {
       // Error is handled by auth context
     }
   };
-
-  const handleGoogleLogin = () => {
-    // Use the bypass authentication for development
-    bypassAuthForTesting();
+  
+  // Google login
+  const handleGoogleLogin = async () => {
+    try {
+      await loginWithGoogle();
+    } catch (e) {
+      // Error is handled by auth context
+    }
   };
-
+  
+  // Navigate to registration screen
   const goToRegister = () => {
     navigation.navigate('Register' as never);
   };
-
+  
+  // Navigate to forgot password screen
   const goToForgotPassword = () => {
     navigation.navigate('ForgotPassword' as never);
   };
-
+  
   return (
     <KeyboardAvoidingView 
       style={styles.container}
@@ -55,87 +61,84 @@ export default function LoginScreen() {
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <Surface style={styles.formContainer}>
           <View style={styles.logoContainer}>
-            <View style={styles.logoCircle}>
-              <IconButton icon="truck" size={40} iconColor="#2196F3" />
-            </View>
             <Title style={styles.appTitle}>Job Tracker</Title>
-            <Text style={styles.subtitle}>Concrete Pumping Made Simple</Text>
+            <Text style={styles.subtitle}>Track your concrete pumping jobs</Text>
           </View>
           
-          <View style={styles.inputContainer}>
-            <TextInput
-              label="Email Address"
-              value={email}
-              onChangeText={setEmail}
-              mode="outlined"
-              autoCapitalize="none"
-              keyboardType="email-address"
-              style={styles.input}
-              disabled={isLoading}
-              left={<TextInput.Icon icon="email" />}
-            />
-            
-            <TextInput
-              label="Password"
-              value={password}
-              onChangeText={setPassword}
-              mode="outlined"
-              secureTextEntry={!showPassword}
-              style={styles.input}
-              disabled={isLoading}
-              left={<TextInput.Icon icon="lock" />}
-              right={
-                <TextInput.Icon 
-                  icon={showPassword ? "eye-off" : "eye"}
-                  onPress={() => setShowPassword(!showPassword)}
-                />
-              }
-            />
-            
-            <TouchableOpacity onPress={goToForgotPassword} style={styles.forgotPasswordLink}>
-              <Text style={styles.forgotPasswordText}>Forgot password?</Text>
+          <TextInput
+            label="Email"
+            value={email}
+            onChangeText={setEmail}
+            mode="outlined"
+            autoCapitalize="none"
+            keyboardType="email-address"
+            style={styles.input}
+            disabled={isLoading}
+          />
+          
+          <TextInput
+            label="Password"
+            value={password}
+            onChangeText={setPassword}
+            mode="outlined"
+            secureTextEntry
+            style={styles.input}
+            disabled={isLoading}
+          />
+          
+          <TouchableOpacity onPress={goToForgotPassword} style={styles.forgotPasswordLink}>
+            <Text style={styles.forgotPasswordText}>Forgot password?</Text>
+          </TouchableOpacity>
+          
+          <Button
+            mode="contained"
+            onPress={handleLogin}
+            style={styles.loginButton}
+            loading={isLoading}
+            disabled={isLoading || !email || !password}
+          >
+            Log In
+          </Button>
+          
+          <View style={styles.dividerContainer}>
+            <View style={styles.divider} />
+            <Text style={styles.dividerText}>OR</Text>
+            <View style={styles.divider} />
+          </View>
+          
+          <Button
+            mode="outlined"
+            onPress={handleGoogleLogin}
+            style={styles.googleButton}
+            icon="google"
+            disabled={isLoading}
+          >
+            Continue with Google
+          </Button>
+          
+          <View style={styles.dividerContainer}>
+            <View style={styles.divider} />
+            <Text style={styles.dividerText}>Development</Text>
+            <View style={styles.divider} />
+          </View>
+          
+          <Button
+            mode="outlined"
+            onPress={bypassAuthForTesting}
+            style={styles.testButton}
+            icon="wrench"
+            disabled={isLoading}
+          >
+            🔧 Test Account (Dev Only)
+          </Button>
+          
+          <View style={styles.registerContainer}>
+            <Text>Don't have an account? </Text>
+            <TouchableOpacity onPress={goToRegister}>
+              <Text style={styles.registerLink}>Sign Up</Text>
             </TouchableOpacity>
-            
-            <Button
-              mode="contained"
-              onPress={handleLogin}
-              style={styles.loginButton}
-              loading={isLoading}
-              disabled={isLoading || !email || !password}
-            >
-              Log In
-            </Button>
-            
-            <View style={styles.dividerContainer}>
-              <View style={styles.divider} />
-              <Text style={styles.dividerText}>OR</Text>
-              <View style={styles.divider} />
-            </View>
-            
-            <Button
-              mode="outlined"
-              onPress={handleGoogleLogin}
-              style={styles.googleButton}
-              icon="google"
-              disabled={isLoading}
-            >
-              Continue with Google
-            </Button>
-            
-            <View style={styles.registerContainer}>
-              <Text>Don't have an account? </Text>
-              <TouchableOpacity onPress={goToRegister}>
-                <Text style={styles.registerLink}>Sign Up</Text>
-              </TouchableOpacity>
-            </View>
           </View>
         </Surface>
-        
-        <View style={styles.footer}>
-          <Text style={styles.footerText}>
-            © 2025 Job Tracker. Built for concrete pumping professionals.
-          </Text>
-        </View>
       </ScrollView>
       
       <Snackbar
@@ -147,7 +150,7 @@ export default function LoginScreen() {
         duration={3000}
         style={styles.snackbar}
       >
-        {error || 'Login failed'}
+        {error}
       </Snackbar>
     </KeyboardAvoidingView>
   );
@@ -156,7 +159,7 @@ export default function LoginScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#2196F3',
+    backgroundColor: '#f5f5f5',
   },
   scrollContent: {
     flexGrow: 1,
@@ -165,35 +168,24 @@ const styles = StyleSheet.create({
   },
   formContainer: {
     padding: 24,
-    borderRadius: 16,
-    elevation: 8,
+    borderRadius: 12,
+    elevation: 4,
     backgroundColor: 'white',
   },
   logoContainer: {
     alignItems: 'center',
     marginBottom: 32,
   },
-  logoCircle: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: '#E3F2FD',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
   appTitle: {
-    fontSize: 28,
+    fontSize: 32,
     fontWeight: 'bold',
     color: '#2196F3',
     marginBottom: 8,
   },
   subtitle: {
-    color: '#666',
     fontSize: 16,
-  },
-  inputContainer: {
-    width: '100%',
+    color: '#666',
+    textAlign: 'center',
   },
   input: {
     marginBottom: 16,
@@ -215,7 +207,7 @@ const styles = StyleSheet.create({
   dividerContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginVertical: 20,
+    marginVertical: 16,
   },
   divider: {
     flex: 1,
@@ -224,30 +216,27 @@ const styles = StyleSheet.create({
   },
   dividerText: {
     marginHorizontal: 16,
-    color: '#757575',
+    color: '#666',
     fontSize: 14,
   },
   googleButton: {
-    marginBottom: 20,
+    marginBottom: 16,
     borderColor: '#757575',
+    paddingVertical: 8,
+  },
+  testButton: {
+    marginBottom: 24,
+    borderColor: '#FF9800',
+    paddingVertical: 8,
   },
   registerContainer: {
     flexDirection: 'row',
     justifyContent: 'center',
-    alignItems: 'center',
+    marginTop: 16,
   },
   registerLink: {
     color: '#2196F3',
     fontWeight: 'bold',
-  },
-  footer: {
-    marginTop: 32,
-    alignItems: 'center',
-  },
-  footerText: {
-    color: 'rgba(255, 255, 255, 0.8)',
-    fontSize: 12,
-    textAlign: 'center',
   },
   snackbar: {
     backgroundColor: '#F44336',

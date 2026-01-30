@@ -1,5 +1,5 @@
-// App.tsx - Updated to show login screen first
-import React from 'react';
+// App.tsx - Updated with debugging
+import React, { useEffect } from 'react';
 import { View } from 'react-native';
 import { NavigationContainer, useNavigation } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
@@ -34,8 +34,17 @@ const Stack = createStackNavigator();
 function AuthNavigator() {
   const { user, isLoading } = useAuth();
 
+  // Debug logging
+  useEffect(() => {
+    console.log('🔍 Auth state changed:');
+    console.log('  - User:', user ? `${user.displayName} (${user.email})` : 'null');
+    console.log('  - Loading:', isLoading);
+    console.log('  - User ID:', user?.uid);
+  }, [user, isLoading]);
+
   // Show loading screen while checking auth status
   if (isLoading) {
+    console.log('📱 Showing loading screen');
     return (
       <View style={{ 
         flex: 1, 
@@ -47,6 +56,12 @@ function AuthNavigator() {
         <Text style={{ marginTop: 16, color: '#666' }}>Loading...</Text>
       </View>
     );
+  }
+
+  if (!user) {
+    console.log('🔐 No user - showing login screens');
+  } else {
+    console.log('✅ User authenticated - showing main app');
   }
 
   return (

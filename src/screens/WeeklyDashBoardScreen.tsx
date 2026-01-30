@@ -232,8 +232,12 @@ export default function WeeklyDashboardScreen() {
                 ]}
               >
                 <View style={styles.jobInfo}>
+                  <Text style={styles.jobAddress}>{format(new Date(job.date),'EEE, MMM d')}</Text>
                   <Text style={styles.jobCompany}>{job.companyName || 'Unnamed Job'}</Text>
-                  <Text style={styles.jobAddress}>{format(new Date(job.date), 'EEE')} - {job.address}</Text>
+                  
+                  <Text style={styles.jobAddress}>{job.address}</Text>
+                  <Text style={styles.jobAddress}>{job.city}</Text>
+
                   <View style={styles.jobDetails}>
                     <Text style={styles.jobYards}>{job.yards} yards</Text>
                     <Text style={styles.jobPaymentMethod}>{job.paymentMethod}</Text>
@@ -346,7 +350,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: 8,
     borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
+   borderBottomColor: '#e0e0e0', // Light gray separator line
     borderLeftWidth: 3,
   },
   jobInfo: {

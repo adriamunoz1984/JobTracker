@@ -11,7 +11,9 @@ import { PaymentMethod, Job } from '../types';
 export default function AddJobScreen() {
   const navigation = useNavigation();
   const route = useRoute();
-  const { addJob, updateJob, getJobById } = useJobs();
+  // NEW:
+const { addJob, updateJob, getJobById, isLoading: jobsLoading } = useJobs();
+const [isSaving, setIsSaving] = useState(false);
   
   // Check if we're editing an existing job
   const editJob = route.params?.job as Job | undefined;
@@ -52,55 +54,60 @@ export default function AddJobScreen() {
   };
 
   const handleSubmit = async () => {
-    // Validate required fields
-    if (!address || !city || !yards || !amount) {
-      alert('Please fill in all required fields');
-      return;
-    }
+  // Prevent double submission
+  if (isSaving || jobsLoading) {
+    return;
+  }
 
-    // Create job object
-    const jobData = {
-      date: date.toISOString(),
-      companyName: companyName.trim() || undefined,
-      address: address.trim(),
-      city: city.trim(),
-      yards: parseFloat(yards),
-      isPaid,
-      isPaidToMe, // Include the isPaidToMe field
-      paymentMethod,
-      amount: parseFloat(amount),
-      checkNumber: paymentMethod === 'Check' ? checkNumber.trim() : undefined,
-      notes: notes.trim() || undefined,
-      // Only include billing details if payment method is Charge
-      billingDetails: paymentMethod === 'Charge' ? {
-        invoiceNumber: billingDetails.invoiceNumber.trim() || undefined,
-        billingDate: billingDetails.billingDate.trim() || undefined,
-        dueDate: billingDetails.dueDate.trim() || undefined,
-        contactPerson: billingDetails.contactPerson.trim() || undefined,
-        contactEmail: billingDetails.contactEmail.trim() || undefined,
-        contactPhone: billingDetails.contactPhone.trim() || undefined,
-      } : undefined,
-    };
+  // Validate required fields
+  if (!address || !city || !yards || !amount) {
+    alert('Please fill in all required fields');
+    return;
+  }
 
-    try {
-      if (isEditMode && editJob) {
-        // Update existing job
-        await updateJob({
-          ...editJob,
-          ...jobData,
-        });
-      } else {
-        // Add new job
-        await addJob(jobData);
-      }
-      
-      // Navigate back
-      navigation.goBack();
-    } catch (error) {
-      console.error('Error saving job:', error);
-      alert('Failed to save job. Please try again.');
-    }
+  // Create job object
+  const jobData = {
+    date: date.toISOString(),
+    companyName: companyName.trim() || undefined,
+    address: address.trim(),
+    city: city.trim(),
+    yards: parseFloat(yards),
+    isPaid,
+    isPaidToMe,
+    paymentMethod,
+    amount: parseFloat(amount),
+    checkNumber: paymentMethod === 'Check' ? checkNumber.trim() : undefined,
+    notes: notes.trim() || undefined,
+    billingDetails: paymentMethod === 'Charge' ? {
+      invoiceNumber: billingDetails.invoiceNumber.trim() || undefined,
+      billingDate: billingDetails.billingDate.trim() || undefined,
+      dueDate: billingDetails.dueDate.trim() || undefined,
+      contactPerson: billingDetails.contactPerson.trim() || undefined,
+      contactEmail: billingDetails.contactEmail.trim() || undefined,
+      contactPhone: billingDetails.contactPhone.trim() || undefined,
+    } : undefined,
   };
+
+  try {
+    setIsSaving(true); // Disable button
+    
+    if (isEditMode && editJob) {
+      await updateJob({
+        ...editJob,
+        ...jobData,
+      });
+    } else {
+      await addJob(jobData);
+    }
+    
+    // Navigate back
+    navigation.goBack();
+  } catch (error) {
+    console.error('Error saving job:', error);
+    alert('Failed to save job. Please try again.');
+    setIsSaving(false); // Re-enable button on error
+  }
+};
 
   return (
     <ScrollView style={styles.container}>
@@ -282,13 +289,20 @@ export default function AddJobScreen() {
         />
 
         {/* Submit Button */}
-        <Button 
-          mode="contained" 
-          onPress={handleSubmit} 
-          style={styles.submitButton}
-        >
-          {isEditMode ? 'Update Job' : 'Save Job'}
-        </Button>
+          <Button 
+            mode="contained" 
+            onPress={handleSubmit} 
+            style={styles.submitButton}
+            disabled={isSaving || jobsLoading}
+            loading={isSaving}
+          >
+            {isSaving 
+              ? 'Saving...' 
+              : isEditMode 
+                ? 'Update Job' 
+                : 'Save Job'
+            }
+          </Button>
       </View>
     </ScrollView>
   );

@@ -59,52 +59,80 @@ export const JobsProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   // Save to both AsyncStorage and Firebase
-  const saveJobsToStorage = async (jobsToSave: Job[]) => {
-    try {
-      // Always save to AsyncStorage for offline access
-      await AsyncStorage.setItem('jobs', JSON.stringify(jobsToSave));
-      console.log(`💾 Saved ${jobsToSave.length} jobs to AsyncStorage`);
+const saveJobsToStorage = async (jobsToSave: Job[]) => {
+  try {
+    // Always save to AsyncStorage for offline access
+    await AsyncStorage.setItem('jobs', JSON.stringify(jobsToSave));
+    console.log(`💾 Saved ${jobsToSave.length} jobs to AsyncStorage`);
+    
+    // Save to Firebase if user is logged in and not a test user
+    if (user?.uid && user.uid !== 'test-user-id' && user.email !== 'test@example.com') {
+      setSyncStatus('syncing');
+      const jobsCollection = getUserJobsCollection();
       
-      // Save to Firebase if user is logged in and not a test user
-      if (user?.uid && user.uid !== 'test-user-id' && user.email !== 'test@example.com') {
-        setSyncStatus('syncing');
-        const jobsCollection = getUserJobsCollection();
-        
-        if (jobsCollection) {
-          // Save each job as a separate document
-          const savePromises = jobsToSave.map(async (job) => {
-            const jobDoc = doc(jobsCollection, job.id);
-            const jobData = {
-              ...job,
-              lastModified: serverTimestamp(),
-              syncedAt: new Date().toISOString()
-            };
-            await setDoc(jobDoc, jobData);
-          });
+      if (jobsCollection) {
+        // Helper function to recursively remove undefined values
+        const removeUndefined = (obj: any): any => {
+          if (obj === null || obj === undefined) {
+            return null;
+          }
           
-          await Promise.all(savePromises);
-          setSyncStatus('synced');
-          setLastSyncTime(new Date());
-          console.log(`☁️ Synced ${jobsToSave.length} jobs to Firebase`);
-        }
-      } else {
-        // Test user - show as "offline" mode
-        setSyncStatus('idle');
-        console.log(`📱 Test user - jobs saved locally only`);
+          if (Array.isArray(obj)) {
+            return obj.map(removeUndefined);
+          }
+          
+          if (typeof obj === 'object') {
+            const cleaned: any = {};
+            for (const [key, value] of Object.entries(obj)) {
+              if (value !== undefined) {
+                cleaned[key] = removeUndefined(value);
+              }
+            }
+            return cleaned;
+          }
+          
+          return obj;
+        };
+        
+        // Save each job as a separate document
+        const savePromises = jobsToSave.map(async (job) => {
+          const jobDoc = doc(jobsCollection, job.id);
+          
+          // Clean the job data recursively
+          const cleanJob = removeUndefined(job);
+          
+          const jobData = {
+            ...cleanJob,
+            lastModified: serverTimestamp(),
+            syncedAt: new Date().toISOString()
+          };
+          
+          await setDoc(jobDoc, jobData);
+        });
+        
+        await Promise.all(savePromises);
+        setSyncStatus('synced');
+        setLastSyncTime(new Date());
+        console.log(`☁️ Synced ${jobsToSave.length} jobs to Firebase`);
       }
-    } catch (error) {
-      console.error('❌ Error saving jobs:', error);
-      setSyncStatus('error');
-      
-      // Still try to save to AsyncStorage even if Firebase fails
-      try {
-        await AsyncStorage.setItem('jobs', JSON.stringify(jobsToSave));
-        console.log('✅ Saved to AsyncStorage as fallback');
-      } catch (asyncError) {
-        console.error('❌ AsyncStorage fallback failed:', asyncError);
-      }
+    } else {
+      // Test user - show as "offline" mode
+      setSyncStatus('idle');
+      console.log(`📱 Test user - jobs saved locally only`);
     }
-  };
+  } catch (error) {
+    console.error('❌ Error saving jobs:', error);
+    setSyncStatus('error');
+    
+    // Still try to save to AsyncStorage even if Firebase fails
+    try {
+      await AsyncStorage.setItem('jobs', JSON.stringify(jobsToSave));
+      console.log('✅ Saved to AsyncStorage as fallback');
+    } catch (asyncError) {
+      console.error('❌ AsyncStorage fallback failed:', asyncError);
+    }
+  }
+};
 
   // Load jobs from Firebase or AsyncStorage
   const loadJobs = async () => {
@@ -175,62 +203,7 @@ export const JobsProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  // Set up real-time listener when user changes
-  useEffect(() => {
-    let unsubscribe: (() => void) | null = null;
-
-    if (user?.uid && user.uid !== 'test-user-id') {
-      // Only set up Firebase listener for real users, not test users
-      console.log('👂 Setting up real-time listener for user:', user.email);
-      
-      const jobsCollection = getUserJobsCollection();
-      if (jobsCollection) {
-        const jobsQuery = query(jobsCollection, orderBy('date', 'desc'));
-        
-        unsubscribe = onSnapshot(jobsQuery, (snapshot) => {
-          const updatedJobs = snapshot.docs.map(doc => {
-            const data = doc.data();
-            // Remove Firebase-specific fields
-            const { lastModified, syncedAt, ...jobData } = data;
-            return {
-              id: doc.id,
-              ...jobData
-            } as Job;
-          });
-          
-          console.log(`🔄 Real-time update: ${updatedJobs.length} jobs`);
-          setJobs(updatedJobs);
-          setSyncStatus('synced');
-          setLastSyncTime(new Date());
-          
-          // Update AsyncStorage with latest data
-          AsyncStorage.setItem('jobs', JSON.stringify(updatedJobs)).catch(err => {
-            console.error('Error updating AsyncStorage:', err);
-          });
-        }, (error) => {
-          console.error('❌ Real-time listener error:', error);
-          setSyncStatus('error');
-        });
-      }
-    } else {
-      // Test user or no user - load from AsyncStorage only
-      console.log('📱 Loading from AsyncStorage (test user or no user)');
-      loadJobs();
-    }
-
-    // Cleanup function
-    return () => {
-      if (unsubscribe) {
-        unsubscribe();
-        console.log('🔇 Cleaned up real-time listener');
-      }
-    };
-  }, [user?.uid]);
-
-  // Initial load
-  useEffect(() => {
-    loadJobs();
-  }, []);
+  
 
   const addJob = async (jobData: Omit<Job, 'id' | 'createdAt' | 'updatedAt'>): Promise<string> => {
     const now = new Date().toISOString();
@@ -252,6 +225,91 @@ export const JobsProvider: React.FC<{ children: React.ReactNode }> = ({ children
     console.log(`✅ Added new job: ${jobId}`);
     return jobId;
   };
+// Unified effect for loading and real-time sync
+useEffect(() => {
+  let unsubscribe: (() => void) | null = null;
+  let isMounted = true;
+
+  const initializeJobs = async () => {
+    // Reset state when user changes
+    setIsLoading(true);
+    
+    if (user?.uid && user.uid !== 'test-user-id' && user.email !== 'test@example.com') {
+      // Real user - set up Firebase real-time listener
+      console.log('👂 Setting up real-time listener for user:', user.email);
+      setSyncStatus('syncing');
+      
+      const jobsCollection = getUserJobsCollection();
+      if (jobsCollection) {
+        const jobsQuery = query(jobsCollection, orderBy('date', 'desc'));
+        
+        unsubscribe = onSnapshot(jobsQuery, 
+          (snapshot) => {
+            if (!isMounted) return;
+            
+            const updatedJobs = snapshot.docs.map(doc => {
+              const data = doc.data();
+              const { lastModified, syncedAt, ...jobData } = data;
+              return {
+                id: doc.id,
+                ...jobData
+              } as Job;
+            });
+            
+            console.log(`🔄 Real-time update: ${updatedJobs.length} jobs for ${user.email}`);
+            setJobs(updatedJobs);
+            setSyncStatus('synced');
+            setLastSyncTime(new Date());
+            setIsLoading(false);
+            
+            // Update AsyncStorage with latest data
+            AsyncStorage.setItem('jobs', JSON.stringify(updatedJobs)).catch(err => {
+              console.error('Error updating AsyncStorage:', err);
+            });
+          }, 
+          (error) => {
+            if (!isMounted) return;
+            console.error('❌ Real-time listener error:', error);
+            setSyncStatus('error');
+            setIsLoading(false);
+            
+            // Fallback to AsyncStorage on error
+            AsyncStorage.getItem('jobs').then(jobsData => {
+              if (jobsData && isMounted) {
+                const loadedJobs = JSON.parse(jobsData);
+                console.log(`📱 Loaded ${loadedJobs.length} jobs from AsyncStorage (fallback)`);
+                setJobs(loadedJobs);
+              }
+            }).catch(err => {
+              console.error('AsyncStorage fallback failed:', err);
+            });
+          }
+        );
+      }
+    } else if (!user) {
+      // No user - clear jobs and load from AsyncStorage
+      console.log('👤 No user - clearing jobs');
+      setJobs([]);
+      setSyncStatus('idle');
+      setIsLoading(false);
+    } else {
+      // Test user - load from AsyncStorage only
+      console.log('📱 Loading from AsyncStorage (test user)');
+      await loadJobs();
+    }
+  };
+
+  initializeJobs();
+
+  // Cleanup function
+  return () => {
+    isMounted = false;
+    if (unsubscribe) {
+      unsubscribe();
+      console.log('🔇 Cleaned up real-time listener');
+    }
+  };
+}, [user?.uid, user?.email]); // Track both uid and email for account switches
 
   const updateJob = async (updatedJob: Job) => {
     const updatedJobs = jobs.map((job) =>

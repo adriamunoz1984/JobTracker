@@ -4,21 +4,25 @@
     "slug": "job-tracker",
     "version": "1.0.0",
     "orientation": "portrait",
+    "platforms": ["android"],
     "userInterfaceStyle": "light",
     "splash": {
       "resizeMode": "contain",
       "backgroundColor": "#2196F3"
     },
-    "ios": {
-      "supportsTablet": true,
-      "bundleIdentifier": "com.jobtracker.app"
-    },
     "android": {
-      "package": "com.jobtracker.app"
+      "package": "com.jobtracker.app",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#FFFFFF"
+      }
     },
-    "web": {},
     "plugins": [
       "expo-build-properties"
-    ]
+    ],
+    "scheme": "job-tracker",
+    "extra": {
+      "googleClientId": "905748016378-iq8m7q2fochaeu3o07cbqojud8rt1nu2.apps.googleusercontent.com"
+    }
   }
 }
