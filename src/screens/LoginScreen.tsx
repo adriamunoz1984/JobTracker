@@ -43,9 +43,10 @@ export default function LoginScreen() {
   };
   
   // Navigate to registration screen
-  const goToRegister = () => {
-    navigation.navigate('Register' as never);
-  };
+  // Navigate to role selection screen
+    const goToRegister = () => {
+  navigation.navigate('RoleSelection' as never);
+    };
   
   // Navigate to forgot password screen
   const goToForgotPassword = () => {

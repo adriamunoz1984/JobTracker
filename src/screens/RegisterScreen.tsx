@@ -2,12 +2,17 @@
 import React, { useState, useEffect } from 'react';
 import { View, StyleSheet, TouchableOpacity, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
 import { TextInput, Button, Text, Title, Surface, HelperText, Snackbar } from 'react-native-paper';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import { useAuth } from '../context/AuthContext';
+import { UserRole } from '../types';
 
 export default function RegisterScreen() {
   const navigation = useNavigation();
+  const route = useRoute();
   const { register, error, clearError, isLoading } = useAuth();
+  
+  // Get role from route params (passed from RoleSelectionScreen)
+  const role = (route.params?.role as UserRole) || 'owner';
   
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -15,6 +20,13 @@ export default function RegisterScreen() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showError, setShowError] = useState(false);
   const [validationError, setValidationError] = useState('');
+  
+  // Owner-specific fields
+  const [businessName, setBusinessName] = useState('');
+  
+  // Employee-specific fields
+  const [ownerEmail, setOwnerEmail] = useState('');
+  const [workIndependently, setWorkIndependently] = useState(false);
   
   // Show error message when auth error occurs
   useEffect(() => {
@@ -50,6 +62,23 @@ export default function RegisterScreen() {
       return false;
     }
     
+    // Owner-specific validation
+    if (role === 'owner' && !businessName.trim()) {
+      setValidationError('Business name is required for owners');
+      return false;
+    }
+    
+    // Employee-specific validation
+    if (role === 'employee' && !workIndependently && !ownerEmail.trim()) {
+      setValidationError('Owner email is required, or select "Work Independently"');
+      return false;
+    }
+    
+    if (role === 'employee' && ownerEmail.trim() && !/\S+@\S+\.\S+/.test(ownerEmail)) {
+      setValidationError('Please enter a valid owner email');
+      return false;
+    }
+    
     setValidationError('');
     return true;
   };
@@ -61,9 +90,24 @@ export default function RegisterScreen() {
     }
     
     try {
-      await register(email, password, name);
+      // Prepare role-specific data
+      const roleData: any = {
+        role,
+      };
+      
+      if (role === 'owner') {
+        roleData.businessName = businessName.trim();
+      } else if (role === 'employee') {
+        if (workIndependently) {
+          roleData.ownerStatus = 'none';
+        } else {
+          roleData.ownerEmail = ownerEmail.trim();
+          roleData.ownerStatus = 'invited'; // Will need owner to confirm
+        }
+      }
+      
+      await register(email, password, name, roleData);
       // Navigation will happen automatically after successful registration
-      // due to the auth state change listener
     } catch (e) {
       // Error is handled by auth context
     }
@@ -74,6 +118,11 @@ export default function RegisterScreen() {
     navigation.navigate('Login' as never);
   };
   
+  // Go back to role selection
+  const goBackToRoleSelection = () => {
+    navigation.goBack();
+  };
+  
   return (
     <KeyboardAvoidingView 
       style={styles.container}
@@ -82,7 +131,9 @@ export default function RegisterScreen() {
     >
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <Surface style={styles.formContainer}>
-          <Title style={styles.title}>Create Account</Title>
+          <Title style={styles.title}>
+            Create {role === 'owner' ? 'Owner' : 'Employee'} Account
+          </Title>
           
           {validationError ? (
             <HelperText type="error" visible={!!validationError}>
@@ -130,6 +181,55 @@ export default function RegisterScreen() {
             disabled={isLoading}
           />
           
+          {/* Owner-specific fields */}
+          {role === 'owner' && (
+            <TextInput
+              label="Business Name"
+              value={businessName}
+              onChangeText={setBusinessName}
+              mode="outlined"
+              style={styles.input}
+              disabled={isLoading}
+              placeholder="e.g., Munoz Concrete Pumping"
+            />
+          )}
+          
+          {/* Employee-specific fields */}
+          {role === 'employee' && (
+            <>
+              <View style={styles.independentContainer}>
+                <Text style={styles.independentLabel}>Work Independently (No Owner)</Text>
+                <Button
+                  mode={workIndependently ? 'contained' : 'outlined'}
+                  onPress={() => setWorkIndependently(!workIndependently)}
+                  style={styles.independentButton}
+                  compact
+                >
+                  {workIndependently ? 'Yes' : 'No'}
+                </Button>
+              </View>
+              
+              {!workIndependently && (
+                <>
+                  <TextInput
+                    label="Owner's Email"
+                    value={ownerEmail}
+                    onChangeText={setOwnerEmail}
+                    mode="outlined"
+                    autoCapitalize="none"
+                    keyboardType="email-address"
+                    style={styles.input}
+                    disabled={isLoading}
+                    placeholder="Enter your employer's email"
+                  />
+                  <HelperText type="info">
+                    The owner will need to approve your request
+                  </HelperText>
+                </>
+              )}
+            </>
+          )}
+          
           <Button
             mode="contained"
             onPress={handleRegister}
@@ -138,6 +238,15 @@ export default function RegisterScreen() {
             disabled={isLoading}
           >
             Sign Up
+          </Button>
+          
+          <Button
+            mode="text"
+            onPress={goBackToRoleSelection}
+            style={styles.changeRoleButton}
+            disabled={isLoading}
+          >
+            Change Role
           </Button>
           
           <View style={styles.loginContainer}>
@@ -189,10 +298,27 @@ const styles = StyleSheet.create({
   input: {
     marginBottom: 16,
   },
+  independentContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+    paddingVertical: 8,
+  },
+  independentLabel: {
+    fontSize: 16,
+    flex: 1,
+  },
+  independentButton: {
+    minWidth: 80,
+  },
   registerButton: {
     marginVertical: 16,
     paddingVertical: 8,
     backgroundColor: '#2196F3',
+  },
+  changeRoleButton: {
+    marginBottom: 8,
   },
   loginContainer: {
     flexDirection: 'row',

@@ -1,4 +1,9 @@
 // App.tsx - Updated with debugging
+// Authentication Screens
+import LoginScreen from './src/screens/LoginScreen';
+import RegisterScreen from './src/screens/RegisterScreen';
+import ForgotPasswordScreen from './src/screens/ForgotPasswordScreen';
+import RoleSelectionScreen from './src/screens/RoleSelectionScreen';
 import React, { useEffect } from 'react';
 import { View } from 'react-native';
 import { NavigationContainer, useNavigation } from '@react-navigation/native';
@@ -10,11 +15,6 @@ import { StatusBar } from 'expo-status-bar';
 // Context Providers
 import { AuthProvider, useAuth } from './src/context/AuthContext';
 import { JobsProvider } from './src/context/JobsContext';
-
-// Authentication Screens
-import LoginScreen from './src/screens/LoginScreen';
-import RegisterScreen from './src/screens/RegisterScreen';
-import ForgotPasswordScreen from './src/screens/ForgotPasswordScreen';
 
 // Main App Screens
 import MainNavigator from './src/navigation/MainNavigator';
@@ -82,6 +82,7 @@ function AppNavigatorWithFAB({ user }: { user: any }) {
           // Authentication Stack - shown when user is not logged in
           <>
             <Stack.Screen name="Login" component={LoginScreen} />
+            <Stack.Screen name="RoleSelection" component={RoleSelectionScreen} />
             <Stack.Screen name="Register" component={RegisterScreen} />
             <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
           </>

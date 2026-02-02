@@ -1,4 +1,6 @@
 // src/context/AuthContext.tsx - CORRECTED FOR YOUR ERRORS
+import { getFirestore, doc, setDoc } from 'firebase/firestore';
+import { User as CustomUser } from '../types';
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { 
   createUserWithEmailAndPassword, 
@@ -24,25 +26,25 @@ try {
 
 import { auth } from '../firebase/config';
 
-interface User {
-  uid: string;
-  email: string | null;
-  displayName: string | null;
-  photoURL: string | null;
-  role?: 'owner' | 'employee';
-  commissionRate?: number;
-  keepsCash?: boolean;
-  keepsCheck?: boolean;
-}
+// interface User {
+//   uid: string;
+//   email: string | null;
+//   displayName: string | null;
+//   photoURL: string | null;
+//   role?: 'owner' | 'employee';
+//   commissionRate?: number;
+//   keepsCash?: boolean;
+//   keepsCheck?: boolean;
+// }
 
 interface AuthContextType {
-  user: User | null;
+  user: CustomUser | null;
   isLoading: boolean;
-  register: (email: string, password: string, name: string) => Promise<void>;
+  register: (email: string, password: string, name: string, roleData?: any) => Promise<void>;
   login: (email: string, password: string) => Promise<void>;
   loginWithGoogle: () => Promise<void>;
   logout: () => Promise<void>;
-  updateProfile: (data: Partial<User>) => Promise<void>;
+  updateProfile: (data: Partial<CustomUser>) => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
   error: string | null;
   clearError: () => void;
@@ -59,7 +61,7 @@ export const useAuth = () => {
   return context;
 };
 
-const formatUser = (firebaseUser: FirebaseUser | null): User | null => {
+const formatUser = (firebaseUser: FirebaseUser | null): CustomUser | null => {
   if (!firebaseUser) return null;
   
   return {
@@ -67,6 +69,7 @@ const formatUser = (firebaseUser: FirebaseUser | null): User | null => {
     email: firebaseUser.email,
     displayName: firebaseUser.displayName,
     photoURL: firebaseUser.photoURL,
+    role: 'owner', // Default, will be overwritten by stored data
   };
 };
 
@@ -106,33 +109,69 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return () => unsubscribe();
   }, []);
 
-  const register = async (email: string, password: string, name: string) => {
-    try {
-      setIsLoading(true);
-      clearError();
+  const register = async (email: string, password: string, name: string, roleData?: any) => {
+  try {
+    setIsLoading(true);
+    clearError();
+    
+    const { user: fbUser } = await createUserWithEmailAndPassword(auth, email, password);
+    
+    await fbUpdateProfile(fbUser, {
+      displayName: name,
+    });
+    
+    // Prepare user data based on role
+    const userData: Partial<CustomUser> = {
+      role: roleData?.role || 'owner',
+    };
+    
+    if (roleData?.role === 'owner') {
+      // Owner-specific data
+      userData.businessName = roleData.businessName;
+      userData.commissionRate = 100;
+      userData.keepsCash = true;
+      userData.keepsCheck = true;
+    } else if (roleData?.role === 'employee') {
+      // Employee-specific data
+      userData.ownerStatus = roleData.ownerStatus || 'none';
+      userData.commissionRate = 50; // Default, owner can change
+      userData.keepsCash = false; // Default, owner can change
+      userData.keepsCheck = false; // Default, owner can change
       
-      const { user: fbUser } = await createUserWithEmailAndPassword(auth, email, password);
-      
-      await fbUpdateProfile(fbUser, {
-        displayName: name,
-      });
-      
-      const userData = {
-        role: 'owner' as const,
-        commissionRate: 100,
-        keepsCash: true,
-        keepsCheck: true,
-      };
-      
-      await AsyncStorage.setItem(`user_${fbUser.uid}`, JSON.stringify(userData));
-      
-    } catch (err: any) {
-      setError(err.message || 'Failed to register');
-      throw err;
-    } finally {
-      setIsLoading(false);
+      // If employee provided owner email, we'll handle the connection
+      if (roleData.ownerEmail) {
+        // Store the owner email request in Firestore
+        // We'll create a "pending requests" collection
+        const db = getFirestore();
+        await setDoc(doc(db, 'employeeRequests', fbUser.uid), {
+          employeeEmail: email,
+          employeeName: name,
+          ownerEmail: roleData.ownerEmail,
+          status: 'pending',
+          createdAt: new Date().toISOString(),
+        });
+      }
     }
-  };
+    
+    // Save to AsyncStorage
+    await AsyncStorage.setItem(`user_${fbUser.uid}`, JSON.stringify(userData));
+    
+    // Save to Firestore user profile
+    const db = getFirestore();
+    await setDoc(doc(db, 'users', fbUser.uid, 'profile', 'data'), {
+      ...userData,
+      email: email,
+      displayName: name,
+      createdAt: new Date().toISOString(),
+    });
+    
+  } catch (err: any) {
+    setError(err.message || 'Failed to register');
+    throw err;
+  } finally {
+    setIsLoading(false);
+  }
+};
 
   const login = async (email: string, password: string) => {
     try {
@@ -298,26 +337,28 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const bypassAuthForTesting = () => {
-    const testUser: User = {
-      uid: 'test-user-id',
-      email: 'test@example.com',
-      displayName: 'Test User',
-      photoURL: null,
-      role: 'owner',
-      commissionRate: 100,
-      keepsCash: true,
-      keepsCheck: true,
-    };
-    
-    setUser(testUser);
-    AsyncStorage.setItem('user', JSON.stringify(testUser));
-    AsyncStorage.setItem(`user_${testUser.uid}`, JSON.stringify({
-      role: testUser.role,
-      commissionRate: testUser.commissionRate,
-      keepsCash: testUser.keepsCash,
-      keepsCheck: testUser.keepsCheck,
-    }));
+  const testUser: CustomUser = {
+    uid: 'test-user-id',
+    email: 'test@example.com',
+    displayName: 'Test User',
+    photoURL: null,
+    role: 'owner',
+    businessName: 'Test Business',
+    commissionRate: 100,
+    keepsCash: true,
+    keepsCheck: true,
   };
+  
+  setUser(testUser);
+  AsyncStorage.setItem('user', JSON.stringify(testUser));
+  AsyncStorage.setItem(`user_${testUser.uid}`, JSON.stringify({
+    role: testUser.role,
+    businessName: testUser.businessName,
+    commissionRate: testUser.commissionRate,
+    keepsCash: testUser.keepsCash,
+    keepsCheck: testUser.keepsCheck,
+  }));
+};
 
   const value = {
     user,
