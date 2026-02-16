@@ -284,44 +284,63 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }
 };
 
-  const updateProfile = async (data: Partial<User>) => {
-    try {
-      setIsLoading(true);
-      clearError();
-      
-      if (user?.uid === 'test-user-id') {
-        const updatedUser = { ...user, ...data };
-        setUser(updatedUser);
-        await AsyncStorage.setItem('user', JSON.stringify(updatedUser));
-        await AsyncStorage.setItem(`user_${user.uid}`, JSON.stringify(data));
-        setIsLoading(false);
-        return;
-      }
-      
-      const currentUser = auth.currentUser;
-      if (!currentUser) {
-        throw new Error('Not logged in');
-      }
-      
-      if (data.displayName !== undefined) {
-        await fbUpdateProfile(currentUser, {
-          displayName: data.displayName,
-          photoURL: data.photoURL || currentUser.photoURL,
-        });
-      }
-      
-      // Save additional user data
-      if (user) {
-        await AsyncStorage.setItem(`user_${user.uid}`, JSON.stringify(data));
-      }
-      
-    } catch (err: any) {
-      setError(err.message || 'Failed to update profile');
-      throw err;
-    } finally {
+ const updateProfile = async (data: Partial<CustomUser>) => {
+  try {
+    setIsLoading(true);
+    clearError();
+    
+    if (user?.uid === 'test-user-id') {
+      const updatedUser = { ...user, ...data };
+      setUser(updatedUser);
+      await AsyncStorage.setItem('user', JSON.stringify(updatedUser));
+      await AsyncStorage.setItem(`user_${user.uid}`, JSON.stringify(data));
       setIsLoading(false);
+      return;
     }
-  };
+    
+    const currentUser = auth.currentUser;
+    if (!currentUser) {
+      throw new Error('Not logged in');
+    }
+    
+    // Update Firebase displayName/photoURL if provided
+    if (data.displayName !== undefined || data.photoURL !== undefined) {
+      await fbUpdateProfile(currentUser, {
+        displayName: data.displayName || currentUser.displayName,
+        photoURL: data.photoURL || currentUser.photoURL,
+      });
+    }
+    
+    // Save to AsyncStorage
+    if (user) {
+      const existingData = await AsyncStorage.getItem(`user_${user.uid}`);
+      const existingParsed = existingData ? JSON.parse(existingData) : {};
+      const mergedData = { ...existingParsed, ...data };
+      
+      await AsyncStorage.setItem(`user_${user.uid}`, JSON.stringify(mergedData));
+      
+      // Update local state
+      setUser({ ...user, ...data });
+    }
+    
+    // Save to Firestore - THIS WAS MISSING!
+    const db = getFirestore();
+    await setDoc(
+      doc(db, 'users', currentUser.uid, 'profile', 'data'),
+      data,
+      { merge: true } // Merge with existing data instead of overwriting
+    );
+    
+    console.log('✅ Profile updated in Firestore:', data);
+    
+  } catch (err: any) {
+    console.error('❌ Update profile error:', err);
+    setError(err.message || 'Failed to update profile');
+    throw err;
+  } finally {
+    setIsLoading(false);
+  }
+};
 
   const resetPassword = async (email: string) => {
     try {

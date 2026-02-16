@@ -205,26 +205,30 @@ const saveJobsToStorage = async (jobsToSave: Job[]) => {
 
   
 
-  const addJob = async (jobData: Omit<Job, 'id' | 'createdAt' | 'updatedAt'>): Promise<string> => {
-    const now = new Date().toISOString();
-    const jobId = `job_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-    
-    const newJob: Job = {
-      ...jobData,
-      id: jobId,
-      createdAt: now,
-      updatedAt: now,
-    };
-
-    const updatedJobs = [...jobs, newJob];
-    setJobs(updatedJobs);
-    
-    // Save to storage and Firebase
-    await saveJobsToStorage(updatedJobs);
-    
-    console.log(`✅ Added new job: ${jobId}`);
-    return jobId;
+ const addJob = async (jobData: Omit<Job, 'id' | 'createdAt' | 'updatedAt'>): Promise<string> => {
+  const now = new Date().toISOString();
+  const jobId = `job_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  
+  const newJob: Job = {
+    ...jobData,
+    id: jobId,
+    createdAt: now,
+    updatedAt: now,
+    jobType: 'owner', // Default for now, will update with role system
   };
+
+  const updatedJobs = [...jobs, newJob];
+  setJobs(updatedJobs); // Update UI immediately
+  
+  console.log(`✅ Added new job: ${jobId}`);
+  
+  // Save to storage and Firebase in background (don't await)
+  saveJobsToStorage(updatedJobs).catch(err => {
+    console.error('Background save failed:', err);
+  });
+  
+  return jobId; // Return immediately
+};
 // Unified effect for loading and real-time sync
 useEffect(() => {
   let unsubscribe: (() => void) | null = null;

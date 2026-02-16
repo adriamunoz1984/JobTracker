@@ -76,6 +76,7 @@ const DraggableFAB: React.FC = () => {
           return;
         }
         
+        
         // Finalize the position
         position.flattenOffset();
         

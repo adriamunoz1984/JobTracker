@@ -1,25 +1,24 @@
 // App.tsx - Updated with debugging
 // Authentication Screens
-import LoginScreen from './src/screens/LoginScreen';
-import RegisterScreen from './src/screens/RegisterScreen';
-import ForgotPasswordScreen from './src/screens/ForgotPasswordScreen';
-import RoleSelectionScreen from './src/screens/RoleSelectionScreen';
 import React, { useEffect } from 'react';
 import { View } from 'react-native';
 import { NavigationContainer, useNavigation } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
+// Main App Screensa
+import MainNavigator from './src/navigation/MainNavigator';
+import ProfileScreen from './src/screens/ProfileScreen';
 import { Provider as PaperProvider, ActivityIndicator, Text, FAB } from 'react-native-paper';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { StatusBar } from 'expo-status-bar';
-
 // Context Providers
 import { AuthProvider, useAuth } from './src/context/AuthContext';
 import { JobsProvider } from './src/context/JobsContext';
-
-// Main App Screens
-import MainNavigator from './src/navigation/MainNavigator';
-import ProfileScreen from './src/screens/ProfileScreen';
-
+import EmployeeInviteChecker from './src/components/EmployeeInviteChecker';
+import EmployeeManagementScreen from './src/screens/EmployeeManagementScreen';
+import LoginScreen from './src/screens/LoginScreen';
+import RegisterScreen from './src/screens/RegisterScreen';
+import ForgotPasswordScreen from './src/screens/ForgotPasswordScreen';
+import RoleSelectionScreen from './src/screens/RoleSelectionScreen';
 // Components
 import DraggableFAB from './src/components/DraggableFAB';
 
@@ -30,7 +29,7 @@ import DummyDataSeeder from './src/screens/DummyDataSeeder';
 
 const Stack = createStackNavigator();
 
-// Component that handles the authentication flow
+// Component that handles the authentication flowa
 function AuthNavigator() {
   const { user, isLoading } = useAuth();
 
@@ -104,7 +103,17 @@ function AppNavigatorWithFAB({ user }: { user: any }) {
                 headerTitleAlign: 'center'
               }}
             />
-            
+            <Stack.Screen 
+              name="EmployeeManagement" 
+              component={EmployeeManagementScreen}
+              options={{
+                headerShown: true,
+                title: 'Employees',
+                headerStyle: { backgroundColor: '#2196F3' },
+                headerTintColor: '#fff',
+                headerTitleAlign: 'center'
+              }}
+            />
             <Stack.Screen 
               name="AddJob" 
               component={AddJobScreen}
@@ -145,14 +154,11 @@ function AppNavigatorWithFAB({ user }: { user: any }) {
         )}
       </Stack.Navigator>
       
-      {/* Draggable FAB - only show when user is logged in */}
-      {user && (
-        <DraggableFAB
-          onPress={() => {
-            navigation.navigate('AddJob' as never);
-          }}
-        />
-      )}
+        {/* Draggable FAB - only show when user is logged in */}
+{user && <DraggableFAB />}
+
+{/* Employee Invite Checker - Disabled for testing */}
+{/* {user && <EmployeeInviteChecker />} */}
     </>
   );
 }

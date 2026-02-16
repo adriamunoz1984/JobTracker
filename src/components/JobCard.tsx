@@ -82,9 +82,9 @@ const JobCard: React.FC<JobCardProps> = ({ job, onDelete, onTogglePaid }) => {
   };
 
   // Show sequence badge only when there are multiple jobs on the same date
-  const showSequenceBadge = job.totalJobsOnDate && job.totalJobsOnDate > 1;
-  // Always indent if not the first job
-  const shouldIndent = job.sequenceNumber > 1;
+const showSequenceBadge = job.totalJobsOnDate && job.totalJobsOnDate > 1;
+// Only indent if this is a secondary job on a day with multiple jobs
+const shouldIndent = showSequenceBadge && job.sequenceNumber > 1;
   
   return (
     <Card 

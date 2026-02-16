@@ -1,7 +1,7 @@
-// src/screens/ProfileScreen.tsx (enhanced with role and commission settings)
+// src/screens/ProfileScreen.tsx (enhanced with role and employee management)
 import React, { useState, useEffect } from 'react';
 import { View, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
-import { Card, Title, Paragraph, Button, Divider, Text, TextInput, Switch, SegmentedButtons, RadioButton } from 'react-native-paper';
+import { Card, Title, Paragraph, Button, Divider, Text, TextInput, Switch, RadioButton } from 'react-native-paper';
 import { useNavigation } from '@react-navigation/native';
 import { useAuth } from '../context/AuthContext';
 
@@ -15,15 +15,13 @@ export default function ProfileScreen() {
   
   // Payment settings
   const [isEditingPayment, setIsEditingPayment] = useState(false);
-  const [userRole, setUserRole] = useState(user?.role || 'owner');
   const [commissionRate, setCommissionRate] = useState(user?.commissionRate?.toString() || '50');
-  const [keepsCash, setKeepsCash] = useState(user?.keepsCash !== false); // Default to true
-  const [keepsCheck, setKeepsCheck] = useState(user?.keepsCheck !== false); // Default to true
+  const [keepsCash, setKeepsCash] = useState(user?.keepsCash !== false);
+  const [keepsCheck, setKeepsCheck] = useState(user?.keepsCheck !== false);
   
   useEffect(() => {
     if (user) {
       setDisplayName(user.displayName || '');
-      setUserRole(user.role || 'owner');
       setCommissionRate(user.commissionRate?.toString() || '50');
       setKeepsCash(user.keepsCash !== false);
       setKeepsCheck(user.keepsCheck !== false);
@@ -50,7 +48,6 @@ export default function ProfileScreen() {
       }
       
       await updateProfile({
-        role: userRole,
         commissionRate: commissionRateNum,
         keepsCash,
         keepsCheck
@@ -62,6 +59,41 @@ export default function ProfileScreen() {
     }
   };
   
+// Toggle between owner and employee role
+const handleToggleRole = async () => {
+  const newRole = user?.role === 'owner' ? 'employee' : 'owner';
+  
+  Alert.alert(
+    'Change Role',
+    `Switch to ${newRole} mode? This will change how your earnings are calculated.`,
+    [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Confirm',
+        onPress: async () => {
+          try {
+            await updateProfile({ 
+              role: newRole,
+              // Set appropriate defaults for each role
+              ...(newRole === 'employee' ? {
+                commissionRate: user?.commissionRate || 50,
+                keepsCash: user?.keepsCash !== undefined ? user.keepsCash : false,
+                keepsCheck: user?.keepsCheck !== undefined ? user.keepsCheck : false,
+              } : {
+                commissionRate: 100,
+                keepsCash: true,
+                keepsCheck: true,
+              })
+            });
+          } catch (e) {
+            Alert.alert('Error', 'Failed to change role');
+          }
+        }
+      }
+    ]
+  );
+};
+
   // Handle logout
   const handleLogout = () => {
     Alert.alert(
@@ -126,125 +158,160 @@ export default function ProfileScreen() {
               
               <Paragraph style={styles.label}>Email:</Paragraph>
               <Paragraph style={styles.value}>{user?.email || 'Not available'}</Paragraph>
-            </View>
-          )}
-        </Card.Content>
-      </Card>
-      
-      {/* Payment Settings Card */}
-      <Card style={styles.card}>
-        <Card.Content>
-          <View style={styles.headerContainer}>
-            <Title>Payment Settings</Title>
-            <Button 
-              mode="text" 
-              onPress={() => setIsEditingPayment(!isEditingPayment)} 
-              icon={isEditingPayment ? "check" : "pencil"}
-            >
-              {isEditingPayment ? "Done" : "Edit"}
-            </Button>
-          </View>
-          <Divider style={styles.divider} />
-          
-          {isEditingPayment ? (
-            <View style={styles.formGroup}>
-              <Text style={styles.sectionLabel}>I am a:</Text>
-              <RadioButton.Group 
-                onValueChange={value => setUserRole(value)} 
-                value={userRole}
-              >
-                <View style={styles.radioOption}>
-                  <RadioButton value="owner" />
-                  <Text>Owner (Get 100% of profits)</Text>
-                </View>
-                <View style={styles.radioOption}>
-                  <RadioButton value="employee" />
-                  <Text>Employee (Commission-based)</Text>
-                </View>
-              </RadioButton.Group>
               
-              {userRole === 'employee' && (
-                <>
-                  <Text style={styles.sectionLabel}>My commission rate:</Text>
-                  <View style={styles.commissionContainer}>
-                    <TextInput
-                      label="Commission %"
-                      value={commissionRate}
-                      onChangeText={setCommissionRate}
-                      mode="outlined"
-                      keyboardType="numeric"
-                      style={styles.commissionInput}
-                    />
-                    <Text style={styles.percentSign}>%</Text>
-                  </View>
-                  
-                  <Text style={styles.sectionLabel}>Payment handling:</Text>
-                  
-                  <View style={styles.switchRow}>
-                    <Text>I keep the cash payments</Text>
-                    <Switch 
-                      value={keepsCash} 
-                      onValueChange={setKeepsCash}
-                    />
-                  </View>
-                  
-                  <View style={styles.switchRow}>
-                    <Text>I keep the check payments</Text>
-                    <Switch 
-                      value={keepsCheck} 
-                      onValueChange={setKeepsCheck}
-                    />
-                  </View>
-                </>
-              )}
-              
-              <Button 
-                mode="contained" 
-                onPress={handleSavePaymentSettings}
-                style={styles.saveButton}
-              >
-                Save Payment Settings
-              </Button>
-            </View>
-          ) : (
-            <View style={styles.profileInfo}>
-              <Paragraph style={styles.label}>Role:</Paragraph>
+              <Paragraph style={styles.label}>Account Type:</Paragraph>
               <Paragraph style={styles.value}>
-                {user?.role === 'owner' ? 'Owner (100% profits)' : 'Employee (Commission)'}
+                {user?.role === 'owner' ? '👔 Business Owner' : '👷 Employee'}
               </Paragraph>
               
-              {user?.role === 'employee' && (
+              {user?.role === 'owner' && user?.businessName && (
                 <>
-                  <Paragraph style={styles.label}>Commission Rate:</Paragraph>
-                  <Paragraph style={styles.value}>{user?.commissionRate || 50}%</Paragraph>
-                  
-                  <Paragraph style={styles.label}>Cash Handling:</Paragraph>
-                  <Paragraph style={styles.value}>
-                    {user?.keepsCash !== false ? 'I keep cash payments' : 'I remit cash payments'}
-                  </Paragraph>
-                  
-                  <Paragraph style={styles.label}>Check Handling:</Paragraph>
-                  <Paragraph style={styles.value}>
-                    {user?.keepsCheck !== false ? 'I keep check payments' : 'I remit check payments'}
-                  </Paragraph>
+                  <Paragraph style={styles.label}>Business Name:</Paragraph>
+                  <Paragraph style={styles.value}>{user.businessName}</Paragraph>
                 </>
               )}
             </View>
           )}
-          
-          {!isEditingPayment && (
-            <View style={styles.formulaContainer}>
-              <Text style={styles.formulaTitle}>Your Payment Formula:</Text>
-              <Text style={styles.formula}>
-                {user?.role === 'owner' 
-                  ? 'Total Amount = 100% of all jobs'
-                  : `Your Pay = (Total Jobs / ${user?.commissionRate || 50}%) ${user?.keepsCash ? '- Cash' : ''} ${user?.keepsCheck ? '- Checks' : ''}`
-                }
-              </Text>
-            </View>
-          )}
         </Card.Content>
       </Card>
+      {/* Role Toggle Card */}
+      <Card style={styles.card}>
+        <Card.Content>
+          <Title>Account Role</Title>
+          <Divider style={styles.divider} />
+          
+          <View style={styles.profileInfo}>
+            <Paragraph style={styles.label}>Current Role:</Paragraph>
+            <Paragraph style={styles.value}>
+              {user?.role === 'owner' ? '👔 Business Owner' : '👷 Employee'}
+            </Paragraph>
+            
+            <Paragraph style={styles.roleDescription}>
+              {user?.role === 'owner' 
+                ? 'Owners receive 100% of job earnings and can manage employees.'
+                : 'Employees earn based on commission rate with custom payment rules.'}
+            </Paragraph>
+          </View>
+          
+          <Button
+            mode="outlined"
+            icon="swap-horizontal"
+            onPress={handleToggleRole}
+            style={styles.toggleRoleButton}
+          >
+            Switch to {user?.role === 'owner' ? 'Employee' : 'Owner'} Mode
+          </Button>
+        </Card.Content>
+      </Card>
+
+      {/* Owner-Only: Employee Management */}
+      {user?.role === 'owner' && (
+        <Card style={styles.card}>
+          <Card.Content>
+            <Title>Employee Management</Title>
+            <Divider style={styles.divider} />
+            <Paragraph style={styles.subtitle}>
+              Invite and manage your team members
+            </Paragraph>
+            <Button
+              mode="contained"
+              icon="account-group"
+              onPress={() => navigation.navigate('EmployeeManagement' as never)}
+              style={styles.manageButton}
+            >
+              Manage Employees
+            </Button>
+          </Card.Content>
+        </Card>
+      )}
+      
+      {/* Payment Settings Card - Employee Only */}
+      {user?.role === 'employee' && (
+        <Card style={styles.card}>
+          <Card.Content>
+            <View style={styles.headerContainer}>
+              <Title>Payment Settings</Title>
+              <Button 
+                mode="text" 
+                onPress={() => setIsEditingPayment(!isEditingPayment)} 
+                icon={isEditingPayment ? "check" : "pencil"}
+              >
+                {isEditingPayment ? "Done" : "Edit"}
+              </Button>
+            </View>
+            <Divider style={styles.divider} />
+            
+            {isEditingPayment ? (
+              <View style={styles.formGroup}>
+                <Text style={styles.sectionLabel}>My commission rate:</Text>
+                <View style={styles.commissionContainer}>
+                  <TextInput
+                    label="Commission %"
+                    value={commissionRate}
+                    onChangeText={setCommissionRate}
+                    mode="outlined"
+                    keyboardType="numeric"
+                    style={styles.commissionInput}
+                  />
+                  <Text style={styles.percentSign}>%</Text>
+                </View>
+                
+                <Text style={styles.sectionLabel}>Payment handling:</Text>
+                
+                <View style={styles.switchRow}>
+                  <Text>I keep the cash payments</Text>
+                  <Switch 
+                    value={keepsCash} 
+                    onValueChange={setKeepsCash}
+                  />
+                </View>
+                
+                <View style={styles.switchRow}>
+                  <Text>I keep the check payments</Text>
+                  <Switch 
+                    value={keepsCheck} 
+                    onValueChange={setKeepsCheck}
+                  />
+                </View>
+                
+                <Button 
+                  mode="contained" 
+                  onPress={handleSavePaymentSettings}
+                  style={styles.saveButton}
+                >
+                  Save Payment Settings
+                </Button>
+              </View>
+            ) : (
+              <View style={styles.profileInfo}>
+                <Paragraph style={styles.label}>Commission Rate:</Paragraph>
+                <Paragraph style={styles.value}>{user?.commissionRate || 50}%</Paragraph>
+                
+                <Paragraph style={styles.label}>Cash Handling:</Paragraph>
+                <Paragraph style={styles.value}>
+                  {user?.keepsCash !== false ? 'I keep cash payments' : 'I remit cash payments'}
+                </Paragraph>
+                
+                <Paragraph style={styles.label}>Check Handling:</Paragraph>
+                <Paragraph style={styles.value}>
+                  {user?.keepsCheck !== false ? 'I keep check payments' : 'I remit check payments'}
+                </Paragraph>
+              </View>
+            )}
+            
+            {!isEditingPayment && (
+              <View style={styles.formulaContainer}>
+                <Text style={styles.formulaTitle}>Your Payment Formula:</Text>
+                <Text style={styles.formula}>
+                  Your Pay = (Total Jobs × {user?.commissionRate || 50}%) 
+                  {user?.keepsCash ? ' - Cash' : ''} 
+                  {user?.keepsCheck ? ' - Checks' : ''}
+                </Text>
+              </View>
+            )}
+          </Card.Content>
+        </Card>
+      )}
       
       {/* Logout Button */}
       <Button 
@@ -292,6 +359,10 @@ const styles = StyleSheet.create({
     fontSize: 16,
     marginBottom: 8,
   },
+  subtitle: {
+    color: '#666',
+    marginBottom: 12,
+  },
   input: {
     marginBottom: 16,
     backgroundColor: 'white',
@@ -300,16 +371,15 @@ const styles = StyleSheet.create({
     marginTop: 16,
     backgroundColor: '#2196F3',
   },
+  manageButton: {
+    marginTop: 8,
+    backgroundColor: '#2196F3',
+  },
   sectionLabel: {
     fontSize: 16,
     fontWeight: 'bold',
     marginTop: 16,
     marginBottom: 8,
-  },
-  radioOption: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginVertical: 4,
   },
   commissionContainer: {
     flexDirection: 'row',
@@ -348,4 +418,16 @@ const styles = StyleSheet.create({
     borderColor: '#F44336',
     borderWidth: 1,
   },
+
+  toggleRoleButton: {
+  marginTop: 12,
+  borderColor: '#2196F3',
+},
+roleDescription: {
+  fontSize: 14,
+  color: '#666',
+  fontStyle: 'italic',
+  marginTop: 4,
+  marginBottom: 8,
+},
 });
