@@ -16,6 +16,7 @@ import {
   Chip,
   ActivityIndicator
 } from 'react-native-paper';
+import { useNavigation } from '@react-navigation/native';
 import { useAuth } from '../context/AuthContext';
 import { Employee } from '../types';
 import { 
@@ -34,6 +35,7 @@ import {
 const db = getFirestore();
 
 export default function EmployeeManagementScreen() {
+  const navigation = useNavigation();
   const { user } = useAuth();
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -193,6 +195,15 @@ export default function EmployeeManagementScreen() {
           style={styles.inviteButton}
         >
           Invite Employee
+        </Button>
+        
+        <Button
+          mode="outlined"
+          icon="briefcase-plus"
+          onPress={() => navigation.navigate('AssignJob' as never)}
+          style={styles.assignJobButton}
+        >
+          Assign Job to Employee
         </Button>
 
         {isLoading ? (
@@ -358,6 +369,11 @@ const styles = StyleSheet.create({
   inviteButton: {
     marginHorizontal: 20,
     marginBottom: 16,
+  },
+  assignJobButton: {
+    marginHorizontal: 20,
+    marginBottom: 16,
+    borderColor: '#2196F3',
   },
   loadingContainer: {
     padding: 40,

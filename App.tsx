@@ -1,5 +1,6 @@
 // App.tsx - Updated with debugging
 // Authentication Screens
+import AssignJobScreen from './src/screens/AssignJobScreen';
 import React, { useEffect } from 'react';
 import { View } from 'react-native';
 import { NavigationContainer, useNavigation } from '@react-navigation/native';
@@ -138,7 +139,17 @@ function AppNavigatorWithFAB({ user }: { user: any }) {
                 headerTitleAlign: 'center'
               }}
             />
-            
+            <Stack.Screen 
+              name="AssignJob" 
+              component={AssignJobScreen}
+              options={{
+                headerShown: true,
+                title: 'Assign Job to Employee',
+                headerStyle: { backgroundColor: '#2196F3' },
+                headerTintColor: '#fff',
+                headerTitleAlign: 'center'
+              }}
+            />
             <Stack.Screen 
               name="DummyDataSeeder" 
               component={DummyDataSeeder}
@@ -155,10 +166,10 @@ function AppNavigatorWithFAB({ user }: { user: any }) {
       </Stack.Navigator>
       
         {/* Draggable FAB - only show when user is logged in */}
-{user && <DraggableFAB />}
+        {user && <DraggableFAB />}
 
-{/* Employee Invite Checker - Disabled for testing */}
-{/* {user && <EmployeeInviteChecker />} */}
+      {/* Employee Invite Checker - Only for employees without an owner */}
+      {user && user.role === 'employee' && user.ownerStatus !== 'active' && <EmployeeInviteChecker />}
     </>
   );
 }

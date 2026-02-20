@@ -11,8 +11,7 @@ import {
   getDocs,
   doc,
   updateDoc,
-  setDoc,
-  deleteDoc
+  onSnapshot
 } from 'firebase/firestore';
 
 const db = getFirestore();
@@ -44,14 +43,22 @@ export default function EmployeeInviteChecker() {
   }, [user?.email, user?.role]);
 
   const checkForInvites = async () => {
-    if (!user?.email) return;
+    if (!user?.email) {
+      console.log('❌ No user email');
+      return;
+    }
+
+    console.log('🔍 Checking invites for:', user.email);
+    console.log('🔍 User role:', user.role);
+    console.log('🔍 Owner status:', user.ownerStatus);
+    console.log('🔍 Owner ID:', user.ownerId);
 
     try {
       setIsChecking(true);
 
       // Check if employee already has an owner
       if (user.ownerId && user.ownerStatus === 'active') {
-        console.log('Employee already connected to an owner');
+        console.log('✅ Already connected to owner, skipping');
         setIsChecking(false);
         return;
       }
@@ -64,7 +71,13 @@ export default function EmployeeInviteChecker() {
         where('status', '==', 'pending')
       );
 
+      console.log('📡 Querying Firestore for:', user.email.toLowerCase());
       const snapshot = await getDocs(q);
+      console.log('📊 Query results:', snapshot.size, 'invites found');
+      
+      snapshot.docs.forEach(doc => {
+        console.log('📄 Found invite:', doc.id, doc.data());
+      });
       
       if (snapshot.empty) {
         console.log('No pending invites found');
@@ -107,12 +120,21 @@ export default function EmployeeInviteChecker() {
         ownerStatus: 'active',
       });
 
-      // Update employee record in owner's collection
-      const employeeDocRef = doc(db, 'users', currentInvite.ownerId, 'employees', currentInvite.id);
-      await updateDoc(employeeDocRef, {
-        status: 'active',
-        acceptedAt: new Date().toISOString(),
-      });
+      // Find and update the employee record in owner's collection by email
+      const employeesRef = collection(db, 'users', currentInvite.ownerId, 'employees');
+      const q = query(employeesRef, where('email', '==', user.email!.toLowerCase()));
+      const empSnapshot = await getDocs(q);
+
+      if (!empSnapshot.empty) {
+        const employeeDoc = empSnapshot.docs[0];
+        await updateDoc(employeeDoc.ref, {
+          status: 'active',
+          acceptedAt: new Date().toISOString(),
+        });
+        console.log('✅ Updated employee record in owner collection');
+      } else {
+        console.warn('⚠️ Employee record not found in owner collection');
+      }
 
       // Mark invite as accepted
       await updateDoc(doc(db, 'employeeInvites', currentInvite.id), {
@@ -154,10 +176,16 @@ export default function EmployeeInviteChecker() {
       });
 
       // Update employee record in owner's collection
-      const employeeDocRef = doc(db, 'users', currentInvite.ownerId, 'employees', currentInvite.id);
-      await updateDoc(employeeDocRef, {
-        status: 'declined',
-      });
+      const employeesRef = collection(db, 'users', currentInvite.ownerId, 'employees');
+      const q = query(employeesRef, where('email', '==', user!.email!.toLowerCase()));
+      const empSnapshot = await getDocs(q);
+
+      if (!empSnapshot.empty) {
+        const employeeDoc = empSnapshot.docs[0];
+        await updateDoc(employeeDoc.ref, {
+          status: 'declined',
+        });
+      }
 
       console.log(`❌ Declined invitation from ${currentInvite.ownerBusinessName}`);
 
