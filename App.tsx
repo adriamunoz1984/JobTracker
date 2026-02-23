@@ -1,5 +1,7 @@
 // App.tsx - Updated with debugging
 // Authentication Screens
+import CompleteJobScreen from './src/screens/CompleteJobScreen';
+import PendingJobsScreen from './src/screens/PendingJobsScreen';
 import AssignJobScreen from './src/screens/AssignJobScreen';
 import React, { useEffect } from 'react';
 import { View } from 'react-native';
@@ -134,6 +136,29 @@ function AppNavigatorWithFAB({ user }: { user: any }) {
               options={{
                 headerShown: true,
                 title: 'Job Details',
+                headerStyle: { backgroundColor: '#2196F3' },
+                headerTintColor: '#fff',
+                headerTitleAlign: 'center'
+              }}
+            />
+            <Stack.Screen 
+              name="PendingJobs" 
+              component={PendingJobsScreen}
+              options={{
+                headerShown: true,
+                title: 'Pending Jobs',
+                headerStyle: { backgroundColor: '#2196F3' },
+                headerTintColor: '#fff',
+                headerTitleAlign: 'center'
+              }}
+            />
+
+            <Stack.Screen 
+              name="CompleteJob" 
+              component={CompleteJobScreen}
+              options={{
+                headerShown: true,
+                title: 'Complete Job Details',
                 headerStyle: { backgroundColor: '#2196F3' },
                 headerTintColor: '#fff',
                 headerTitleAlign: 'center'

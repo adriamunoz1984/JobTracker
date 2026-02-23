@@ -33,80 +33,178 @@ export default function EmployeeInviteChecker() {
   const [isChecking, setIsChecking] = useState(true);
 
   // Check for pending invites when user logs in
-  useEffect(() => {
-    if (!user?.email || user.role !== 'employee') {
+  // useEffect(() => {
+  //   if (!user?.email || user.role !== 'employee') {
+  //     setIsChecking(false);
+  //     return;
+  //   }
+
+  //   checkForInvites();
+  // }, [user?.email, user?.role]);
+
+  // const checkForInvites = async () => {
+  //   if (!user?.email) {
+  //     console.log('❌ No user email');
+  //     return;
+  //   }
+
+  //   console.log('🔍 Checking invites for:', user.email);
+  //   console.log('🔍 User role:', user.role);
+  //   console.log('🔍 Owner status:', user.ownerStatus);
+  //   console.log('🔍 Owner ID:', user.ownerId);
+
+  //   try {
+  //     setIsChecking(true);
+
+  //     // Check if employee already has an owner
+  //     if (user.ownerId && user.ownerStatus === 'active') {
+  //       console.log('✅ Already connected to owner, skipping');
+  //       setIsChecking(false);
+  //       return;
+  //     }
+
+  //     // Query for pending invites
+  //     const invitesRef = collection(db, 'employeeInvites');
+  //     const q = query(
+  //       invitesRef,
+  //       where('employeeEmail', '==', user.email.toLowerCase()),
+  //       where('status', '==', 'pending')
+  //     );
+
+  //     console.log('📡 Querying Firestore for:', user.email.toLowerCase());
+  //     const snapshot = await getDocs(q);
+  //     console.log('📊 Query results:', snapshot.size, 'invites found');
+      
+  //     snapshot.docs.forEach(doc => {
+  //       console.log('📄 Found invite:', doc.id, doc.data());
+  //     });
+      
+  //     if (snapshot.empty) {
+  //       console.log('No pending invites found');
+  //       setIsChecking(false);
+  //       return;
+  //     }
+
+  //     const invites = snapshot.docs.map(doc => ({
+  //       id: doc.id,
+  //       ownerId: doc.data().ownerId,
+  //       ownerName: doc.data().ownerName,
+  //       ownerEmail: doc.data().ownerEmail,
+  //       ownerBusinessName: doc.data().ownerBusinessName,
+  //     } as PendingInvite));
+
+  //     console.log(`Found ${invites.length} pending invite(s)`);
+  //     setPendingInvites(invites);
+      
+  //     // Show the first invite
+  //     if (invites.length > 0) {
+  //       setCurrentInvite(invites[0]);
+  //       setShowDialog(true);
+  //     }
+  //   } catch (error) {
+  //     console.error('Error checking for invites:', error);
+  //   } finally {
+  //     setIsChecking(false);
+  //   }
+  // };
+
+  // Check for pending invites when user logs in
+useEffect(() => {
+    console.log('=== INVITE CHECKER useEffect TRIGGERED ===');
+    console.log('User email:', user?.email);
+    console.log('User role:', user?.role);
+    
+    if (!user?.email) {
+      console.log('❌ No user email, exiting');
+      setIsChecking(false);
+      return;
+    }
+    
+    if (user.role !== 'employee') {
+      console.log('❌ User is not employee, exiting. Role:', user.role);
       setIsChecking(false);
       return;
     }
 
+    console.log('✅ Conditions met, calling checkForInvites()');
     checkForInvites();
   }, [user?.email, user?.role]);
 
   const checkForInvites = async () => {
-    if (!user?.email) {
-      console.log('❌ No user email');
+  console.log('=== CHECK FOR INVITES STARTED ===');
+  
+  if (!user?.email) {
+    console.log('❌ No user email in checkForInvites');
+    return;
+  }
+
+  console.log('🔍 Checking invites for:', user.email);
+  console.log('🔍 User role:', user.role);
+  console.log('🔍 Owner status:', user.ownerStatus);
+  console.log('🔍 Owner ID:', user.ownerId);
+
+  try {
+    setIsChecking(true);
+
+    // Check if employee already has an owner
+    if (user.ownerId && user.ownerStatus === 'active') {
+      console.log('✅ Already connected to owner, skipping');
+      setIsChecking(false);
       return;
     }
 
-    console.log('🔍 Checking invites for:', user.email);
-    console.log('🔍 User role:', user.role);
-    console.log('🔍 Owner status:', user.ownerStatus);
-    console.log('🔍 Owner ID:', user.ownerId);
+    console.log('🔍 No active owner connection, proceeding with query');
 
-    try {
-      setIsChecking(true);
+    // Query for pending invites
+    const invitesRef = collection(db, 'employeeInvites');
+    const q = query(
+      invitesRef,
+      where('employeeEmail', '==', user.email.toLowerCase()),
+      where('status', '==', 'pending')
+    );
 
-      // Check if employee already has an owner
-      if (user.ownerId && user.ownerStatus === 'active') {
-        console.log('✅ Already connected to owner, skipping');
-        setIsChecking(false);
-        return;
-      }
-
-      // Query for pending invites
-      const invitesRef = collection(db, 'employeeInvites');
-      const q = query(
-        invitesRef,
-        where('employeeEmail', '==', user.email.toLowerCase()),
-        where('status', '==', 'pending')
-      );
-
-      console.log('📡 Querying Firestore for:', user.email.toLowerCase());
-      const snapshot = await getDocs(q);
-      console.log('📊 Query results:', snapshot.size, 'invites found');
-      
-      snapshot.docs.forEach(doc => {
-        console.log('📄 Found invite:', doc.id, doc.data());
-      });
-      
-      if (snapshot.empty) {
-        console.log('No pending invites found');
-        setIsChecking(false);
-        return;
-      }
-
-      const invites = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ownerId: doc.data().ownerId,
-        ownerName: doc.data().ownerName,
-        ownerEmail: doc.data().ownerEmail,
-        ownerBusinessName: doc.data().ownerBusinessName,
-      } as PendingInvite));
-
-      console.log(`Found ${invites.length} pending invite(s)`);
-      setPendingInvites(invites);
-      
-      // Show the first invite
-      if (invites.length > 0) {
-        setCurrentInvite(invites[0]);
-        setShowDialog(true);
-      }
-    } catch (error) {
-      console.error('Error checking for invites:', error);
-    } finally {
-      setIsChecking(false);
+    console.log('📡 Querying Firestore for:', user.email.toLowerCase());
+    const snapshot = await getDocs(q);
+    console.log('📊 Query completed. Documents found:', snapshot.size);
+    
+    if (snapshot.empty) {
+      console.log('❌ No documents in snapshot');
     }
-  };
+    
+    snapshot.docs.forEach((doc, index) => {
+      console.log(`📄 Invite #${index + 1}:`, doc.id);
+      console.log(`   Data:`, doc.data());
+    });
+    
+    if (snapshot.empty) {
+      console.log('No pending invites found');
+      setIsChecking(false);
+      return;
+    }
+
+    const invites = snapshot.docs.map(doc => ({
+      id: doc.id,
+      ownerId: doc.data().ownerId,
+      ownerName: doc.data().ownerName,
+      ownerEmail: doc.data().ownerEmail,
+      ownerBusinessName: doc.data().ownerBusinessName,
+    } as PendingInvite));
+
+    console.log(`Found ${invites.length} pending invite(s)`);
+    setPendingInvites(invites);
+    
+    // Show the first invite
+    if (invites.length > 0) {
+      setCurrentInvite(invites[0]);
+      setShowDialog(true);
+      console.log('✅ Showing invite dialog');
+    }
+  } catch (error) {
+    console.error('Error checking for invites:', error);
+  } finally {
+    setIsChecking(false);
+  }
+};
 
   const handleAcceptInvite = async () => {
     if (!currentInvite || !user) return;
@@ -128,12 +226,11 @@ export default function EmployeeInviteChecker() {
       if (!empSnapshot.empty) {
         const employeeDoc = empSnapshot.docs[0];
         await updateDoc(employeeDoc.ref, {
+          uid: user!.uid, // Store the REAL user ID
           status: 'active',
           acceptedAt: new Date().toISOString(),
         });
-        console.log('✅ Updated employee record in owner collection');
-      } else {
-        console.warn('⚠️ Employee record not found in owner collection');
+        console.log('✅ Updated employee record with real UID:', user!.uid);
       }
 
       // Mark invite as accepted

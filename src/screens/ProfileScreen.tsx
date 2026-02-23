@@ -224,6 +224,27 @@ const handleToggleRole = async () => {
           </Card.Content>
         </Card>
       )}
+
+      {/* Employee-Only: Pending Jobs */}
+        {user?.role === 'employee' && user?.ownerStatus === 'active' && (
+          <Card style={styles.card}>
+            <Card.Content>
+              <Title>Assigned Jobs</Title>
+              <Divider style={styles.divider} />
+              <Paragraph style={styles.subtitle}>
+                View and accept jobs assigned by your employer
+              </Paragraph>
+              <Button
+                mode="contained"
+                icon="briefcase-clock"
+                onPress={() => navigation.navigate('PendingJobs' as never)}
+                style={styles.manageButton}
+              >
+                View Pending Jobs
+              </Button>
+            </Card.Content>
+          </Card>
+        )}
       
       {/* Payment Settings Card - Employee Only */}
       {user?.role === 'employee' && (
