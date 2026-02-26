@@ -1,6 +1,7 @@
 // src/context/AuthContext.tsx - CORRECTED FOR YOUR ERRORS
-import { getFirestore, doc, setDoc } from 'firebase/firestore';
-import { User as CustomUser } from '../types';
+
+import { getFirestore, doc, setDoc, getDoc } from 'firebase/firestore';
+import { User as CustomUser, User } from '../types';
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { 
   createUserWithEmailAndPassword, 
@@ -80,34 +81,85 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const clearError = () => setError(null);
 
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-      const formattedUser = formatUser(firebaseUser);
-      
-      if (formattedUser) {
-        try {
-          const userData = await AsyncStorage.getItem(`user_${formattedUser.uid}`);
-          if (userData) {
-            const parsedData = JSON.parse(userData);
-            setUser({ ...formattedUser, ...parsedData });
+ useEffect(() => {
+  const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+    console.log('🔐 Auth state changed:', firebaseUser?.email);
+    
+    if (firebaseUser) {
+      try {
+        // Try to load from AsyncStorage first
+        const userData = await AsyncStorage.getItem(`user_${firebaseUser.uid}`);
+        console.log('📱 AsyncStorage data:', userData);
+        
+        if (userData) {
+          const parsedData = JSON.parse(userData);
+          const completeUser = {
+            uid: firebaseUser.uid,
+            email: firebaseUser.email,
+            displayName: firebaseUser.displayName,
+            photoURL: firebaseUser.photoURL,
+            ...parsedData, // This includes role and other custom fields
+          };
+          console.log('✅ Setting user with role:', completeUser.role);
+          setUser(completeUser);
+        } else {
+          // No AsyncStorage data - try Firestore
+          console.log('📡 No AsyncStorage data, loading from Firestore...');
+          const db = getFirestore();
+          const profileDoc = await getDoc(doc(db, 'users', firebaseUser.uid, 'profile', 'data'));
+          
+          if (profileDoc.exists()) {
+            const firestoreData = profileDoc.data();
+            const completeUser = {
+              uid: firebaseUser.uid,
+              email: firebaseUser.email,
+              displayName: firebaseUser.displayName,
+              photoURL: firebaseUser.photoURL,
+              ...firestoreData,
+            };
+            console.log('✅ Loaded from Firestore, role:', completeUser.role);
+            setUser(completeUser);
+            
+            // Save to AsyncStorage for next time
+            await AsyncStorage.setItem(`user_${firebaseUser.uid}`, JSON.stringify(firestoreData));
           } else {
-            setUser(formattedUser);
+            // No data anywhere - this shouldn't happen for registered users
+            console.warn('⚠️ No profile data found, using defaults');
+            const defaultUser = {
+              uid: firebaseUser.uid,
+              email: firebaseUser.email,
+              displayName: firebaseUser.displayName,
+              photoURL: firebaseUser.photoURL,
+              role: 'employee' as const, // Default to employee
+            };
+            setUser(defaultUser);
           }
-          await AsyncStorage.setItem('user', JSON.stringify(formattedUser));
-        } catch (e) {
-          console.error('Error loading user data:', e);
-          setUser(formattedUser);
         }
-      } else {
-        setUser(null);
-        await AsyncStorage.removeItem('user');
+        
+        // Also update the simple 'user' key
+        await AsyncStorage.setItem('user', JSON.stringify({ uid: firebaseUser.uid, email: firebaseUser.email }));
+      } catch (e) {
+        console.error('❌ Error loading user data:', e);
+        // Fallback
+        setUser({
+          uid: firebaseUser.uid,
+          email: firebaseUser.email,
+          displayName: firebaseUser.displayName,
+          photoURL: firebaseUser.photoURL,
+          role: 'employee' as const,
+        });
       }
-      
-      setIsLoading(false);
-    });
+    } else {
+      console.log('👤 No user, clearing state');
+      setUser(null);
+      await AsyncStorage.removeItem('user');
+    }
+    
+    setIsLoading(false);
+  });
 
-    return () => unsubscribe();
-  }, []);
+  return () => unsubscribe();
+}, []);
 
   const register = async (email: string, password: string, name: string, roleData?: any) => {
   try {
@@ -122,7 +174,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     
     // Prepare user data based on role
     const userData: Partial<CustomUser> = {
-      role: roleData?.role || 'owner',
+      role: roleData?.role || 'employee', // Default to employee, not owner
+      email: email,
+      displayName: name,
     };
     
     if (roleData?.role === 'owner') {
@@ -138,10 +192,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       userData.keepsCash = false; // Default, owner can change
       userData.keepsCheck = false; // Default, owner can change
       
-      // If employee provided owner email, we'll handle the connection
+      // If employee provided owner email, create pending request
       if (roleData.ownerEmail) {
-        // Store the owner email request in Firestore
-        // We'll create a "pending requests" collection
         const db = getFirestore();
         await setDoc(doc(db, 'employeeRequests', fbUser.uid), {
           employeeEmail: email,
@@ -153,17 +205,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     }
     
-    // Save to AsyncStorage
+    // CRITICAL: Save to AsyncStorage IMMEDIATELY before onAuthStateChanged processes
     await AsyncStorage.setItem(`user_${fbUser.uid}`, JSON.stringify(userData));
+    console.log('✅ Saved user data to AsyncStorage:', userData);
     
-    // Save to Firestore user profile
+    // Save to Firestore profile
     const db = getFirestore();
     await setDoc(doc(db, 'users', fbUser.uid, 'profile', 'data'), {
       ...userData,
-      email: email,
-      displayName: name,
       createdAt: new Date().toISOString(),
     });
+    console.log('✅ Saved user data to Firestore');
     
   } catch (err: any) {
     setError(err.message || 'Failed to register');
@@ -171,7 +223,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   } finally {
     setIsLoading(false);
   }
-};
+  };
 
   const login = async (email: string, password: string) => {
     try {

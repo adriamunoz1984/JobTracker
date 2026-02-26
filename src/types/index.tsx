@@ -54,10 +54,16 @@ export interface Job {
   updatedAt: string;
   
   // Multi-user fields
-  ownerId?: string; // If assigned by owner
-  assignedTo?: string; // Employee this job is assigned to
-  jobType: JobType; // 'owner' or 'personal'
-  status?: JobStatus; // For owner-assigned jobs
+  ownerId?: string;
+  assignedTo?: string;
+  jobType: JobType;
+  status?: JobStatus;
+  
+  // Employee job metadata (for owners viewing employee jobs)
+  isEmployeeJob?: boolean;
+  employeeName?: string;
+  employeeId?: string;
+  isOwnerJob?: boolean;
   
   // Billing details
   billingDetails?: {

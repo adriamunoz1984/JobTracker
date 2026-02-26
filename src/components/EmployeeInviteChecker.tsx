@@ -148,9 +148,9 @@ useEffect(() => {
 
     // Check if employee already has an owner
     if (user.ownerId && user.ownerStatus === 'active') {
-      console.log('✅ Already connected to owner, skipping');
-      setIsChecking(false);
-      return;
+      console.log('⚠️ Already connected to owner:', user.ownerId);
+      // Still check for NEW invites - maybe they were removed and re-invited
+      console.log('🔍 Checking for newer invites anyway...');
     }
 
     console.log('🔍 No active owner connection, proceeding with query');

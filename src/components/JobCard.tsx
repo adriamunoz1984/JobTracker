@@ -100,6 +100,12 @@ const shouldIndent = showSequenceBadge && job.sequenceNumber > 1;
         <View style={styles.headerRow}>
           <View style={styles.dateContainer}>
             <Text style={styles.date}>{formattedDate}</Text>
+            
+            {/* Employee badge - shows who did the job */}
+            {(job as any).isEmployeeJob && (job as any).employeeName && (
+              <Badge style={styles.employeeBadge}>👷 {(job as any).employeeName}</Badge>
+            )}
+            
             {showSequenceBadge && (
               <Badge style={styles.sequenceBadge}>Job #{job.sequenceNumber}</Badge>
             )}
@@ -213,6 +219,22 @@ const styles = StyleSheet.create({
     marginLeft: 35, // Indent secondary jobs
     borderLeftStyle: 'dashed', // Optional: make the left border dashed for visual difference
   },
+
+  sequenceBadge: {
+  marginLeft: 8,
+  fontSize: 12,
+  backgroundColor: '#E0E0E0',
+  },
+  employeeBadge: {
+    marginLeft: 8,
+    fontSize: 11,
+    backgroundColor: '#E3F2FD',
+    color: '#1976D2',
+  },
+  amountContainer: {
+    alignItems: 'flex-end',
+  },
+
   headerRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',

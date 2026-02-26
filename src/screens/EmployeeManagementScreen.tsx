@@ -53,10 +53,13 @@ export default function EmployeeManagementScreen() {
     // Set up real-time listener for employees
     const employeesRef = collection(db, 'users', user.uid, 'employees');
     const unsubscribe = onSnapshot(employeesRef, (snapshot) => {
-      const loadedEmployees = snapshot.docs.map(doc => ({
-        uid: doc.id,
-        ...doc.data()
-      } as Employee));
+      const loadedEmployees = snapshot.docs.map(doc => {
+        const data = doc.data();
+        return {
+          ...data,
+          uid: doc.id,  // Use document ID, not the uid field from data
+        } as Employee;
+      });
       
       setEmployees(loadedEmployees);
       setIsLoading(false);
@@ -147,48 +150,69 @@ export default function EmployeeManagementScreen() {
   };
 
   // Remove employee
- // Remove employee
-const handleRemoveEmployee = (employee: Employee) => {
-  Alert.alert(
-    'Remove Employee',
-    `Are you sure you want to remove ${employee.name}? They will no longer have access to your business and all their assigned jobs will be deleted.`,
-    [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Remove',
-        style: 'destructive',
-        onPress: async () => {
-          try {
-            // 1. Delete employee record from owner's collection
-            await deleteDoc(doc(db, 'users', user!.uid, 'employees', employee.uid));
-            
-            // 2. Delete any pending invites for this employee email
-            const invitesRef = collection(db, 'employeeInvites');
-            const inviteQuery = query(
-              invitesRef, 
-              where('employeeEmail', '==', employee.email.toLowerCase()),
-              where('ownerId', '==', user!.uid)
-            );
-            const inviteSnapshot = await getDocs(inviteQuery);
-            
-            const deleteInvitePromises = inviteSnapshot.docs.map(doc => 
-              deleteDoc(doc.ref)
-            );
-            await Promise.all(deleteInvitePromises);
-            
-            // 3. TODO: Clear owner connection from employee's profile
-            // We'll add this when we fix the registration bug
-            
-            Alert.alert('Success', `${employee.name} has been removed. You can re-invite them if needed.`);
-          } catch (error) {
-            console.error('Error removing employee:', error);
-            Alert.alert('Error', 'Failed to remove employee');
+  const handleRemoveEmployee = (employee: Employee) => {
+    // Debug logging BEFORE the alert
+    console.log('🔍 REMOVE BUTTON PRESSED');
+    console.log('   employee.uid:', employee.uid);
+    console.log('   employee.email:', employee.email);
+    console.log('   employee.name:', employee.name);
+    console.log('   Full employee:', JSON.stringify(employee, null, 2));
+    
+    Alert.alert(
+      'Remove Employee',
+      `Are you sure you want to remove ${employee.name}? This will disconnect them and delete all pending invites.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Remove',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              console.log('🗑️ DELETE CONFIRMED');
+              console.log('   Deleting employee.uid:', employee.uid);
+              console.log('   From path: users/' + user!.uid + '/employees/' + employee.uid);
+              
+              const employeeDocRef = doc(db, 'users', user!.uid, 'employees', employee.uid);
+              await deleteDoc(employeeDocRef);
+              console.log('✅ deleteDoc() completed without error');
+              
+              // Delete invites
+              const invitesRef = collection(db, 'employeeInvites');
+              console.log('🔍 Querying for invites with:');
+              console.log('   employeeEmail:', employee.email.toLowerCase());
+              console.log('   ownerId:', user!.uid);
+              
+              const inviteQuery = query(
+                invitesRef,
+                where('employeeEmail', '==', employee.email.toLowerCase()),
+                where('ownerId', '==', user!.uid)
+              );
+              const inviteSnapshot = await getDocs(inviteQuery);
+              console.log('📄 Query completed. Found', inviteSnapshot.size, 'invite(s)');
+              
+              if (!inviteSnapshot.empty) {
+                const deletePromises = inviteSnapshot.docs.map(docSnapshot => {
+                  console.log('🗑️ Deleting invite:', docSnapshot.id);
+                  return deleteDoc(docSnapshot.ref);
+                });
+                await Promise.all(deletePromises);
+                console.log('✅ Deleted all invites');
+              }
+              
+              if (employee.status === 'active') {
+                console.log('⚠️ Employee was active. They need to clear connection manually or accept new invite.');
+              }
+              
+              Alert.alert('Success', `${employee.name} has been removed. They can be re-invited.`);
+            } catch (error) {
+              console.error('❌ Error removing employee:', error);
+              Alert.alert('Error', 'Failed to remove employee');
+            }
           }
         }
-      }
-    ]
-  );
-};
+      ]
+    );
+  };
 
   if (!user || user.role !== 'owner') {
     return (
