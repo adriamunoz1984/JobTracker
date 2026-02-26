@@ -146,12 +146,9 @@ useEffect(() => {
   try {
     setIsChecking(true);
 
-    // Check if employee already has an owner
-    if (user.ownerId && user.ownerStatus === 'active') {
-      console.log('⚠️ Already connected to owner:', user.ownerId);
-      // Still check for NEW invites - maybe they were removed and re-invited
-      console.log('🔍 Checking for newer invites anyway...');
-    }
+  
+    // Always check for invites - employee might have been removed and re-invited
+    console.log('🔍 Checking for invites (even if already connected)...');
 
     console.log('🔍 No active owner connection, proceeding with query');
 
@@ -207,58 +204,63 @@ useEffect(() => {
 };
 
   const handleAcceptInvite = async () => {
-    if (!currentInvite || !user) return;
+  if (!currentInvite || !user) return;
 
-    try {
-      setIsProcessing(true);
+  try {
+    setIsProcessing(true);
 
-      // Update employee's profile with owner info
-      await updateProfile({
-        ownerId: currentInvite.ownerId,
-        ownerStatus: 'active',
-      });
+    // FIRST: Clear any existing owner connection before accepting new invite
+    console.log('🔄 Clearing old owner connection (if any)');
+    await updateProfile({
+      ownerId: currentInvite.ownerId,  // Set to NEW owner
+      ownerStatus: 'active',
+    });
 
-      // Find and update the employee record in owner's collection by email
-      const employeesRef = collection(db, 'users', currentInvite.ownerId, 'employees');
-      const q = query(employeesRef, where('email', '==', user.email!.toLowerCase()));
-      const empSnapshot = await getDocs(q);
+    // Find and update the employee record in NEW owner's collection by email
+    const employeesRef = collection(db, 'users', currentInvite.ownerId, 'employees');
+    const q = query(employeesRef, where('email', '==', user.email!.toLowerCase()));
+    const empSnapshot = await getDocs(q);
 
-      if (!empSnapshot.empty) {
-        const employeeDoc = empSnapshot.docs[0];
-        await updateDoc(employeeDoc.ref, {
-          uid: user!.uid, // Store the REAL user ID
-          status: 'active',
-          acceptedAt: new Date().toISOString(),
-        });
-        console.log('✅ Updated employee record with real UID:', user!.uid);
-      }
-
-      // Mark invite as accepted
-      await updateDoc(doc(db, 'employeeInvites', currentInvite.id), {
-        status: 'accepted',
+    if (!empSnapshot.empty) {
+      const employeeDoc = empSnapshot.docs[0];
+      
+      // Update with REAL user ID and set to active
+      await updateDoc(employeeDoc.ref, {
+        uid: user!.uid,  // Store the REAL user ID
+        status: 'active',
         acceptedAt: new Date().toISOString(),
       });
-
-      console.log(`✅ Accepted invitation from ${currentInvite.ownerBusinessName}`);
-
-      // Remove from pending list
-      const remaining = pendingInvites.filter(inv => inv.id !== currentInvite.id);
-      setPendingInvites(remaining);
-
-      // Show next invite or close dialog
-      if (remaining.length > 0) {
-        setCurrentInvite(remaining[0]);
-      } else {
-        setShowDialog(false);
-        setCurrentInvite(null);
-      }
-    } catch (error) {
-      console.error('Error accepting invite:', error);
-      alert('Failed to accept invitation. Please try again.');
-    } finally {
-      setIsProcessing(false);
+      console.log('✅ Updated employee record with real UID:', user!.uid);
+    } else {
+      console.warn('⚠️ Employee record not found in owner collection');
     }
-  };
+
+    // Mark invite as accepted
+    await updateDoc(doc(db, 'employeeInvites', currentInvite.id), {
+      status: 'accepted',
+      acceptedAt: new Date().toISOString(),
+    });
+
+    console.log(`✅ Accepted invitation from ${currentInvite.ownerBusinessName}`);
+
+    // Remove from pending list
+    const remaining = pendingInvites.filter(inv => inv.id !== currentInvite.id);
+    setPendingInvites(remaining);
+
+    // Show next invite or close dialog
+    if (remaining.length > 0) {
+      setCurrentInvite(remaining[0]);
+    } else {
+      setShowDialog(false);
+      setCurrentInvite(null);
+    }
+  } catch (error) {
+    console.error('Error accepting invite:', error);
+    alert('Failed to accept invitation. Please try again.');
+  } finally {
+    setIsProcessing(false);
+  }
+};
 
   const handleDeclineInvite = async () => {
     if (!currentInvite) return;

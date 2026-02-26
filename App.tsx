@@ -194,7 +194,7 @@ function AppNavigatorWithFAB({ user }: { user: any }) {
         {user && <DraggableFAB />}
 
       {/* Employee Invite Checker - Only for employees without an owner */}
-      {user && user.role === 'employee' && user.ownerStatus !== 'active' && <EmployeeInviteChecker />}
+      {user?.role === 'employee' && <EmployeeInviteChecker />}
     </>
   );
 }
