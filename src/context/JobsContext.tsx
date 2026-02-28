@@ -22,6 +22,29 @@ import {
 
 const db = getFirestore();
 
+// Helper function to recursively remove undefined values
+const removeUndefined = (obj: any): any => {
+  if (obj === null || obj === undefined) {
+    return null;
+  }
+  
+  if (Array.isArray(obj)) {
+    return obj.map(removeUndefined);
+  }
+  
+  if (typeof obj === 'object') {
+    const cleaned: any = {};
+    for (const [key, value] of Object.entries(obj)) {
+      if (value !== undefined) {
+        cleaned[key] = removeUndefined(value);
+      }
+    }
+    return cleaned;
+  }
+  
+  return obj;
+};
+
 interface JobsContextType {
   jobs: Job[];
   addJob: (job: Omit<Job, 'id' | 'createdAt' | 'updatedAt'>) => Promise<string>;
@@ -75,29 +98,6 @@ export const JobsProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const jobsCollection = getUserJobsCollection();
         
         if (jobsCollection) {
-          // Helper function to recursively remove undefined values
-          const removeUndefined = (obj: any): any => {
-            if (obj === null || obj === undefined) {
-              return null;
-            }
-            
-            if (Array.isArray(obj)) {
-              return obj.map(removeUndefined);
-            }
-            
-            if (typeof obj === 'object') {
-              const cleaned: any = {};
-              for (const [key, value] of Object.entries(obj)) {
-                if (value !== undefined) {
-                  cleaned[key] = removeUndefined(value);
-                }
-              }
-              return cleaned;
-            }
-            
-            return obj;
-          };
-          
           // Save each job as a separate document
           const savePromises = jobsToSave.map(async (job) => {
             const jobDoc = doc(jobsCollection, job.id);
@@ -147,19 +147,23 @@ export const JobsProvider: React.FC<{ children: React.ReactNode }> = ({ children
       id: jobId,
       createdAt: now,
       updatedAt: now,
-      jobType: 'owner', // Default for now
+      jobType: 'owner',
     };
 
-    const updatedJobs = [...jobs, newJob];
-    setJobs(updatedJobs); // Update UI immediately
+    // Save directly to Firestore only
+    if (user?.uid && user.uid !== 'test-user-id') {
+      const jobsCollection = getUserJobsCollection();
+      if (jobsCollection) {
+        const cleanJob = removeUndefined(newJob);
+        
+        await setDoc(doc(jobsCollection, jobId), {
+          ...cleanJob,
+          lastModified: serverTimestamp(),
+        });
+      }
+    }
     
     console.log(`✅ Added new job: ${jobId}`);
-    
-    // Save to storage and Firebase in background
-    saveJobsToStorage(updatedJobs).catch(err => {
-      console.error('Background save failed:', err);
-    });
-    
     return jobId;
   };
 
@@ -167,140 +171,143 @@ export const JobsProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     let unsubscribes: Array<() => void> = [];
     let isMounted = true;
+    let allJobsMap: { [key: string]: Job } = {}; // Move outside initializeJobs
 
-  const initializeJobs = async () => {
-  setIsLoading(true);
-  
-  if (user?.uid && user.uid !== 'test-user-id' && user.email !== 'test@example.com') {
-    console.log('👂 Setting up real-time listeners for user:', user.email);
-    setSyncStatus('syncing');
-    
-    // Job cache to merge jobs from different sources
-    const jobsCache = new Map<string, Job>();
-    
-    // Helper to merge jobs from different sources
-    const updateAllJobs = (newJobs: Job[], source: string) => {
-      // Update cache with new jobs from this source
-      newJobs.forEach(job => {
-        jobsCache.set(job.id, job);
-      });
+    const initializeJobs = async () => {
+      setIsLoading(true);
       
-      // Combine all jobs and update state
-      const combinedJobs = Array.from(jobsCache.values())
-        .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-      
-      setJobs(combinedJobs);
-      setSyncStatus('synced');
-      setLastSyncTime(new Date());
-      setIsLoading(false);
-      
-      console.log(`🔄 Total jobs loaded: ${combinedJobs.length}`);
-      
-      // Update AsyncStorage
-      AsyncStorage.setItem('jobs', JSON.stringify(combinedJobs)).catch(err => {
-        console.error('Error updating AsyncStorage:', err);
-      });
-    };
-
-    // 1. Load owner's personal jobs
-    const jobsCollection = getUserJobsCollection();
-    if (jobsCollection) {
-      const jobsQuery = query(jobsCollection, orderBy('date', 'desc'));
-      
-      const unsubscribeOwnerJobs = onSnapshot(jobsQuery, 
-        (snapshot) => {
+      if (user?.uid && user.uid !== 'test-user-id' && user.email !== 'test@example.com') {
+        console.log('👂 Setting up real-time listeners for user:', user.email);
+        setSyncStatus('syncing');
+        
+        // Helper to merge jobs from different sources
+        const updateAllJobs = (newJobs: Job[], source: string) => {
           if (!isMounted) return;
           
-          const ownerJobs = snapshot.docs.map(doc => {
-            const data = doc.data();
-            const { lastModified, syncedAt, ...jobData } = data;
-            return {
-              id: doc.id,
-              ...jobData,
-              isOwnerJob: true,
-            } as Job;
+          // Update jobs from this source
+          newJobs.forEach(job => {
+            allJobsMap[job.id] = job;
           });
           
-          console.log(`👤 Owner jobs: ${ownerJobs.length}`);
-          updateAllJobs(ownerJobs, 'owner');
-        }, 
-        (error) => {
-          console.error('❌ Owner jobs listener error:', error);
-        }
-      );
-      
-      unsubscribes.push(unsubscribeOwnerJobs);
-    }
-
-    // 2. Load employee jobs if user is owner
-    if (user.role === 'owner') {
-      try {
-        // Get list of employees
-        const employeesRef = collection(db, 'users', user.uid, 'employees');
-        const employeesSnapshot = await getDocs(employeesRef);
-        
-        const activeEmployees = employeesSnapshot.docs
-          .map(doc => ({ uid: doc.id, ...doc.data() }))
-          .filter((emp: any) => emp.status === 'active');
-        
-        console.log(`👥 Found ${activeEmployees.length} active employees`);
-
-        // Set up listeners for each employee's completed jobs
-        activeEmployees.forEach((employee: any) => {
-          const employeeJobsRef = collection(db, 'users', employee.uid, 'ownerJobs');
-          const employeeJobsQuery = query(
-            employeeJobsRef,
-            where('ownerId', '==', user.uid),
-            where('status', '==', 'completed')
-          );
+          // Combine all jobs and update state
+          const combinedJobs = Object.values(allJobsMap)
+            .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
           
-          const unsubscribeEmployeeJobs = onSnapshot(employeeJobsQuery,
+          setJobs(combinedJobs);
+          setSyncStatus('synced');
+          setLastSyncTime(new Date());
+          setIsLoading(false);
+          
+          console.log(`🔄 Total jobs loaded: ${combinedJobs.length}`);
+          
+          // Update AsyncStorage (debounced)
+          AsyncStorage.setItem('jobs', JSON.stringify(combinedJobs)).catch(err => {
+            console.error('Error updating AsyncStorage:', err);
+          });
+        };
+
+        // 1. Load owner's personal jobs
+        const jobsCollection = getUserJobsCollection();
+        if (jobsCollection) {
+          const jobsQuery = query(jobsCollection, orderBy('date', 'desc'));
+          
+          const unsubscribeOwnerJobs = onSnapshot(jobsQuery, 
             (snapshot) => {
               if (!isMounted) return;
               
-              const employeeJobs = snapshot.docs.map(doc => {
+              const ownerJobs = snapshot.docs.map(doc => {
                 const data = doc.data();
+                const { lastModified, syncedAt, ...jobData } = data;
                 return {
                   id: doc.id,
-                  ...data,
-                  isEmployeeJob: true,
-                  employeeName: employee.name,
-                  employeeId: employee.uid,
+                  ...jobData,
+                  isOwnerJob: true,
                 } as Job;
               });
               
-              console.log(`👷 Employee ${employee.name} jobs: ${employeeJobs.length}`);
-              updateAllJobs(employeeJobs, employee.uid);
-            },
+              console.log(`👤 Owner jobs: ${ownerJobs.length} at ${Date.now()}`);
+              updateAllJobs(ownerJobs, 'owner');
+            }, 
             (error) => {
-              console.error(`❌ Employee ${employee.name} jobs listener error:`, error);
+              if (!isMounted) return;
+              console.error('❌ Owner jobs listener error:', error);
             }
           );
           
-          unsubscribes.push(unsubscribeEmployeeJobs);
-        });
-      } catch (error) {
-        console.error('❌ Error loading employee jobs:', error);
+          unsubscribes.push(unsubscribeOwnerJobs);
+        }
+
+        // 2. Load employee jobs if user is owner
+        if (user.role === 'owner') {
+          try {
+            // Get list of employees
+            const employeesRef = collection(db, 'users', user.uid, 'employees');
+            const employeesSnapshot = await getDocs(employeesRef);
+            
+            const activeEmployees = employeesSnapshot.docs
+              .map(doc => ({ uid: doc.id, ...doc.data() }))
+              .filter((emp: any) => emp.status === 'active');
+            
+            console.log(`👥 Found ${activeEmployees.length} active employees`);
+
+            // Set up listeners for each employee's completed jobs
+            activeEmployees.forEach((employee: any) => {
+              const employeeJobsRef = collection(db, 'users', employee.uid, 'ownerJobs');
+              const employeeJobsQuery = query(
+                employeeJobsRef,
+                where('ownerId', '==', user.uid),
+                where('status', '==', 'completed')
+              );
+              
+              const unsubscribeEmployeeJobs = onSnapshot(employeeJobsQuery,
+                (snapshot) => {
+                  if (!isMounted) return;
+                  
+                  const employeeJobs = snapshot.docs.map(doc => {
+                    const data = doc.data();
+                    return {
+                      id: doc.id,
+                      ...data,
+                      isEmployeeJob: true,
+                      employeeName: employee.name,
+                      employeeId: employee.uid,
+                    } as Job;
+                  });
+                  
+                  console.log(`👷 Employee ${employee.name} jobs: ${employeeJobs.length}`);
+                  updateAllJobs(employeeJobs, employee.uid);
+                },
+                (error) => {
+                  if (!isMounted) return;
+                  console.error(`❌ Employee ${employee.name} jobs listener error:`, error);
+                }
+              );
+              
+              unsubscribes.push(unsubscribeEmployeeJobs);
+            });
+          } catch (error) {
+            console.error('❌ Error loading employee jobs:', error);
+          }
+        }
+        
+      } else if (!user) {
+        console.log('👤 No user - clearing jobs');
+        setJobs([]);
+        setSyncStatus('idle');
+        setIsLoading(false);
+      } else {
+        // Test user - load from AsyncStorage only
+        console.log('📱 Loading from AsyncStorage (test user)');
+        const jobsData = await AsyncStorage.getItem('jobs');
+        if (jobsData && isMounted) {
+          const loadedJobs = JSON.parse(jobsData);
+          setJobs(loadedJobs);
+        }
+        setSyncStatus('idle');
+        setIsLoading(false);
       }
-    }
-    
-  } else if (!user) {
-    console.log('👤 No user - clearing jobs');
-    setJobs([]);
-    setSyncStatus('idle');
-    setIsLoading(false);
-  } else {
-    // Test user - load from AsyncStorage only
-    console.log('📱 Loading from AsyncStorage (test user)');
-    const jobsData = await AsyncStorage.getItem('jobs');
-    if (jobsData && isMounted) {
-      const loadedJobs = JSON.parse(jobsData);
-      setJobs(loadedJobs);
-    }
-    setSyncStatus('idle');
-    setIsLoading(false);
-  }
-};
+    };
+
     initializeJobs();
 
     // Cleanup function
@@ -311,20 +318,38 @@ export const JobsProvider: React.FC<{ children: React.ReactNode }> = ({ children
         console.log(`🔇 Cleaned up ${unsubscribes.length} real-time listeners`);
       }
     };
-  }, [user?.uid, user?.email, user?.role]);
+  }, [user?.uid]); // ONLY depend on user.uid
 
   const updateJob = async (updatedJob: Job) => {
-    const updatedJobs = jobs.map((job) =>
-      job.id === updatedJob.id
-        ? { ...updatedJob, updatedAt: new Date().toISOString() }
-        : job
-    );
-    
-    setJobs(updatedJobs);
-    await saveJobsToStorage(updatedJobs);
-    
-    console.log(`✅ Updated job: ${updatedJob.id}`);
-  };
+  // Update local state
+  const updatedJobs = jobs.map((job) =>
+    job.id === updatedJob.id
+      ? { ...updatedJob, updatedAt: new Date().toISOString() }
+      : job
+  );
+  
+  setJobs(updatedJobs);
+  
+  // Update only THIS job in Firebase (not all jobs)
+  if (user?.uid && user.uid !== 'test-user-id') {
+    const jobsCollection = getUserJobsCollection();
+    if (jobsCollection) {
+      const cleanJob = removeUndefined(updatedJob);
+      
+      await setDoc(doc(jobsCollection, updatedJob.id), {
+        ...cleanJob,
+        updatedAt: new Date().toISOString(),
+        lastModified: serverTimestamp(),
+      });
+      
+      console.log(`☁️ Updated job in Firebase: ${updatedJob.id}`);
+    }
+  }
+  
+  // Update AsyncStorage
+  await AsyncStorage.setItem('jobs', JSON.stringify(updatedJobs));
+  console.log(`✅ Updated job: ${updatedJob.id}`);
+};
 
   const deleteJob = async (id: string) => {
     const updatedJobs = jobs.filter((job) => job.id !== id);

@@ -4,11 +4,18 @@ import { View, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-nat
 import { Card, Title, Paragraph, Button, Divider, Text, TextInput, Switch, RadioButton } from 'react-native-paper';
 import { useNavigation } from '@react-navigation/native';
 import { useAuth } from '../context/AuthContext';
+import { 
+  getFirestore, 
+  collection, 
+  query, 
+  where, 
+  getDocs 
+} from 'firebase/firestore';
 
 export default function ProfileScreen() {
   const navigation = useNavigation();
   const { user, updateProfile, logout } = useAuth();
-  
+  const [isCheckingInvites, setIsCheckingInvites] = useState(false);
   // Basic profile settings
   const [isEditing, setIsEditing] = useState(false);
   const [displayName, setDisplayName] = useState(user?.displayName || '');
@@ -59,41 +66,41 @@ export default function ProfileScreen() {
     }
   };
   
-// Toggle between owner and employee role
-const handleToggleRole = async () => {
-  const newRole = user?.role === 'owner' ? 'employee' : 'owner';
-  
-  Alert.alert(
-    'Change Role',
-    `Switch to ${newRole} mode? This will change how your earnings are calculated.`,
-    [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Confirm',
-        onPress: async () => {
-          try {
-            await updateProfile({ 
-              role: newRole,
-              // Set appropriate defaults for each role
-              ...(newRole === 'employee' ? {
-                commissionRate: user?.commissionRate || 50,
-                keepsCash: user?.keepsCash !== undefined ? user.keepsCash : false,
-                keepsCheck: user?.keepsCheck !== undefined ? user.keepsCheck : false,
-              } : {
-                commissionRate: 100,
-                keepsCash: true,
-                keepsCheck: true,
-              })
-            });
-          } catch (e) {
-            Alert.alert('Error', 'Failed to change role');
+  // Toggle between owner and employee role
+  const handleToggleRole = async () => {
+    const newRole = user?.role === 'owner' ? 'employee' : 'owner';
+    
+    Alert.alert(
+      'Change Role',
+      `Switch to ${newRole} mode? This will change how your earnings are calculated.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Confirm',
+          onPress: async () => {
+            try {
+              await updateProfile({ 
+                role: newRole,
+                // Set appropriate defaults for each role
+                ...(newRole === 'employee' ? {
+                  commissionRate: user?.commissionRate || 50,
+                  keepsCash: user?.keepsCash !== undefined ? user.keepsCash : false,
+                  keepsCheck: user?.keepsCheck !== undefined ? user.keepsCheck : false,
+                } : {
+                  commissionRate: 100,
+                  keepsCash: true,
+                  keepsCheck: true,
+                })
+              });
+            } catch (e) {
+              Alert.alert('Error', 'Failed to change role');
+            }
           }
         }
-      }
-    ]
-  );
-};
-
+      ]
+    );
+  };
+  
   // Handle logout
   const handleLogout = () => {
     Alert.alert(
@@ -114,6 +121,43 @@ const handleToggleRole = async () => {
         }
       ]
     );
+  };
+
+  // Check for pending invites manually
+  const handleCheckInvites = async () => {
+    if (!user?.email) return;
+    
+    try {
+      setIsCheckingInvites(true);
+      
+      const db = getFirestore();
+      const invitesRef = collection(db, 'employeeInvites');
+      const q = query(
+        invitesRef,
+        where('employeeEmail', '==', user.email.toLowerCase()),
+        where('status', '==', 'pending')
+      );
+      
+      const snapshot = await getDocs(q);
+      
+      if (snapshot.empty) {
+        Alert.alert('No Invitations', 'You don\'t have any pending invitations at this time.');
+      } else {
+        Alert.alert(
+          'Invitations Found!',
+          `You have ${snapshot.size} pending invitation(s). Log out and back in to view them.`,
+          [
+            { text: 'Later', style: 'cancel' },
+            { text: 'Log Out Now', onPress: () => logout() }
+          ]
+        );
+      }
+    } catch (error) {
+      console.error('Error checking invites:', error);
+      Alert.alert('Error', 'Failed to check for invitations');
+    } finally {
+      setIsCheckingInvites(false);
+    }
   };
   
   return (
@@ -174,6 +218,7 @@ const handleToggleRole = async () => {
           )}
         </Card.Content>
       </Card>
+
       {/* Role Toggle Card */}
       <Card style={styles.card}>
         <Card.Content>
@@ -204,6 +249,29 @@ const handleToggleRole = async () => {
         </Card.Content>
       </Card>
 
+      {/* Employee: Check for Pending Invites */}
+      {user?.role === 'employee' && (
+        <Card style={styles.card}>
+          <Card.Content>
+            <Title>Pending Invitations</Title>
+            <Divider style={styles.divider} />
+            <Paragraph style={styles.subtitle}>
+              Check if you have any pending job invitations from employers
+            </Paragraph>
+            <Button
+              mode="contained"
+              icon="email-check"
+              onPress={handleCheckInvites}
+              loading={isCheckingInvites}
+              disabled={isCheckingInvites}
+              style={styles.manageButton}
+            >
+              Check for Invitations
+            </Button>
+          </Card.Content>
+        </Card>
+      )}
+
       {/* Owner-Only: Employee Management */}
       {user?.role === 'owner' && (
         <Card style={styles.card}>
@@ -226,25 +294,25 @@ const handleToggleRole = async () => {
       )}
 
       {/* Employee-Only: Pending Jobs */}
-        {user?.role === 'employee' && user?.ownerStatus === 'active' && (
-          <Card style={styles.card}>
-            <Card.Content>
-              <Title>Assigned Jobs</Title>
-              <Divider style={styles.divider} />
-              <Paragraph style={styles.subtitle}>
-                View and accept jobs assigned by your employer
-              </Paragraph>
-              <Button
-                mode="contained"
-                icon="briefcase-clock"
-                onPress={() => navigation.navigate('PendingJobs' as never)}
-                style={styles.manageButton}
-              >
-                View Pending Jobs
-              </Button>
-            </Card.Content>
-          </Card>
-        )}
+      {user?.role === 'employee' && user?.ownerStatus === 'active' && (
+        <Card style={styles.card}>
+          <Card.Content>
+            <Title>Assigned Jobs</Title>
+            <Divider style={styles.divider} />
+            <Paragraph style={styles.subtitle}>
+              View and accept jobs assigned by your employer
+            </Paragraph>
+            <Button
+              mode="contained"
+              icon="briefcase-clock"
+              onPress={() => navigation.navigate('PendingJobs' as never)}
+              style={styles.manageButton}
+            >
+              View Pending Jobs
+            </Button>
+          </Card.Content>
+        </Card>
+      )}
       
       {/* Payment Settings Card - Employee Only */}
       {user?.role === 'employee' && (
@@ -439,16 +507,15 @@ const styles = StyleSheet.create({
     borderColor: '#F44336',
     borderWidth: 1,
   },
-
   toggleRoleButton: {
-  marginTop: 12,
-  borderColor: '#2196F3',
-},
-roleDescription: {
-  fontSize: 14,
-  color: '#666',
-  fontStyle: 'italic',
-  marginTop: 4,
-  marginBottom: 8,
-},
+    marginTop: 12,
+    borderColor: '#2196F3',
+  },
+  roleDescription: {
+    fontSize: 14,
+    color: '#666',
+    fontStyle: 'italic',
+    marginTop: 4,
+    marginBottom: 8,
+  },
 });

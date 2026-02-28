@@ -5,12 +5,22 @@ import { useNavigation } from '@react-navigation/native';
 import { format, endOfWeek, startOfWeek, isSameDay, parseISO } from 'date-fns';
 import SyncStatus from '../components/SyncStatus'
 import { useJobs } from '../context/JobsContext';
+import { useAuth } from '../context/AuthContext';
 import JobCard from '../components/JobCard';
 import { Job } from '../types';
 
 export default function HomeScreen() {
   const navigation = useNavigation();
-  const { jobs, updateJob, deleteJob } = useJobs();
+  const { user } = useAuth();
+  const { 
+    jobs, 
+    getJobsByDateRange, 
+    calculateWeeklySummary,
+    showEmployeeJobs,
+    setShowEmployeeJobs,
+    updateJob,
+    deleteJob,
+  } = useJobs();
   const [searchQuery, setSearchQuery] = useState('');
   const [sortNewestFirst, setSortNewestFirst] = useState(true); // Default to newest first
   
@@ -75,7 +85,7 @@ export default function HomeScreen() {
   };
   
   // Filter jobs based on search query
-  const filteredJobs = searchQuery
+  const searchFilteredJobs = searchQuery
     ? jobs.filter(
         (job) =>
           job.companyName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -83,6 +93,11 @@ export default function HomeScreen() {
           job.city.toLowerCase().includes(searchQuery.toLowerCase())
       )
     : jobs;
+
+  // Filter jobs based on employee toggle (only for owners)
+  const filteredJobs = (user?.role === 'owner' && !showEmployeeJobs)
+    ? searchFilteredJobs.filter(job => !(job as any).isEmployeeJob)
+    : searchFilteredJobs;
 
   // Process jobs with sequence numbers
   const { jobsWithSequence, jobsByDate } = processJobs(filteredJobs);
@@ -229,6 +244,19 @@ export default function HomeScreen() {
         >
           {sortNewestFirst ? "Newest first" : "Oldest first"}
         </Button>
+        
+        {/* Filter Toggle - Only show for owners */}
+        {user?.role === 'owner' && (
+          <Button
+            mode={showEmployeeJobs ? 'contained' : 'outlined'}
+            onPress={() => setShowEmployeeJobs(!showEmployeeJobs)}
+            compact
+            style={styles.filterButton}
+            icon={showEmployeeJobs ? 'account-group' : 'account'}
+          >
+            {showEmployeeJobs ? 'All Jobs' : 'My Jobs'}
+          </Button>
+        )}
       </View>
 
       <FlatList
@@ -239,8 +267,6 @@ export default function HomeScreen() {
         renderItem={renderItem}
         contentContainerStyle={styles.listContent}
       />
-
-    
     </View>
   );
 }
@@ -265,9 +291,13 @@ const styles = StyleSheet.create({
   },
   sortLabelContainer: {
     flexDirection: 'row',
-    justifyContent: 'flex-end',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     paddingHorizontal: 10,
     paddingBottom: 5,
+  },
+  filterButton: {
+    marginLeft: 8,
   },
   listContent: {
     padding: 10,
