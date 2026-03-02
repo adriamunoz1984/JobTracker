@@ -1,9 +1,10 @@
 // src/navigation/MainNavigator.tsx
+import NotificationBell from '../components/NotificationBell';
 import React from 'react';
 import { createMaterialTopTabNavigator } from '@react-navigation/material-top-tabs';
 import { createStackNavigator } from '@react-navigation/stack';
 import { Ionicons } from '@expo/vector-icons';
-import { StyleSheet, useWindowDimensions, TouchableOpacity } from 'react-native';
+import { StyleSheet, useWindowDimensions, TouchableOpacity, View } from 'react-native';
 import { Avatar, IconButton } from 'react-native-paper';
 import { useNavigation } from '@react-navigation/native';
 import { useAuth } from '../context/AuthContext';
@@ -31,14 +32,12 @@ const ProfileButton = () => {
   return (
     <TouchableOpacity onPress={goToProfile} style={{ marginRight: 10 }}>
       {user?.photoURL ? (
-        // If user has a profile photo, show it
         <Avatar.Image 
           source={{ uri: user.photoURL }} 
           size={34} 
           style={{ backgroundColor: '#2196F3' }} 
         />
       ) : (
-        // Otherwise show their initials or a default icon
         user?.displayName ? (
           <Avatar.Text 
             size={34} 
@@ -64,7 +63,12 @@ const commonScreenOptions = {
     backgroundColor: '#2196F3',
   },
   headerTintColor: '#fff',
-  headerRight: () => <ProfileButton />
+  headerRight: () => (
+    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+      <NotificationBell />
+      <ProfileButton />
+    </View>
+  )
 };
 
 // Home stack includes the job list and related screens
@@ -156,7 +160,7 @@ export default function MainNavigator() {
         tabBarItemStyle: styles.tabItem,
         tabBarActiveTintColor: '#2196F3',
         tabBarInactiveTintColor: '#777',
-        tabBarIndicatorStyle: { opacity: 0 }, // Hide the tab indicator
+        tabBarIndicatorStyle: { opacity: 0 },
         swipeEnabled: true,
         animationEnabled: true,
       })}
@@ -181,8 +185,8 @@ const styles = StyleSheet.create({
     backgroundColor: 'white',
     borderTopWidth: 1,
     borderTopColor: '#e0e0e0',
-    shadowOpacity: 0, // Remove shadow on iOS
-    elevation: 0, // Remove shadow on Android
+    shadowOpacity: 0,
+    elevation: 0,
   },
   tabItem: {
     padding: 0,
