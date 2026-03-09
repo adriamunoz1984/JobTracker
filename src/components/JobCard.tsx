@@ -216,25 +216,9 @@ const styles = StyleSheet.create({
     borderLeftWidth: 4,
   },
   secondaryJobCard: {
-    marginLeft: 35, // Indent secondary jobs
-    borderLeftStyle: 'dashed', // Optional: make the left border dashed for visual difference
+    marginLeft: 35,
+    
   },
-
-  sequenceBadge: {
-  marginLeft: 8,
-  fontSize: 12,
-  backgroundColor: '#E0E0E0',
-  },
-  employeeBadge: {
-    marginLeft: 8,
-    fontSize: 11,
-    backgroundColor: '#E3F2FD',
-    color: '#1976D2',
-  },
-  amountContainer: {
-    alignItems: 'flex-end',
-  },
-
   headerRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -245,6 +229,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     flex: 1,
+    flexWrap: 'wrap',
   },
   date: {
     fontSize: 14,
@@ -256,22 +241,17 @@ const styles = StyleSheet.create({
     fontSize: 12,
     backgroundColor: '#E0E0E0',
   },
+  employeeBadge: {
+    marginLeft: 8,
+    fontSize: 11,
+    backgroundColor: '#E3F2FD',
+    color: '#1976D2',
+  },
   amountContainer: {
     alignItems: 'flex-end',
   },
   amount: {
     fontSize: 18,
-    fontWeight: 'bold',
-  },
-  statusBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 4,
-    marginTop: 4,
-  },
-  statusText: {
-    color: 'white',
-    fontSize: 10,
     fontWeight: 'bold',
   },
   contentContainer: {
@@ -286,6 +266,7 @@ const styles = StyleSheet.create({
   companyName: {
     fontSize: 18,
     marginBottom: 0,
+    flex: 1,
   },
   noCompany: {
     fontStyle: 'italic',

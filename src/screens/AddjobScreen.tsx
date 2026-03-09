@@ -1,127 +1,190 @@
+// src/screens/AddjobScreen.tsx
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, ScrollView, Platform } from 'react-native';
-import { TextInput, Button, Switch, Text, SegmentedButtons, Divider } from 'react-native-paper';
+import { View, StyleSheet, ScrollView, Alert, Platform } from 'react-native';
+import { TextInput, Button, Text, SegmentedButtons, Title, Switch, Divider } from 'react-native-paper';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { format } from 'date-fns';
-
 import { useJobs } from '../context/JobsContext';
-import { PaymentMethod, Job } from '../types';
+import { Job } from '../types';
 
 export default function AddJobScreen() {
   const navigation = useNavigation();
   const route = useRoute();
-  // NEW:
-const { addJob, updateJob, getJobById, isLoading: jobsLoading } = useJobs();
-const [isSaving, setIsSaving] = useState(false);
-  
+  const { addJob, updateJob } = useJobs();
+
   // Check if we're editing an existing job
-  const editJob = route.params?.job as Job | undefined;
-  const isEditMode = !!editJob;
-  
-  // Basic job information
-  const [date, setDate] = useState(editJob ? new Date(editJob.date) : new Date());
+  const editingJob = (route.params as any)?.job as Job | undefined;
+  const isEditing = !!editingJob;
+
+  // Flat rate settings
+  const FLAT_RATE_THRESHOLD = 10; // yards
+  const FLAT_RATE_AMOUNT = 350; // dollars
+
+  // Form state
+  const [date, setDate] = useState(editingJob ? new Date(editingJob.date) : new Date());
   const [showDatePicker, setShowDatePicker] = useState(false);
-  const [companyName, setCompanyName] = useState(editJob?.companyName || '');
-  const [address, setAddress] = useState(editJob?.address || '');
-  const [city, setCity] = useState(editJob?.city || '');
-  const [yards, setYards] = useState(editJob?.yards ? editJob.yards.toString() : '');
-  const [isPaid, setIsPaid] = useState(editJob?.isPaid || false);
-  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>(editJob?.paymentMethod || 'Cash');
-  const [amount, setAmount] = useState(editJob?.amount ? editJob.amount.toString() : '');
-  const [checkNumber, setCheckNumber] = useState(editJob?.checkNumber || '');
-  const [notes, setNotes] = useState(editJob?.notes || '');
-  const [isPaidToMe, setIsPaidToMe] = useState(editJob?.isPaidToMe || false);
-  
-  // Billing details (for Charge payment method)
-  const [billingDetails, setBillingDetails] = useState({
-    invoiceNumber: editJob?.billingDetails?.invoiceNumber || '',
-    billingDate: editJob?.billingDetails?.billingDate || '',
-    dueDate: editJob?.billingDetails?.dueDate || '',
-    contactPerson: editJob?.billingDetails?.contactPerson || '',
-    contactEmail: editJob?.billingDetails?.contactEmail || '',
-    contactPhone: editJob?.billingDetails?.contactPhone || '',
-  });
+  const [companyName, setCompanyName] = useState(editingJob?.companyName || '');
+  const [address, setAddress] = useState(editingJob?.address || '');
+  const [city, setCity] = useState(editingJob?.city || '');
+  const [yards, setYards] = useState(editingJob?.yards?.toString() || '');
+  const [amountPerYard, setAmountPerYard] = useState(editingJob?.amountPerYard?.toString() || '');
+  const [setupCharge, setSetupCharge] = useState(editingJob?.setupCharge?.toString() || '');
+  const [manualOverride, setManualOverride] = useState(false); // Allow manual override
+  const [manualAmount, setManualAmount] = useState(editingJob?.amount?.toString() || '');
+  const [paymentMethod, setPaymentMethod] = useState<'Cash' | 'Check' | 'Zelle' | 'Square' | 'Charge'>(
+    editingJob?.paymentMethod || 'Cash'
+  );
+  const [isPaidToMe, setIsPaidToMe] = useState(editingJob?.isPaidToMe || false);
+  const [checkNumber, setCheckNumber] = useState(editingJob?.checkNumber || '');
+  const [notes, setNotes] = useState(editingJob?.notes || '');
+  const [isSaving, setIsSaving] = useState(false);
+
+  // Determine if we're in flat rate territory
+  const yardsNum = parseFloat(yards) || 0;
+  const isFlatRate = yardsNum > 0 && yardsNum <= FLAT_RATE_THRESHOLD;
+
+  // Calculate total automatically
+  const calculateTotal = (): number => {
+    if (manualOverride) {
+      return parseFloat(manualAmount) || 0;
+    }
+
+    if (isFlatRate) {
+      return FLAT_RATE_AMOUNT;
+    }
+
+    // Per-yard calculation
+    const perYardNum = parseFloat(amountPerYard) || 0;
+    const setupNum = parseFloat(setupCharge) || 0;
+    
+    return (yardsNum * perYardNum) + setupNum;
+  };
+
+  const total = calculateTotal();
 
   const handleDateChange = (event: any, selectedDate?: Date) => {
-    const currentDate = selectedDate || date;
     setShowDatePicker(Platform.OS === 'ios');
-    setDate(currentDate);
-  };
-
-  const showDatepicker = () => {
-    setShowDatePicker(true);
-  };
-
-  const handleSubmit = async () => {
-  // Prevent double submission
-  if (isSaving || jobsLoading) {
-    return;
-  }
-
-  // Validate required fields
-  if (!address || !city || !yards || !amount) {
-    alert('Please fill in all required fields');
-    return;
-  }
-
-  // Create job object
-  const jobData = {
-    date: date.toISOString(),
-    companyName: companyName.trim() || undefined,
-    address: address.trim(),
-    city: city.trim(),
-    yards: parseFloat(yards),
-    isPaid,
-    isPaidToMe,
-    paymentMethod,
-    amount: parseFloat(amount),
-    checkNumber: paymentMethod === 'Check' ? checkNumber.trim() : undefined,
-    notes: notes.trim() || undefined,
-    billingDetails: paymentMethod === 'Charge' ? {
-      invoiceNumber: billingDetails.invoiceNumber.trim() || undefined,
-      billingDate: billingDetails.billingDate.trim() || undefined,
-      dueDate: billingDetails.dueDate.trim() || undefined,
-      contactPerson: billingDetails.contactPerson.trim() || undefined,
-      contactEmail: billingDetails.contactEmail.trim() || undefined,
-      contactPhone: billingDetails.contactPhone.trim() || undefined,
-    } : undefined,
-  };
-
-  try {
-    setIsSaving(true); // Disable button
-    
-    if (isEditMode && editJob) {
-      await updateJob({
-        ...editJob,
-        ...jobData,
-      });
-    } else {
-      await addJob(jobData);
+    if (selectedDate) {
+      setDate(selectedDate);
     }
-    
-    // Navigate back
-    navigation.goBack();
-  } catch (error) {
-    console.error('Error saving job:', error);
-    alert('Failed to save job. Please try again.');
-    setIsSaving(false); // Re-enable button on error
-  }
-};
+  };
+
+  const handleSave = async () => {
+    // Validation
+    if (!address.trim()) {
+      Alert.alert('Missing Information', 'Please enter an address');
+      return;
+    }
+
+    if (!city.trim()) {
+      Alert.alert('Missing Information', 'Please enter a city');
+      return;
+    }
+
+    if (!yards.trim() || parseFloat(yards) <= 0) {
+      Alert.alert('Invalid Input', 'Please enter a valid number of yards');
+      return;
+    }
+
+    // Validate based on mode
+    if (!isFlatRate && !manualOverride) {
+      if (!amountPerYard.trim() || parseFloat(amountPerYard) <= 0) {
+        Alert.alert('Invalid Input', 'Please enter a valid amount per yard');
+        return;
+      }
+
+      if (!setupCharge.trim() || parseFloat(setupCharge) < 0) {
+        Alert.alert('Invalid Input', 'Please enter a valid setup charge (can be 0)');
+        return;
+      }
+    }
+
+    if (manualOverride && (!manualAmount.trim() || parseFloat(manualAmount) <= 0)) {
+      Alert.alert('Invalid Input', 'Please enter a valid manual amount');
+      return;
+    }
+
+    if (paymentMethod === 'Check' && !checkNumber.trim()) {
+      Alert.alert('Missing Information', 'Please enter a check number');
+      return;
+    }
+
+    try {
+      setIsSaving(true);
+
+      const jobData: any = {
+        date: date.toISOString(),
+        address: address.trim(),
+        city: city.trim(),
+        yards: parseFloat(yards),
+        amount: total,
+        paymentMethod,
+        isPaidToMe,
+        isPaid: false,
+        isFlatRate: isFlatRate,
+      };
+
+      // Add calculation details based on mode
+      if (isFlatRate) {
+        jobData.flatRateAmount = FLAT_RATE_AMOUNT;
+      } else if (!manualOverride) {
+        jobData.amountPerYard = parseFloat(amountPerYard);
+        jobData.setupCharge = parseFloat(setupCharge);
+      }
+
+      // Add optional fields only if they have values
+      if (companyName.trim()) {
+        jobData.companyName = companyName.trim();
+      }
+
+      if (paymentMethod === 'Check' && checkNumber.trim()) {
+        jobData.checkNumber = checkNumber.trim();
+      }
+
+      if (notes.trim()) {
+        jobData.notes = notes.trim();
+      }
+
+      if (isEditing && editingJob) {
+        // Update existing job
+        const updatedJob: Job = {
+          ...editingJob,
+          ...jobData,
+          updatedAt: new Date().toISOString(),
+        };
+        await updateJob(updatedJob);
+        Alert.alert('Success', 'Job updated successfully');
+      } else {
+        // Add new job
+        await addJob(jobData);
+        Alert.alert('Success', 'Job added successfully');
+      }
+
+      navigation.goBack();
+    } catch (error) {
+      console.error('Error saving job:', error);
+      Alert.alert('Error', 'Failed to save job');
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   return (
     <ScrollView style={styles.container}>
       <View style={styles.inputContainer}>
+        <Title>{isEditing ? 'Edit Job' : 'Add New Job'}</Title>
+
         {/* Date Picker */}
         <Text style={styles.dateLabel}>Job Date: {format(date, 'MMMM dd, yyyy')}</Text>
         <Button
           mode="outlined"
-          onPress={showDatepicker}
+          onPress={() => setShowDatePicker(true)}
           style={styles.dateButton}
         >
           Change Date
         </Button>
-        
+
         {showDatePicker && (
           <DateTimePicker
             value={date}
@@ -131,178 +194,174 @@ const [isSaving, setIsSaving] = useState(false);
           />
         )}
 
-        {/* Company Details */}
+        {/* Company Name */}
         <TextInput
           label="Company Name (Optional)"
           value={companyName}
           onChangeText={setCompanyName}
-          style={styles.input}
           mode="outlined"
+          style={styles.input}
         />
-        
+
+        {/* Address */}
         <TextInput
-          label="Job Address *"
+          label="Address *"
           value={address}
           onChangeText={setAddress}
-          style={styles.input}
           mode="outlined"
-          required
+          style={styles.input}
         />
-        
+
+        {/* City */}
         <TextInput
           label="City *"
           value={city}
           onChangeText={setCity}
-          style={styles.input}
           mode="outlined"
-          required
+          style={styles.input}
         />
-        
-        {/* Job Details */}
+
+        {/* Yards */}
         <TextInput
-          label="Yards of Concrete *"
+          label="Yards *"
           value={yards}
           onChangeText={setYards}
-          keyboardType="numeric"
-          style={styles.input}
+          keyboardType="decimal-pad"
           mode="outlined"
-          required
-        />
-        
-        <TextInput
-          label="Amount Charged ($) *"
-          value={amount}
-          onChangeText={setAmount}
-          keyboardType="numeric"
           style={styles.input}
-          mode="outlined"
-          required
         />
 
-        {/* Payment Status */}
-        <View style={styles.switchContainer}>
-          <Text>Mark as Paid</Text>
-          <Switch value={isPaid} onValueChange={setIsPaid} />
+        {/* Flat Rate Detection Notice */}
+        {isFlatRate && !manualOverride && (
+          <View style={styles.flatRateNotice}>
+            <Text style={styles.flatRateText}>
+              ✓ Flat rate applied: {yardsNum} yards ≤ {FLAT_RATE_THRESHOLD} yards = ${FLAT_RATE_AMOUNT}
+            </Text>
+          </View>
+        )}
+
+        {/* Per-Yard Calculation (only if > 10 yards and not manual) */}
+        {!isFlatRate && !manualOverride && (
+          <>
+            <TextInput
+              label="Amount Per Yard ($) *"
+              value={amountPerYard}
+              onChangeText={setAmountPerYard}
+              keyboardType="decimal-pad"
+              mode="outlined"
+              style={styles.input}
+              left={<TextInput.Icon icon="currency-usd" />}
+            />
+
+            <TextInput
+              label="Setup Charge ($) *"
+              value={setupCharge}
+              onChangeText={setSetupCharge}
+              keyboardType="decimal-pad"
+              mode="outlined"
+              style={styles.input}
+              left={<TextInput.Icon icon="currency-usd" />}
+            />
+          </>
+        )}
+
+        {/* Manual Override Toggle */}
+        <View style={styles.switchRow}>
+          <Text style={styles.switchLabel}>Manual amount override</Text>
+          <Switch
+            value={manualOverride}
+            onValueChange={setManualOverride}
+          />
         </View>
+
+        {/* Manual Amount Input */}
+        {manualOverride && (
+          <TextInput
+            label="Manual Amount ($) *"
+            value={manualAmount}
+            onChangeText={setManualAmount}
+            keyboardType="decimal-pad"
+            mode="outlined"
+            style={styles.input}
+            left={<TextInput.Icon icon="currency-usd" />}
+          />
+        )}
+
+        <Divider style={styles.divider} />
+
+        {/* Total (Calculated) */}
+        <View style={styles.totalContainer}>
+          <Text style={styles.totalLabel}>Total Amount:</Text>
+          <Text style={styles.totalAmount}>${total.toFixed(2)}</Text>
+        </View>
+
+        {/* Show calculation breakdown */}
+        {!manualOverride && yards && (
+          <Text style={styles.calculation}>
+            {isFlatRate 
+              ? `Flat rate for ${yards} yards`
+              : `(${yards} yards × $${amountPerYard || 0}) + $${setupCharge || 0}`
+            }
+          </Text>
+        )}
 
         {/* Payment Method */}
-        <Text style={styles.paymentLabel}>Payment Method</Text>
+        <Text style={styles.sectionLabel}>Payment Method:</Text>
         <SegmentedButtons
           value={paymentMethod}
-          onValueChange={(value) => setPaymentMethod(value as PaymentMethod)}
+          onValueChange={(value) => setPaymentMethod(value as any)}
           buttons={[
-            { value: 'Check', label: 'Check' },
-            { value: 'Zelle', label: 'Zelle' },
-            { value: 'Square', label: 'Square' },
-            { value: 'Charge', label: 'Charge' },
-            { value: 'Cash', label: 'Cash' },
+            { value: 'Cash', label: '💵 Cash' },
+            { value: 'Check', label: '📝 Check' },
+            { value: 'Charge', label: '📋 Charge' },
           ]}
           style={styles.segmentedButtons}
-          multiSelect={false}
         />
 
-        {/* Paid To Me Option - Always visible for any payment method */}
-        <View style={styles.switchContainer}>
-          <Text>Paid Directly To Me</Text>
-          <Switch value={isPaidToMe} onValueChange={setIsPaidToMe} />
-        </View>
-
-        {/* Conditional Fields based on Payment Method */}
         {paymentMethod === 'Check' && (
           <TextInput
             label="Check Number"
             value={checkNumber}
             onChangeText={setCheckNumber}
-            style={styles.input}
+            keyboardType="numeric"
             mode="outlined"
+            style={styles.input}
           />
         )}
-        
-        {/* Billing Information for Charge payment method */}
-        {paymentMethod === 'Charge' && (
-          <View style={styles.billingContainer}>
-            <Divider style={styles.divider} />
-            <Text style={styles.sectionTitle}>Billing Information</Text>
-            
-            <TextInput
-              label="Invoice Number"
-              value={billingDetails.invoiceNumber}
-              onChangeText={(text) => setBillingDetails({...billingDetails, invoiceNumber: text})}
-              style={styles.input}
-              mode="outlined"
-            />
-            
-            <TextInput
-              label="Billing Date (MM/DD/YYYY)"
-              value={billingDetails.billingDate}
-              onChangeText={(text) => setBillingDetails({...billingDetails, billingDate: text})}
-              style={styles.input}
-              mode="outlined"
-            />
-            
-            <TextInput
-              label="Due Date (MM/DD/YYYY)"
-              value={billingDetails.dueDate}
-              onChangeText={(text) => setBillingDetails({...billingDetails, dueDate: text})}
-              style={styles.input}
-              mode="outlined"
-            />
-            
-            <TextInput
-              label="Contact Person"
-              value={billingDetails.contactPerson}
-              onChangeText={(text) => setBillingDetails({...billingDetails, contactPerson: text})}
-              style={styles.input}
-              mode="outlined"
-            />
-            
-            <TextInput
-              label="Contact Email"
-              value={billingDetails.contactEmail}
-              onChangeText={(text) => setBillingDetails({...billingDetails, contactEmail: text})}
-              style={styles.input}
-              mode="outlined"
-              keyboardType="email-address"
-              autoCapitalize="none"
-            />
-            
-            <TextInput
-              label="Contact Phone"
-              value={billingDetails.contactPhone}
-              onChangeText={(text) => setBillingDetails({...billingDetails, contactPhone: text})}
-              style={styles.input}
-              mode="outlined"
-              keyboardType="phone-pad"
-            />
-          </View>
-        )}
+
+        {/* Paid to Me Toggle */}
+        <View style={styles.switchRow}>
+          <Text style={styles.switchLabel}>Paid directly to me</Text>
+          <Button
+            mode={isPaidToMe ? 'contained' : 'outlined'}
+            onPress={() => setIsPaidToMe(!isPaidToMe)}
+            compact
+          >
+            {isPaidToMe ? '✓ Yes' : 'No'}
+          </Button>
+        </View>
 
         {/* Notes */}
         <TextInput
           label="Notes (Optional)"
           value={notes}
           onChangeText={setNotes}
-          style={styles.input}
           mode="outlined"
           multiline
           numberOfLines={3}
+          style={styles.input}
         />
 
-        {/* Submit Button */}
-          <Button 
-            mode="contained" 
-            onPress={handleSubmit} 
-            style={styles.submitButton}
-            disabled={isSaving || jobsLoading}
-            loading={isSaving}
-          >
-            {isSaving 
-              ? 'Saving...' 
-              : isEditMode 
-                ? 'Update Job' 
-                : 'Save Job'
-            }
-          </Button>
+        {/* Save Button */}
+        <Button
+          mode="contained"
+          onPress={handleSave}
+          style={styles.saveButton}
+          loading={isSaving}
+          disabled={isSaving}
+        >
+          {isEditing ? 'Update Job' : 'Save Job'}
+        </Button>
       </View>
     </ScrollView>
   );
@@ -319,41 +378,80 @@ const styles = StyleSheet.create({
   dateLabel: {
     fontSize: 16,
     marginBottom: 8,
-    fontWeight: 'bold',
+    marginTop: 16,
   },
   dateButton: {
     marginBottom: 16,
+  },
+  sectionLabel: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginBottom: 8,
+    marginTop: 8,
   },
   input: {
     marginBottom: 16,
     backgroundColor: 'white',
   },
-  switchContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginVertical: 16,
-  },
-  paymentLabel: {
-    fontSize: 16,
-    marginBottom: 8,
-  },
   segmentedButtons: {
     marginBottom: 16,
-    flexWrap: 'wrap',
+  },
+  switchRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginVertical: 8,
+    padding: 12,
+    backgroundColor: 'white',
+    borderRadius: 8,
+  },
+  switchLabel: {
+    fontSize: 14,
+    flex: 1,
+  },
+  flatRateNotice: {
+    backgroundColor: '#FFF9C4',
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 16,
+    borderLeftWidth: 4,
+    borderLeftColor: '#FBC02D',
+  },
+  flatRateText: {
+    fontSize: 14,
+    color: '#F57F17',
+    fontWeight: 'bold',
+  },
+  totalContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: '#E8F5E9',
+    padding: 16,
+    borderRadius: 8,
+    marginBottom: 8,
+  },
+  totalLabel: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#2E7D32',
+  },
+  totalAmount: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#1B5E20',
+  },
+  calculation: {
+    fontSize: 14,
+    color: '#666',
+    fontStyle: 'italic',
+    textAlign: 'center',
+    marginBottom: 16,
   },
   divider: {
     marginVertical: 16,
   },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginBottom: 16,
-  },
-  billingContainer: {
-    marginBottom: 16,
-  },
-  submitButton: {
+  saveButton: {
     marginTop: 24,
     paddingVertical: 8,
     backgroundColor: '#2196F3',

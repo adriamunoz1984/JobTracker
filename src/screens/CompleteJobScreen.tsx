@@ -15,6 +15,23 @@ import {
 
 const db = getFirestore();
 
+interface OwnerJob {
+  id: string;
+  date: string;
+  companyName?: string;
+  address: string;
+  city: string;
+  notes?: string;
+  ownerId: string;
+  assignedTo: string;
+  status: string;
+  yards?: number;
+  amount?: number;
+  paymentMethod?: 'Cash' | 'Check' | 'Zelle' | 'Square' | 'Charge';
+  isPaidToMe?: boolean;
+  checkNumber?: string;
+}
+
 export default function CompleteJobScreen() {
   const navigation = useNavigation();
   const route = useRoute();
@@ -22,7 +39,7 @@ export default function CompleteJobScreen() {
   const { jobId } = route.params as { jobId: string };
 
   const [isLoading, setIsLoading] = useState(false);
-  const [job, setJob] = useState<any>(null);
+  const [job, setJob] = useState<OwnerJob | null>(null);
 
   // Job completion fields
   const [yards, setYards] = useState('');
@@ -40,7 +57,7 @@ export default function CompleteJobScreen() {
     try {
       const jobDoc = await getDoc(doc(db, 'users', user!.uid, 'ownerJobs', jobId));
       if (jobDoc.exists()) {
-        const jobData = { id: jobDoc.id, ...jobDoc.data() };
+        const jobData = { id: jobDoc.id, ...jobDoc.data() } as OwnerJob;
         setJob(jobData);
         
         // Pre-fill existing data if any
@@ -82,9 +99,11 @@ export default function CompleteJobScreen() {
         amount: parseFloat(amount),
         paymentMethod,
         isPaidToMe,
+        isPaid: false, // Add this - job starts as unpaid
         status: 'completed',
         completedAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
+        jobType: 'employee', // Add this - marks it as employee job
       };
 
       if (paymentMethod === 'Check' && checkNumber.trim()) {
@@ -99,7 +118,7 @@ export default function CompleteJobScreen() {
 
       Alert.alert(
         'Job Completed!',
-        'The job details have been saved.',
+        'The job details have been saved and sent to your employer.',
         [
           {
             text: 'OK',

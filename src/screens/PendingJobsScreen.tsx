@@ -12,7 +12,8 @@ import {
   where,
   onSnapshot,
   doc,
-  updateDoc
+  updateDoc,
+  or
 } from 'firebase/firestore';
 
 const db = getFirestore();
@@ -28,12 +29,14 @@ interface PendingJob {
   assignedTo: string;
   status: 'pending' | 'accepted' | 'in-progress' | 'completed';
   createdAt: string;
+  acceptedAt?: string;
 }
 
 export default function PendingJobsScreen() {
   const navigation = useNavigation();
   const { user } = useAuth();
   const [pendingJobs, setPendingJobs] = useState<PendingJob[]>([]);
+  const [acceptedJobs, setAcceptedJobs] = useState<PendingJob[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -42,21 +45,33 @@ export default function PendingJobsScreen() {
       return;
     }
 
-    // Listen for pending jobs
+    // Listen for both pending AND accepted jobs
     const jobsRef = collection(db, 'users', user.uid, 'ownerJobs');
-    const q = query(jobsRef, where('status', '==', 'pending'));
+    const q = query(
+      jobsRef,
+      or(
+        where('status', '==', 'pending'),
+        where('status', '==', 'accepted')
+      )
+    );
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      const jobs = snapshot.docs.map(doc => ({
+      const allJobs = snapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
       } as PendingJob));
 
-      setPendingJobs(jobs);
+      // Separate into pending and accepted
+      const pending = allJobs.filter(job => job.status === 'pending');
+      const accepted = allJobs.filter(job => job.status === 'accepted');
+
+      setPendingJobs(pending);
+      setAcceptedJobs(accepted);
       setIsLoading(false);
-      console.log(`📋 Loaded ${jobs.length} pending jobs`);
+      
+      console.log(`📋 Loaded ${pending.length} pending jobs and ${accepted.length} accepted jobs`);
     }, (error) => {
-      console.error('Error loading pending jobs:', error);
+      console.error('Error loading jobs:', error);
       setIsLoading(false);
     });
 
@@ -90,6 +105,10 @@ export default function PendingJobsScreen() {
     }
   };
 
+  const handleCompleteJob = (job: PendingJob) => {
+    navigation.navigate('CompleteJob' as never, { jobId: job.id } as never);
+  };
+
   const handleDeclineJob = (job: PendingJob) => {
     Alert.alert(
       'Decline Job',
@@ -115,6 +134,84 @@ export default function PendingJobsScreen() {
     );
   };
 
+  const renderJobCard = (job: PendingJob, isAccepted: boolean) => (
+    <Card key={job.id} style={styles.jobCard}>
+      <Card.Content>
+        <View style={styles.cardHeader}>
+          <View style={styles.jobInfo}>
+            <Text style={styles.date}>{format(new Date(job.date), 'EEE, MMM d, yyyy')}</Text>
+            <Chip 
+              mode="outlined" 
+              style={isAccepted ? styles.acceptedChip : styles.statusChip}
+            >
+              {isAccepted ? '✓ Accepted' : '⏳ Pending'}
+            </Chip>
+          </View>
+        </View>
+
+        {job.companyName && (
+          <Title style={styles.companyName}>{job.companyName}</Title>
+        )}
+
+        <Paragraph style={styles.address}>
+          {job.address}, {job.city}
+        </Paragraph>
+
+        {job.notes && (
+          <>
+            <Divider style={styles.divider} />
+            <Text style={styles.notesLabel}>Notes:</Text>
+            <Paragraph style={styles.notes}>{job.notes}</Paragraph>
+          </>
+        )}
+
+        <Divider style={styles.divider} />
+
+        {!isAccepted && (
+          <Text style={styles.infoText}>
+            ℹ️ After accepting, complete the job and add yards, amount, and payment details.
+          </Text>
+        )}
+
+        {isAccepted && (
+          <Text style={styles.infoText}>
+            ✓ Job accepted. Complete the details when you finish the work.
+          </Text>
+        )}
+      </Card.Content>
+
+      <Card.Actions style={styles.actions}>
+        {!isAccepted ? (
+          <>
+            <Button
+              mode="outlined"
+              onPress={() => handleDeclineJob(job)}
+              textColor="#F44336"
+            >
+              Decline
+            </Button>
+            <Button
+              mode="contained"
+              onPress={() => handleAcceptJob(job)}
+              style={styles.acceptButton}
+            >
+              Accept Job
+            </Button>
+          </>
+        ) : (
+          <Button
+            mode="contained"
+            onPress={() => handleCompleteJob(job)}
+            style={styles.completeButton}
+            icon="check-circle"
+          >
+            Complete Job Details
+          </Button>
+        )}
+      </Card.Actions>
+    </Card>
+  );
+
   if (user?.role !== 'employee') {
     return (
       <View style={styles.container}>
@@ -126,7 +223,7 @@ export default function PendingJobsScreen() {
   return (
     <ScrollView style={styles.container}>
       <View style={styles.header}>
-        <Title style={styles.title}>Pending Job Assignments</Title>
+        <Title style={styles.title}>My Job Assignments</Title>
         <Paragraph style={styles.subtitle}>
           Jobs assigned to you by your employer
         </Paragraph>
@@ -137,67 +234,39 @@ export default function PendingJobsScreen() {
           <ActivityIndicator size="large" color="#2196F3" />
           <Text style={styles.loadingText}>Loading jobs...</Text>
         </View>
-      ) : pendingJobs.length === 0 ? (
-        <Card style={styles.emptyCard}>
-          <Card.Content>
-            <Title>No Pending Jobs</Title>
-            <Paragraph>
-              You don't have any job assignments waiting for acceptance.
-            </Paragraph>
-          </Card.Content>
-        </Card>
       ) : (
-        pendingJobs.map((job) => (
-          <Card key={job.id} style={styles.jobCard}>
-            <Card.Content>
-              <View style={styles.cardHeader}>
-                <View style={styles.jobInfo}>
-                  <Text style={styles.date}>{format(new Date(job.date), 'EEE, MMM d, yyyy')}</Text>
-                  <Chip mode="outlined" style={styles.statusChip}>⏳ Pending</Chip>
-                </View>
-              </View>
+        <>
+          {/* New Assignments Section */}
+          {pendingJobs.length > 0 && (
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>📥 New Assignments ({pendingJobs.length})</Text>
+              {pendingJobs.map(job => renderJobCard(job, false))}
+            </View>
+          )}
 
-              {job.companyName && (
-                <Title style={styles.companyName}>{job.companyName}</Title>
-              )}
-
-              <Paragraph style={styles.address}>
-                {job.address}, {job.city}
-              </Paragraph>
-
-              {job.notes && (
-                <>
-                  <Divider style={styles.divider} />
-                  <Text style={styles.notesLabel}>Notes:</Text>
-                  <Paragraph style={styles.notes}>{job.notes}</Paragraph>
-                </>
-              )}
-
-              <Divider style={styles.divider} />
-
-              <Text style={styles.infoText}>
-                ℹ️ After accepting, complete the job and add yards, amount, and payment details.
+          {/* Accepted Jobs Section */}
+          {acceptedJobs.length > 0 && (
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>✓ Accepted Jobs ({acceptedJobs.length})</Text>
+              <Text style={styles.sectionSubtitle}>
+                Complete these jobs when you finish the work
               </Text>
-            </Card.Content>
+              {acceptedJobs.map(job => renderJobCard(job, true))}
+            </View>
+          )}
 
-            <Card.Actions style={styles.actions}>
-              <Button
-                mode="outlined"
-                onPress={() => handleDeclineJob(job)}
-                textColor="#F44336"
-              >
-                Decline
-              </Button>
-              <Button
-                mode="contained"
-                onPress={() => handleAcceptJob(job)}
-                style={styles.acceptButton}
-              >
-                Accept Job
-              </Button>
-            </Card.Actions>
-          </Card>
-        ))
+          {/* Empty State */}
+          {pendingJobs.length === 0 && acceptedJobs.length === 0 && (
+            <Card style={styles.emptyCard}>
+              <Card.Content>
+                <Title>No Job Assignments</Title>
+                <Paragraph>
+                  You don't have any job assignments at this time.
+                </Paragraph>
+              </Card.Content>
+            </Card>
+          )}
+        </>
       )}
     </ScrollView>
   );
@@ -221,6 +290,23 @@ const styles = StyleSheet.create({
   subtitle: {
     color: '#666',
     marginTop: 4,
+  },
+  section: {
+    marginBottom: 24,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#333',
+    paddingHorizontal: 20,
+    marginBottom: 8,
+  },
+  sectionSubtitle: {
+    fontSize: 14,
+    color: '#666',
+    paddingHorizontal: 20,
+    marginBottom: 12,
+    fontStyle: 'italic',
   },
   loadingContainer: {
     padding: 40,
@@ -253,6 +339,9 @@ const styles = StyleSheet.create({
   },
   statusChip: {
     backgroundColor: '#FFF3E0',
+  },
+  acceptedChip: {
+    backgroundColor: '#E8F5E9',
   },
   companyName: {
     fontSize: 18,
@@ -290,5 +379,9 @@ const styles = StyleSheet.create({
   acceptButton: {
     marginLeft: 8,
     backgroundColor: '#4CAF50',
+  },
+  completeButton: {
+    flex: 1,
+    backgroundColor: '#2196F3',
   },
 });

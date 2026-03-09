@@ -44,9 +44,13 @@ export interface Job {
   address: string;
   city: string;
   yards: number;
+  amountPerYard?: number;  // Add this
+  setupCharge?: number;     // Add this
   amount: number;
   isPaid: boolean;
   isPaidToMe: boolean;
+  isFlatRate?: boolean;
+  flatRateAmount?: number;
   paymentMethod: PaymentMethod;
   checkNumber?: string;
   notes?: string;
@@ -79,7 +83,7 @@ export interface Job {
 export interface WeeklySummary {
   startDate: string;
   endDate: string;
-  totalJobs: number;
+  totalJobs: number;  
   totalEarnings: number;
   totalUnpaid: number;
   cashPayments: number;
