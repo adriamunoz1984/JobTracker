@@ -1,4 +1,4 @@
-// src/screens/ProfileScreen.tsx (enhanced with role and employee management)
+// src/screens/ProfileScreen.tsx (enhanced with role and  anagement)
 import React, { useState, useEffect } from 'react';
 import { View, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
 import { Card, Title, Paragraph, Button, Divider, Text, TextInput, Switch, RadioButton } from 'react-native-paper';
@@ -166,7 +166,7 @@ export default function ProfileScreen() {
       <Card style={styles.card}>
         <Card.Content>
           <View style={styles.headerContainer}>
-            <Title>Profile</Title>
+            <Text variant="titleLarge" style={styles.title}>Profile</Text>
             <Button 
               mode="text" 
               onPress={() => setIsEditing(!isEditing)} 
@@ -220,40 +220,41 @@ export default function ProfileScreen() {
       </Card>
 
       {/* Role Toggle Card */}
-      <Card style={styles.card}>
-        <Card.Content>
-          <Title>Account Role</Title>
-          <Divider style={styles.divider} />
-          
-          <View style={styles.profileInfo}>
-            <Paragraph style={styles.label}>Current Role:</Paragraph>
-            <Paragraph style={styles.value}>
-              {user?.role === 'owner' ? '👔 Business Owner' : '👷 Employee'}
-            </Paragraph>
+     
+        <Card style={styles.card}>
+          <Card.Content>
+            <Text variant="titleLarge" style={styles.title}>Account Role</Text>
+            <Divider style={styles.divider} />
             
-            <Paragraph style={styles.roleDescription}>
-              {user?.role === 'owner' 
-                ? 'Owners receive 100% of job earnings and can manage employees.'
-                : 'Employees earn based on commission rate with custom payment rules.'}
-            </Paragraph>
-          </View>
-          
-          <Button
-            mode="outlined"
-            icon="swap-horizontal"
-            onPress={handleToggleRole}
-            style={styles.toggleRoleButton}
-          >
-            Switch to {user?.role === 'owner' ? 'Employee' : 'Owner'} Mode
-          </Button>
-        </Card.Content>
-      </Card>
-
+            <View style={styles.profileInfo}>
+              <Paragraph style={styles.label}>Current Role:</Paragraph>
+              <Paragraph style={styles.value}>
+                {user?.role === 'owner' ? '👔 Business Owner' : '👷 Employee'}
+              </Paragraph>
+              
+              <Paragraph style={styles.roleDescription}>
+                {user?.role === 'owner' 
+                  ? 'Owners receive 100% of job earnings and can manage employees.'
+                  : 'Employees earn based on commission rate with custom payment rules.'}
+              </Paragraph>
+            </View>
+            
+            <Button
+              mode="outlined"
+              icon="swap-horizontal"
+              onPress={handleToggleRole}
+              style={styles.toggleRoleButton}
+            >
+              Switch to {user?.role === 'owner' ? 'Employee' : 'Owner'} Mode
+            </Button>
+          </Card.Content>
+        </Card>
+    
       {/* Employee: Check for Pending Invites */}
       {user?.role === 'employee' && (
         <Card style={styles.card}>
           <Card.Content>
-            <Title>Pending Invitations</Title>
+            <Text variant="titleLarge" style={styles.title}>Pending Invitations</Text>
             <Divider style={styles.divider} />
             <Paragraph style={styles.subtitle}>
               Check if you have any pending job invitations from employers
@@ -273,10 +274,10 @@ export default function ProfileScreen() {
       )}
 
       {/* Owner-Only: Employee Management */}
-      {user?.role === 'owner' && (
+    {user?.role === 'owner' && (
         <Card style={styles.card}>
           <Card.Content>
-            <Title>Employee Management</Title>
+            <Text variant="titleLarge" style={styles.title}>Employee Management</Text>
             <Divider style={styles.divider} />
             <Paragraph style={styles.subtitle}>
               Invite and manage your team members
@@ -291,13 +292,13 @@ export default function ProfileScreen() {
             </Button>
           </Card.Content>
         </Card>
-      )}
+    )}
 
       {/* Employee-Only: Pending Jobs */}
       {user?.role === 'employee' && user?.ownerStatus === 'active' && (
         <Card style={styles.card}>
           <Card.Content>
-            <Title>Assigned Jobs</Title>
+            <Text variant="titleLarge" style={styles.title}>Assigned Jobs</Text>
             <Divider style={styles.divider} />
             <Paragraph style={styles.subtitle}>
               View and accept jobs assigned by your employer
@@ -319,7 +320,7 @@ export default function ProfileScreen() {
         <Card style={styles.card}>
           <Card.Content>
             <View style={styles.headerContainer}>
-              <Title>Payment Settings</Title>
+              <Text variant="titleLarge" style={styles.title}>Payment Settings</Text>
               <Button 
                 mode="text" 
                 onPress={() => setIsEditingPayment(!isEditingPayment)} 
@@ -401,6 +402,27 @@ export default function ProfileScreen() {
           </Card.Content>
         </Card>
       )}
+
+      {/* Owner-Only: Client Management */}
+      
+        <Card style={styles.card}>
+          <Card.Content>
+            <Text variant="titleLarge" style={styles.title}>Client Management</Text>
+            <Divider style={styles.divider} />
+            <Paragraph style={styles.subtitle}>
+              Manage your clients and save their addresses for quick job entry
+            </Paragraph>
+            <Button
+              mode="contained"
+              icon="office-building"
+              onPress={() => navigation.navigate('ClientManagement' as never)}
+              style={styles.manageButton}
+            >
+              Manage Clients
+            </Button>
+          </Card.Content>
+        </Card>
+     
       
       {/* Logout Button */}
       <Button 
@@ -452,6 +474,11 @@ const styles = StyleSheet.create({
     color: '#666',
     marginBottom: 12,
   },
+  title: {
+  fontSize: 24,
+  fontWeight: 'bold',
+  color: '#2196F3',
+},
   input: {
     marginBottom: 16,
     backgroundColor: 'white',

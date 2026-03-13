@@ -90,3 +90,26 @@ export interface WeeklySummary {
   paidToMeAmount: number;
   netEarnings: number;
 }
+
+export interface ClientAddress {
+  id: string;
+  label: string; // "Main Office", "North Site", etc.
+  address: string;
+  city: string;
+  pricePerYard?: number; // Optional custom pricing for this address
+  setupCharge?: number;
+}
+
+export interface Client {
+  id: string;
+  name: string; // Company/Client name
+  phone?: string;
+  email?: string;
+  defaultPricePerYard?: number; // Client-level default
+  defaultSetupCharge?: number;
+  isPrivate?: boolean; // Add this - marks client as private
+  addresses: ClientAddress[];
+  notes?: string;
+  createdAt: string;
+  updatedAt: string;
+}
