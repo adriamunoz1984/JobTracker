@@ -1,5 +1,6 @@
 // App.tsx - Updated with debugging
 // Authentication Screens
+import ReportsScreen from './src/screens/ReportsScreen';
 import ClientManagementScreen from './src/screens/ClientManagementScreen';
 import AddClientScreen from './src/screens/AddClientScreen';
 import CompleteJobScreen from './src/screens/CompleteJobScreen';
@@ -207,6 +208,18 @@ function AppNavigatorWithFAB({ user }: { user: any }) {
               options={{
                 headerShown: true,
                 title: 'Add/Edit Client',
+                headerStyle: { backgroundColor: '#2196F3' },
+                headerTintColor: '#fff',
+                headerTitleAlign: 'center'
+              }}
+            />
+
+            <Stack.Screen 
+              name="Reports" 
+              component={ReportsScreen}
+              options={{
+                headerShown: true,
+                title: 'Reports & Analytics',
                 headerStyle: { backgroundColor: '#2196F3' },
                 headerTintColor: '#fff',
                 headerTitleAlign: 'center'
