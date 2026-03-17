@@ -10,12 +10,14 @@ import {
   Chip
 } from 'react-native-paper';
 import { PieChart } from 'react-native-chart-kit';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useJobs } from '../context/JobsContext';
 import { useAuth } from '../context/AuthContext';
 import { Job } from '../types';
 import { format, startOfWeek, endOfWeek, isWithinInterval, parseISO } from 'date-fns';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
+import { Colors, Spacing, BorderRadius, Shadows } from '../theme/colors';
 
 const screenWidth = Dimensions.get('window').width;
 
@@ -23,16 +25,13 @@ export default function ReportsScreen() {
   const { jobs } = useJobs();
   const { user } = useAuth();
 
-  // Filter states
-  const [dateRange, setDateRange] = useState<'week' | 'month'>('week');
+  const [dateRange, setDateRange] = useState<'week' | 'lastweek' | 'month'>('week');
   const [paymentStatus, setPaymentStatus] = useState<'all' | 'paid' | 'unpaid'>('all');
   const [showGraphs, setShowGraphs] = useState(true);
   const [isExporting, setIsExporting] = useState(false);
 
-  // Filtered jobs
   const [filteredJobs, setFilteredJobs] = useState<Job[]>([]);
 
-  // Calculate date range
   const getDateRange = () => {
     const now = new Date();
     switch (dateRange) {
@@ -40,6 +39,12 @@ export default function ReportsScreen() {
         return {
           start: startOfWeek(now),
           end: endOfWeek(now)
+        };
+      case 'lastweek':
+        const lastWeek = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+        return {
+          start: startOfWeek(lastWeek),
+          end: endOfWeek(lastWeek)
         };
       case 'month':
         return {
@@ -51,7 +56,6 @@ export default function ReportsScreen() {
     }
   };
 
-  // Filter jobs based on criteria
   useEffect(() => {
     const { start, end } = getDateRange();
     
@@ -61,7 +65,6 @@ export default function ReportsScreen() {
       
       if (!inRange) return false;
       
-      // Filter by payment status
       if (paymentStatus === 'paid' && !job.isPaid) return false;
       if (paymentStatus === 'unpaid' && job.isPaid) return false;
       
@@ -71,7 +74,6 @@ export default function ReportsScreen() {
     setFilteredJobs(filtered);
   }, [jobs, dateRange, paymentStatus]);
 
-  // Calculate statistics
   const stats = {
     totalJobs: filteredJobs.length,
     totalYards: filteredJobs.reduce((sum, job) => sum + (job.yards || 0), 0),
@@ -79,7 +81,6 @@ export default function ReportsScreen() {
     totalPaid: filteredJobs.filter(j => j.isPaid).reduce((sum, job) => sum + (job.amount || 0), 0),
     totalUnpaid: filteredJobs.filter(j => !j.isPaid).reduce((sum, job) => sum + (job.amount || 0), 0),
     
-    // Breakdown by payment method
     cash: filteredJobs.filter(j => j.paymentMethod === 'Cash').reduce((sum, job) => sum + (job.amount || 0), 0),
     check: filteredJobs.filter(j => j.paymentMethod === 'Check').reduce((sum, job) => sum + (job.amount || 0), 0),
     charge: filteredJobs.filter(j => j.paymentMethod === 'Charge').reduce((sum, job) => sum + (job.amount || 0), 0),
@@ -88,56 +89,45 @@ export default function ReportsScreen() {
     checkCount: filteredJobs.filter(j => j.paymentMethod === 'Check').length,
     chargeCount: filteredJobs.filter(j => j.paymentMethod === 'Charge').length,
     
-    // Paid to me
     paidToMe: filteredJobs.filter(j => j.isPaidToMe).reduce((sum, job) => sum + (job.amount || 0), 0),
-    
-    // Employee jobs (for owners)
     employeeJobs: filteredJobs.filter(j => (j as any).isEmployeeJob).reduce((sum, job) => sum + (job.amount || 0), 0),
   };
 
-  // Calculate net earnings for owner
   const calculateNetEarnings = () => {
     let net = stats.totalCharged;
-    
-    // Subtract employee earnings if owner
     if (user?.role === 'owner') {
       net -= stats.employeeJobs;
     }
-    
-    // Subtract "paid to me" jobs (already received)
     net -= stats.paidToMe;
-    
     return net;
   };
 
   const netEarnings = calculateNetEarnings();
 
-  // Prepare chart data
   const pieChartData = [
     {
       name: 'Cash',
       amount: stats.cash,
-      color: '#4CAF50',
-      legendFontColor: '#7F7F7F',
+      color: Colors.payment.cash,
+      legendFontColor: Colors.textSecondary,
       legendFontSize: 12
     },
     {
       name: 'Check',
       amount: stats.check,
-      color: '#2196F3',
-      legendFontColor: '#7F7F7F',
+      color: Colors.payment.check,
+      legendFontColor: Colors.textSecondary,
       legendFontSize: 12
     },
     {
       name: 'Charge',
       amount: stats.charge,
-      color: '#FF9800',
-      legendFontColor: '#7F7F7F',
+      color: Colors.payment.charge,
+      legendFontColor: Colors.textSecondary,
       legendFontSize: 12
     }
   ].filter(item => item.amount > 0);
 
-  // Export as PDF
   const exportPDF = async () => {
     try {
       setIsExporting(true);
@@ -155,16 +145,16 @@ export default function ReportsScreen() {
               line-height: 1.6;
             }
             h1 { 
-              color: #2196F3; 
-              border-bottom: 3px solid #2196F3; 
+              color: ${Colors.primary}; 
+              border-bottom: 3px solid ${Colors.primary}; 
               padding-bottom: 10px;
               margin-bottom: 20px;
             }
             h2 { 
-              color: #666; 
+              color: ${Colors.secondary}; 
               margin-top: 30px;
               margin-bottom: 15px;
-              border-left: 4px solid #2196F3;
+              border-left: 4px solid ${Colors.primary};
               padding-left: 10px;
             }
             table { 
@@ -179,7 +169,7 @@ export default function ReportsScreen() {
               text-align: left;
             }
             th { 
-              background-color: #2196F3; 
+              background-color: ${Colors.primary}; 
               color: white;
               font-weight: bold;
             }
@@ -200,10 +190,10 @@ export default function ReportsScreen() {
             .total { 
               font-size: 22px; 
               font-weight: bold; 
-              color: #4CAF50; 
+              color: ${Colors.success}; 
               margin-top: 20px;
               padding: 15px;
-              background-color: #E8F5E9;
+              background-color: ${Colors.successBg};
               border-radius: 5px;
               text-align: center;
             }
@@ -225,8 +215,8 @@ export default function ReportsScreen() {
               font-size: 12px;
               text-align: center;
             }
-            .paid { color: #4CAF50; font-weight: bold; }
-            .unpaid { color: #F44336; font-weight: bold; }
+            .paid { color: ${Colors.success}; font-weight: bold; }
+            .unpaid { color: ${Colors.error}; font-weight: bold; }
           </style>
         </head>
         <body>
@@ -332,9 +322,17 @@ export default function ReportsScreen() {
 
   return (
     <ScrollView style={styles.container}>
+      <LinearGradient
+        colors={[Colors.info, Colors.infoLight]}
+        style={styles.header}
+      >
+        <Text style={styles.headerTitle}>📊 Reports & Analytics</Text>
+        <Text style={styles.headerSubtitle}>
+          {format(getDateRange().start, 'MMM d')} - {format(getDateRange().end, 'MMM d, yyyy')}
+        </Text>
+      </LinearGradient>
+
       <View style={styles.content}>
-        <Text variant="headlineMedium" style={styles.title}>📊 Reports & Analytics</Text>
-        
         {/* Filters */}
         <Card style={styles.card}>
           <Card.Content>
@@ -346,6 +344,7 @@ export default function ReportsScreen() {
               onValueChange={(value) => setDateRange(value as any)}
               buttons={[
                 { value: 'week', label: 'This Week' },
+                { value: 'lastweek', label: 'Last Week' },
                 { value: 'month', label: 'This Month' },
               ]}
               style={styles.segmentedButtons}
@@ -364,10 +363,13 @@ export default function ReportsScreen() {
             />
             
             <View style={styles.switchRow}>
-              <Text>Show Graphs</Text>
+              <Text style={styles.switchLabel}>Show Graphs</Text>
               <Chip
                 selected={showGraphs}
                 onPress={() => setShowGraphs(!showGraphs)}
+                mode={showGraphs ? 'flat' : 'outlined'}
+                style={showGraphs ? styles.chipActive : styles.chip}
+                textStyle={showGraphs ? styles.chipActiveText : undefined}
               >
                 {showGraphs ? '✓ On' : 'Off'}
               </Chip>
@@ -381,33 +383,26 @@ export default function ReportsScreen() {
             <Text variant="titleMedium" style={styles.sectionTitle}>Summary</Text>
             <Divider style={styles.divider} />
             
-            <View style={styles.statRow}>
-              <Text style={styles.statLabel}>Total Jobs:</Text>
-              <Text style={styles.statValue}>{stats.totalJobs}</Text>
+            <View style={styles.statGrid}>
+              <View style={styles.statBox}>
+                <Text style={styles.statLabel}>Jobs</Text>
+                <Text style={styles.statValue}>{stats.totalJobs}</Text>
+              </View>
+              <View style={styles.statBox}>
+                <Text style={styles.statLabel}>Yards</Text>
+                <Text style={styles.statValue}>{stats.totalYards.toFixed(0)}</Text>
+              </View>
             </View>
-            
-            <View style={styles.statRow}>
-              <Text style={styles.statLabel}>Total Yards:</Text>
-              <Text style={styles.statValue}>{stats.totalYards.toFixed(1)}</Text>
-            </View>
-            
-            <View style={styles.statRow}>
-              <Text style={styles.statLabel}>Total Charged:</Text>
-              <Text style={styles.statValue}>${stats.totalCharged.toFixed(2)}</Text>
-            </View>
-            
-            <View style={styles.statRow}>
-              <Text style={styles.statLabel}>Total Paid:</Text>
-              <Text style={[styles.statValue, { color: '#4CAF50' }]}>
-                ${stats.totalPaid.toFixed(2)}
-              </Text>
-            </View>
-            
-            <View style={styles.statRow}>
-              <Text style={styles.statLabel}>Total Unpaid:</Text>
-              <Text style={[styles.statValue, { color: '#F44336' }]}>
-                ${stats.totalUnpaid.toFixed(2)}
-              </Text>
+
+            <View style={styles.statGrid}>
+              <View style={[styles.statBox, styles.statBoxSuccess]}>
+                <Text style={styles.statLabelInverse}>Paid</Text>
+                <Text style={styles.statValueInverse}>${stats.totalPaid.toFixed(0)}</Text>
+              </View>
+              <View style={[styles.statBox, styles.statBoxError]}>
+                <Text style={styles.statLabelInverse}>Unpaid</Text>
+                <Text style={styles.statValueInverse}>${stats.totalUnpaid.toFixed(0)}</Text>
+              </View>
             </View>
           </Card.Content>
         </Card>
@@ -421,21 +416,21 @@ export default function ReportsScreen() {
             <View style={styles.breakdownRow}>
               <Text style={styles.breakdownLabel}>💵 Cash:</Text>
               <Text style={styles.breakdownValue}>
-                ${stats.cash.toFixed(2)} ({stats.cashCount} jobs)
+                ${stats.cash.toFixed(0)} ({stats.cashCount})
               </Text>
             </View>
             
             <View style={styles.breakdownRow}>
               <Text style={styles.breakdownLabel}>📝 Check:</Text>
               <Text style={styles.breakdownValue}>
-                ${stats.check.toFixed(2)} ({stats.checkCount} jobs)
+                ${stats.check.toFixed(0)} ({stats.checkCount})
               </Text>
             </View>
             
             <View style={styles.breakdownRow}>
               <Text style={styles.breakdownLabel}>📋 Charge:</Text>
               <Text style={styles.breakdownValue}>
-                ${stats.charge.toFixed(2)} ({stats.chargeCount} jobs)
+                ${stats.charge.toFixed(0)} ({stats.chargeCount})
               </Text>
             </View>
           </Card.Content>
@@ -462,51 +457,53 @@ export default function ReportsScreen() {
           </Card>
         )}
 
-        {/* Net Earnings - Owner Only */}
+        {/* Net Earnings */}
         {user?.role === 'owner' && (
           <Card style={[styles.card, styles.earningsCard]}>
             <Card.Content>
-              <Text variant="titleMedium" style={styles.sectionTitle}>Your Net Earnings</Text>
+              <Text variant="titleMedium" style={styles.sectionTitle}>💼 Your Net Earnings</Text>
               <Divider style={styles.divider} />
               
-              <View style={styles.statRow}>
-                <Text style={styles.statLabel}>Total Charged:</Text>
-                <Text style={styles.statValue}>${stats.totalCharged.toFixed(2)}</Text>
+              <View style={styles.earningsRow}>
+                <Text style={styles.earningsLabel}>Total Charged:</Text>
+                <Text style={styles.earningsValue}>${stats.totalCharged.toFixed(2)}</Text>
               </View>
               
-              <View style={styles.statRow}>
-                <Text style={styles.statLabel}>- Employee Jobs:</Text>
-                <Text style={styles.statValue}>-${stats.employeeJobs.toFixed(2)}</Text>
+              <View style={styles.earningsRow}>
+                <Text style={styles.earningsLabel}>- Employee Jobs:</Text>
+                <Text style={styles.earningsValue}>-${stats.employeeJobs.toFixed(2)}</Text>
               </View>
               
-              <View style={styles.statRow}>
-                <Text style={styles.statLabel}>- Paid to Me:</Text>
-                <Text style={styles.statValue}>-${stats.paidToMe.toFixed(2)}</Text>
+              <View style={styles.earningsRow}>
+                <Text style={styles.earningsLabel}>- Paid to Me:</Text>
+                <Text style={styles.earningsValue}>-${stats.paidToMe.toFixed(2)}</Text>
               </View>
               
               <Divider style={styles.divider} />
               
-              <View style={styles.totalRow}>
+              <LinearGradient
+                colors={[Colors.success, Colors.successLight]}
+                style={styles.totalBox}
+              >
                 <Text style={styles.totalLabel}>You're Owed:</Text>
                 <Text style={styles.totalValue}>${netEarnings.toFixed(2)}</Text>
-              </View>
+              </LinearGradient>
             </Card.Content>
           </Card>
         )}
 
         {/* Export Button */}
-        <View style={styles.exportContainer}>
-          <Button
-            mode="contained"
-            icon="file-pdf-box"
-            onPress={exportPDF}
-            style={styles.exportButton}
-            loading={isExporting}
-            disabled={isExporting}
-          >
-            Export as PDF
-          </Button>
-        </View>
+        <Button
+          mode="contained"
+          icon="file-pdf-box"
+          onPress={exportPDF}
+          style={styles.exportButton}
+          loading={isExporting}
+          disabled={isExporting}
+          buttonColor={Colors.error}
+        >
+          Export as PDF
+        </Button>
       </View>
     </ScrollView>
   );
@@ -515,87 +512,163 @@ export default function ReportsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: Colors.background,
+  },
+  header: {
+    paddingVertical: Spacing.xl,
+    paddingHorizontal: Spacing.lg,
+    ...Shadows.medium,
+  },
+  headerTitle: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: Colors.textInverse,
+    marginBottom: Spacing.xs,
+  },
+  headerSubtitle: {
+    fontSize: 14,
+    color: Colors.textInverse,
+    opacity: 0.9,
   },
   content: {
-    padding: 16,
-  },
-  title: {
-    marginBottom: 16,
-    color: '#2196F3',
+    padding: Spacing.md,
   },
   card: {
-    marginBottom: 16,
+    marginBottom: Spacing.md,
+    borderRadius: BorderRadius.large,
+    ...Shadows.medium,
   },
   sectionTitle: {
-    marginBottom: 8,
+    marginBottom: Spacing.sm,
     fontWeight: 'bold',
+    color: Colors.text,
   },
   divider: {
-    marginVertical: 12,
+    marginVertical: Spacing.md,
+    backgroundColor: Colors.borderLight,
   },
   filterLabel: {
     fontSize: 14,
     fontWeight: '600',
-    marginTop: 12,
-    marginBottom: 8,
+    marginTop: Spacing.md,
+    marginBottom: Spacing.sm,
+    color: Colors.text,
   },
   segmentedButtons: {
-    marginBottom: 8,
+    marginBottom: Spacing.sm,
   },
   switchRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginTop: 16,
+    marginTop: Spacing.md,
   },
-  statRow: {
+  switchLabel: {
+    fontSize: 14,
+    color: Colors.text,
+  },
+  chip: {
+    borderColor: Colors.primary,
+  },
+  chipActive: {
+    backgroundColor: Colors.primary,
+  },
+  chipActiveText: {
+    color: Colors.textInverse,
+  },
+  statGrid: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginVertical: 6,
+    gap: Spacing.sm,
+    marginBottom: Spacing.sm,
+  },
+  statBox: {
+    flex: 1,
+    padding: Spacing.md,
+    backgroundColor: Colors.surfaceDark,
+    borderRadius: BorderRadius.medium,
+    alignItems: 'center',
+  },
+  statBoxSuccess: {
+    backgroundColor: Colors.success,
+  },
+  statBoxError: {
+    backgroundColor: Colors.error,
   },
   statLabel: {
-    fontSize: 16,
+    fontSize: 12,
+    color: Colors.textSecondary,
+    marginBottom: Spacing.xs,
   },
   statValue: {
-    fontSize: 16,
+    fontSize: 20,
     fontWeight: 'bold',
+    color: Colors.text,
+  },
+  statLabelInverse: {
+    fontSize: 12,
+    color: Colors.textInverse,
+    marginBottom: Spacing.xs,
+    opacity: 0.9,
+  },
+  statValueInverse: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: Colors.textInverse,
   },
   breakdownRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginVertical: 6,
+    marginVertical: Spacing.sm,
   },
   breakdownLabel: {
     fontSize: 14,
+    color: Colors.text,
   },
   breakdownValue: {
     fontSize: 14,
     fontWeight: '600',
+    color: Colors.text,
   },
   earningsCard: {
-    backgroundColor: '#E8F5E9',
+    backgroundColor: Colors.successBg,
   },
-  totalRow: {
+  earningsRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginTop: 8,
+    marginVertical: Spacing.sm,
+  },
+  earningsLabel: {
+    fontSize: 16,
+    color: Colors.text,
+  },
+  earningsValue: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: Colors.text,
+  },
+  totalBox: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: Spacing.lg,
+    borderRadius: BorderRadius.medium,
+    marginTop: Spacing.sm,
   },
   totalLabel: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#2E7D32',
+    color: Colors.textInverse,
   },
   totalValue: {
-    fontSize: 24,
+    fontSize: 28,
     fontWeight: 'bold',
-    color: '#1B5E20',
-  },
-  exportContainer: {
-    marginBottom: 32,
+    color: Colors.textInverse,
   },
   exportButton: {
-    backgroundColor: '#2196F3',
-    paddingVertical: 8,
+    marginTop: Spacing.md,
+    marginBottom: Spacing.xxl,
+    paddingVertical: Spacing.sm,
+    borderRadius: BorderRadius.medium,
+    ...Shadows.medium,
   },
 });

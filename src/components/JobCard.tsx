@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
 import { View, StyleSheet, TouchableOpacity } from 'react-native';
-import { Card, Title, Paragraph, Text, Button, IconButton, Menu, Divider, Badge } from 'react-native-paper';
+import { Card, Title, Paragraph, Text, Button, IconButton, Menu, Divider, Badge, Chip } from 'react-native-paper';
 import { format } from 'date-fns';
 import { useNavigation } from '@react-navigation/native';
 import { useJobs } from '../context/JobsContext';
+import { Colors, Spacing, BorderRadius, Shadows, Typography } from '../theme/colors';
+import { LinearGradient } from 'expo-linear-gradient';
 
-// Define the Job interface
 interface Job {
   id: string;
   companyName?: string;
@@ -18,7 +19,7 @@ interface Job {
   amount: number;
   date: string;
   sequenceNumber?: number;
-  totalJobsOnDate?: number; // New prop to know if this is part of multiple jobs
+  totalJobsOnDate?: number;
   notes?: string;
 }
 
@@ -34,33 +35,36 @@ const JobCard: React.FC<JobCardProps> = ({ job, onDelete, onTogglePaid }) => {
   const [expanded, setExpanded] = useState(false);
   const [menuVisible, setMenuVisible] = useState(false);
 
-  // Format the date for display
   const formattedDate = format(new Date(job.date), 'EEE, MMM d, yyyy');
   
-  // Define colors based on payment status
-  const statusColor = job.isPaid ? '#4CAF50' : '#F44336';
-  const cardBorderColor = job.isPaid ? '#BAEFC1' : '#FFCDD2';
+  const statusColor = job.isPaid ? Colors.success : Colors.error;
+  const statusBgColor = job.isPaid ? Colors.successBg : Colors.errorBg;
   
-  // Payment method icons
   const getPaymentIcon = () => {
     switch (job.paymentMethod) {
       case 'Cash': return 'cash';
-      case 'Check': return 'checkbox-marked-outline';
+      case 'Check': return 'checkbook';
       case 'Zelle': return 'bank-transfer';
-      case 'Square': return 'credit-card-outline';
+      case 'Square': return 'credit-card';
       case 'Charge': return 'receipt';
       default: return 'cash';
     }
   };
+
+  const getPaymentColor = () => {
+    switch (job.paymentMethod) {
+      case 'Cash': return Colors.payment.cash;
+      case 'Check': return Colors.payment.check;
+      case 'Charge': return Colors.payment.charge;
+      default: return Colors.textSecondary;
+    }
+  };
   
-  // Handle edit job
   const handleEdit = () => {
     setMenuVisible(false);
-    // Navigate to AddJob with the job object
     navigation.navigate('AddJob' as never, { job: job } as never);
   };
   
-  // Handle delete job
   const handleDelete = () => {
     setMenuVisible(false);
     if (onDelete) {
@@ -68,128 +72,177 @@ const JobCard: React.FC<JobCardProps> = ({ job, onDelete, onTogglePaid }) => {
     }
   };
   
-  // Handle toggle paid status
   const handleTogglePaid = async () => {
     setMenuVisible(false);
-    // Try to use the prop first, then fall back to context
     if (onTogglePaid) {
       onTogglePaid(job.id, !job.isPaid);
     } else if (updateJob) {
-      // Use the context directly if no prop is provided
       const updatedJob = { ...job, isPaid: !job.isPaid };
       await updateJob(updatedJob);
     }
   };
 
-  // Show sequence badge only when there are multiple jobs on the same date
-const showSequenceBadge = job.totalJobsOnDate && job.totalJobsOnDate > 1;
-// Only indent if this is a secondary job on a day with multiple jobs
-const shouldIndent = showSequenceBadge && job.sequenceNumber > 1;
+  const showSequenceBadge = job.totalJobsOnDate && job.totalJobsOnDate > 1;
+  const shouldIndent = showSequenceBadge && job.sequenceNumber && job.sequenceNumber > 1;
   
   return (
     <Card 
-        style={[
-          styles.card, 
-          { borderLeftColor: statusColor, borderLeftWidth: 4 },
-          // Add conditional indentation for secondary jobs
-          shouldIndent ? styles.secondaryJobCard : null
-        ]}
-        elevation={2}
-      >
-      <Card.Content>
+      style={[
+        styles.card,
+        shouldIndent && styles.secondaryJobCard
+      ]}
+      elevation={2}
+    >
+      {/* Status Indicator Bar */}
+      <View style={[styles.statusBar, { backgroundColor: statusColor }]} />
+      
+      <Card.Content style={styles.cardContent}>
+        {/* Header Row */}
         <View style={styles.headerRow}>
-          <View style={styles.dateContainer}>
+          <View style={styles.leftHeader}>
             <Text style={styles.date}>{formattedDate}</Text>
             
-            {/* Employee badge - shows who did the job */}
-            {(job as any).isEmployeeJob && (job as any).employeeName && (
-              <Badge style={styles.employeeBadge}>👷 {(job as any).employeeName}</Badge>
-            )}
-            
-            {showSequenceBadge && (
-              <Badge style={styles.sequenceBadge}>Job #{job.sequenceNumber}</Badge>
-            )}
+            {/* Badges */}
+            <View style={styles.badgeRow}>
+              {showSequenceBadge && (
+                <Chip 
+                  mode="outlined" 
+                  compact 
+                  style={styles.sequenceBadge}
+                  textStyle={styles.sequenceBadgeText}
+                >
+                  #{job.sequenceNumber}
+                </Chip>
+              )}
+              
+              {(job as any).isEmployeeJob && (job as any).employeeName && (
+                <Chip 
+                  icon="account-hard-hat" 
+                  compact
+                  style={styles.employeeBadge}
+                  textStyle={styles.employeeBadgeText}
+                >
+                  {(job as any).employeeName}
+                </Chip>
+              )}
+            </View>
           </View>
           
-          <View style={styles.amountContainer}>
-            <Text style={styles.amount}>${job.amount}</Text>
+          <View style={styles.rightHeader}>
+            {/* Amount */}
+            <Text style={styles.amount}>${job.amount.toFixed(0)}</Text>
             
-          </View>
-          
-          <Menu
-            visible={menuVisible}
-            onDismiss={() => setMenuVisible(false)}
-            anchor={
-              <IconButton 
-                icon="dots-vertical" 
-                size={20} 
-                onPress={() => setMenuVisible(true)}
-                style={styles.menuButton}
-              />
-            }
-          >
-            <Menu.Item onPress={handleEdit} title="Edit" icon="pencil" />
-            <Menu.Item onPress={handleTogglePaid} title={job.isPaid ? "Mark as Unpaid" : "Mark as Paid"} icon={job.isPaid ? "close" : "check"} />
-            <Divider />
-            <Menu.Item onPress={handleDelete} title="Delete" icon="delete" />
-          </Menu>
-        </View>
-        
-        <TouchableOpacity onPress={() => setExpanded(!expanded)} style={styles.contentContainer}>
-          <View style={styles.companyRow}>
-            {job.companyName ? (
-              <Title style={styles.companyName}>{job.companyName}</Title>
-            ) : (
-              <Title style={[styles.companyName, styles.noCompany]}>No Company</Title>
-            )}
-            
-            <View style={styles.paymentMethodContainer}>
-              <IconButton icon={getPaymentIcon()} size={16} style={styles.paymentIcon} />
-              <Text style={styles.paymentMethod}>
-                {job.paymentMethod}
-                {job.isPaidToMe && " (To Me)"}
+            {/* Status Badge */}
+            <View style={[styles.statusBadge, { backgroundColor: statusBgColor }]}>
+              <Text style={[styles.statusText, { color: statusColor }]}>
+                {job.isPaid ? '✓ Paid' : '✗ Unpaid'}
               </Text>
             </View>
             
+            {/* Menu */}
+            <Menu
+              visible={menuVisible}
+              onDismiss={() => setMenuVisible(false)}
+              anchor={
+                <IconButton 
+                  icon="dots-vertical" 
+                  size={20} 
+                  onPress={() => setMenuVisible(true)}
+                  iconColor={Colors.textSecondary}
+                  style={styles.menuButton}
+                />
+              }
+            >
+              <Menu.Item 
+                onPress={handleEdit} 
+                title="Edit" 
+                leadingIcon="pencil"
+              />
+              <Menu.Item 
+                onPress={handleTogglePaid} 
+                title={job.isPaid ? "Mark as Unpaid" : "Mark as Paid"} 
+                leadingIcon={job.isPaid ? "close-circle" : "check-circle"}
+              />
+              <Divider />
+              <Menu.Item 
+                onPress={handleDelete} 
+                title="Delete" 
+                leadingIcon="delete"
+                titleStyle={{ color: Colors.error }}
+              />
+            </Menu>
+          </View>
+        </View>
+        
+        {/* Content */}
+        <TouchableOpacity onPress={() => setExpanded(!expanded)} style={styles.contentContainer}>
+          {/* Company Name */}
+          {job.companyName ? (
+            <Text style={styles.companyName}>{job.companyName}</Text>
+          ) : (
+            <Text style={[styles.companyName, styles.noCompany]}>No Company</Text>
+          )}
+          
+          {/* Address */}
+          <View style={styles.addressRow}>
+            <IconButton icon="map-marker" size={16} style={styles.addressIcon} iconColor={Colors.textSecondary} />
+            <Text style={styles.address}>{job.address}, {job.city}</Text>
           </View>
           
-          <Paragraph style={styles.address}>
-            {job.address}, {job.city}
-          </Paragraph>
-          
+          {/* Details Row */}
           <View style={styles.detailsRow}>
-            <View style={styles.detail}>
-              <Text style={styles.detailLabel}>Yards:</Text>
-              <Text style={styles.detailValue}>{job.yards}</Text>
+            {/* Yards */}
+            <View style={styles.detailItem}>
+              <IconButton icon="truck-delivery" size={16} style={styles.detailIcon} iconColor={Colors.primary} />
+              <Text style={styles.detailValue}>{job.yards} yds</Text>
             </View>
             
+            {/* Payment Method */}
+            <View style={styles.detailItem}>
+              <IconButton 
+                icon={getPaymentIcon()} 
+                size={16} 
+                style={styles.detailIcon} 
+                iconColor={getPaymentColor()} 
+              />
+              <Text style={styles.detailValue}>{job.paymentMethod}</Text>
+            </View>
+            
+            {/* Paid to Me Indicator */}
             {job.isPaidToMe && (
-              <View style={styles.paidToMeIndicator}>
-                <Text style={styles.paidToMeText}>Paid to Me</Text>
-              </View>
+              <Chip 
+                icon="account-cash" 
+                compact
+                style={styles.paidToMeChip}
+                textStyle={styles.paidToMeText}
+              >
+                Paid to Me
+              </Chip>
             )}
           </View>
           
+          {/* Notes */}
           {expanded && job.notes && (
             <View style={styles.notesContainer}>
               <Divider style={styles.divider} />
-              <Text style={styles.notesLabel}>Notes:</Text>
-              <Paragraph style={styles.notes}>{job.notes}</Paragraph>
+              <Text style={styles.notesLabel}>📝 Notes:</Text>
+              <Text style={styles.notes}>{job.notes}</Text>
             </View>
           )}
           
           {!expanded && job.notes && (
-            <Text style={styles.notesIndicator}>Tap to see notes...</Text>
+            <Text style={styles.notesIndicator}>💬 Tap to see notes...</Text>
           )}
         </TouchableOpacity>
       </Card.Content>
       
+      {/* Action Buttons */}
       <Card.Actions style={styles.cardActions}>
         <Button 
           mode="text" 
           compact 
           onPress={handleEdit}
-          style={styles.actionButton}
+          textColor={Colors.primary}
         >
           Edit
         </Button>
@@ -198,10 +251,10 @@ const shouldIndent = showSequenceBadge && job.sequenceNumber > 1;
           mode="text" 
           compact 
           onPress={handleTogglePaid}
-          style={styles.actionButton}
-          color={job.isPaid ? '#F44336' : '#4CAF50'}
+          textColor={job.isPaid ? Colors.error : Colors.success}
+          icon={job.isPaid ? 'close-circle' : 'check-circle'}
         >
-          {job.isPaid ? 'Mark Unpaid' : 'Mark Paid'}
+          {job.isPaid ? 'Unpaid' : 'Paid'}
         </Button>
       </Card.Actions>
     </Card>
@@ -210,143 +263,168 @@ const shouldIndent = showSequenceBadge && job.sequenceNumber > 1;
 
 const styles = StyleSheet.create({
   card: {
-    marginHorizontal: 16,
-    marginVertical: 8,
-    borderRadius: 8,
-    borderLeftWidth: 4,
+    marginHorizontal: Spacing.md,
+    marginVertical: Spacing.sm,
+    borderRadius: BorderRadius.large,
+    backgroundColor: Colors.surface,
+    overflow: 'hidden',
+    ...Shadows.medium,
   },
   secondaryJobCard: {
-    marginLeft: 35,
-    
+    marginLeft: Spacing.xl + Spacing.sm,
+  },
+  statusBar: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 4,
+  },
+  cardContent: {
+    paddingTop: Spacing.md,
   },
   headerRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    marginBottom: 8,
+    marginBottom: Spacing.sm,
   },
-  dateContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  leftHeader: {
     flex: 1,
-    flexWrap: 'wrap',
   },
-  date: {
-    fontSize: 14,
-    fontWeight: 'bold',
-    color: '#555',
-  },
-  sequenceBadge: {
-    marginLeft: 8,
-    fontSize: 12,
-    backgroundColor: '#E0E0E0',
-  },
-  employeeBadge: {
-    marginLeft: 8,
-    fontSize: 11,
-    backgroundColor: '#E3F2FD',
-    color: '#1976D2',
-  },
-  amountContainer: {
+  rightHeader: {
     alignItems: 'flex-end',
   },
+  date: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: Colors.textSecondary,
+    marginBottom: Spacing.xs,
+  },
+  badgeRow: {
+    flexDirection: 'row',
+    gap: Spacing.xs,
+    flexWrap: 'wrap',
+  },
+  sequenceBadge: {
+    height: 24,
+    backgroundColor: Colors.surfaceDark,
+    borderColor: Colors.border,
+  },
+  sequenceBadgeText: {
+    fontSize: 11,
+    color: Colors.text,
+  },
+  employeeBadge: {
+    height: 24,
+    backgroundColor: Colors.infoBg,
+  },
+  employeeBadgeText: {
+    fontSize: 11,
+    color: Colors.info,
+  },
   amount: {
-    fontSize: 18,
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: Colors.primary,
+    marginBottom: Spacing.xs,
+  },
+  statusBadge: {
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 4,
+    borderRadius: BorderRadius.small,
+    marginBottom: Spacing.xs,
+  },
+  statusText: {
+    fontSize: 11,
     fontWeight: 'bold',
   },
-  contentContainer: {
-    marginTop: 4,
+  menuButton: {
+    margin: 0,
   },
-  companyRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 4,
+  contentContainer: {
+    marginTop: Spacing.xs,
   },
   companyName: {
     fontSize: 18,
-    marginBottom: 0,
-    flex: 1,
+    fontWeight: 'bold',
+    color: Colors.text,
+    marginBottom: Spacing.xs,
   },
   noCompany: {
     fontStyle: 'italic',
-    color: '#888',
+    color: Colors.textLight,
   },
-  paymentMethodContainer: {
+  addressRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    marginBottom: Spacing.sm,
   },
-  paymentIcon: {
+  addressIcon: {
     margin: 0,
-  },
-  paymentMethod: {
-    fontSize: 14,
-    color: '#666',
+    marginRight: -8,
   },
   address: {
     fontSize: 14,
-    marginBottom: 6,
-    color: '#444',
+    color: Colors.textSecondary,
+    flex: 1,
   },
   detailsRow: {
     flexDirection: 'row',
-    marginTop: 4,
-    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: Spacing.md,
+    flexWrap: 'wrap',
+  },
+  detailItem: {
+    flexDirection: 'row',
     alignItems: 'center',
   },
-  detail: {
-    marginRight: 16,
-    flexDirection: 'row',
-  },
-  detailLabel: {
-    fontSize: 14,
-    color: '#666',
-    marginRight: 4,
+  detailIcon: {
+    margin: 0,
+    marginRight: -4,
   },
   detailValue: {
     fontSize: 14,
-    fontWeight: 'bold',
+    fontWeight: '600',
+    color: Colors.text,
   },
-  paidToMeIndicator: {
-    backgroundColor: '#E1F5FE',
-    padding: 4,
-    borderRadius: 4,
+  paidToMeChip: {
+    height: 28,
+    backgroundColor: Colors.infoBg,
   },
   paidToMeText: {
-    fontSize: 12,
-    color: '#0288D1',
-    fontWeight: 'bold',
+    fontSize: 11,
+    color: Colors.info,
+    fontWeight: '600',
   },
   notesContainer: {
-    marginTop: 8,
+    marginTop: Spacing.sm,
   },
   divider: {
-    marginVertical: 8,
+    marginVertical: Spacing.sm,
   },
   notesLabel: {
-    fontSize: 14,
-    color: '#666',
-    marginBottom: 4,
+    fontSize: 13,
+    fontWeight: '600',
+    color: Colors.textSecondary,
+    marginBottom: Spacing.xs,
   },
   notes: {
     fontSize: 14,
+    color: Colors.text,
     fontStyle: 'italic',
+    lineHeight: 20,
   },
   notesIndicator: {
-    marginTop: 8,
+    marginTop: Spacing.sm,
     fontSize: 12,
-    color: '#888',
+    color: Colors.textLight,
     fontStyle: 'italic',
   },
   cardActions: {
     justifyContent: 'flex-end',
     paddingTop: 0,
-  },
-  actionButton: {
-    marginLeft: 8,
-  },
-  menuButton: {
-    margin: -8,
+    paddingBottom: Spacing.sm,
   },
 });
 

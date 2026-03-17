@@ -14,6 +14,7 @@ import {
   FAB
 } from 'react-native-paper';
 import { useNavigation } from '@react-navigation/native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '../context/AuthContext';
 import { Client } from '../types';
 import { 
@@ -23,6 +24,7 @@ import {
   deleteDoc,
   doc
 } from 'firebase/firestore';
+import { Colors, Spacing, BorderRadius, Shadows } from '../theme/colors';
 
 const db = getFirestore();
 
@@ -82,24 +84,27 @@ export default function ClientManagementScreen() {
 
   return (
     <View style={styles.container}>
-      <ScrollView style={styles.scrollView}>
-        <View style={styles.header}>
-          <Title style={styles.title}>Client Management</Title>
-          <Paragraph style={styles.subtitle}>
-            Manage your clients and their saved addresses
-          </Paragraph>
-        </View>
+      <LinearGradient
+        colors={[Colors.accent, Colors.accentDark]}
+        style={styles.header}
+      >
+        <Text style={styles.headerTitle}>🏢 Client Management</Text>
+        <Text style={styles.headerSubtitle}>
+          {clients.length} client{clients.length !== 1 ? 's' : ''}
+        </Text>
+      </LinearGradient>
 
+      <ScrollView style={styles.scrollView}>
         {isLoading ? (
           <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color="#2196F3" />
+            <ActivityIndicator size="large" color={Colors.primary} />
             <Text style={styles.loadingText}>Loading clients...</Text>
           </View>
         ) : clients.length === 0 ? (
           <Card style={styles.emptyCard}>
             <Card.Content>
-              <Title>No Clients Yet</Title>
-              <Paragraph>
+              <Text variant="titleLarge" style={styles.emptyTitle}>No Clients Yet</Text>
+              <Paragraph style={styles.emptyText}>
                 Add your first client to save their information and addresses for quick job entry.
               </Paragraph>
             </Card.Content>
@@ -110,42 +115,53 @@ export default function ClientManagementScreen() {
               <Card.Content>
                 <View style={styles.cardHeader}>
                   <View style={styles.clientInfo}>
-                  <Title>{client.name}</Title>
+                    <Text variant="titleLarge" style={styles.clientName}>{client.name}</Text>
+                    
+                    {client.isPrivate && user?.role === 'owner' && (
+                      <Chip 
+                        icon="lock" 
+                        mode="outlined" 
+                        compact
+                        style={styles.privateChip}
+                        textStyle={styles.privateChipText}
+                      >
+                        Private
+                      </Chip>
+                    )}
+                    
+                    {(!client.isPrivate || user?.role === 'owner') && (
+                      <>
+                        {client.phone && (
+                          <View style={styles.contactRow}>
+                            <IconButton icon="phone" size={16} iconColor={Colors.primary} style={styles.contactIcon} />
+                            <Text style={styles.contactText}>{client.phone}</Text>
+                          </View>
+                        )}
+                        {client.email && (
+                          <View style={styles.contactRow}>
+                            <IconButton icon="email" size={16} iconColor={Colors.primary} style={styles.contactIcon} />
+                            <Text style={styles.contactText}>{client.email}</Text>
+                          </View>
+                        )}
+                      </>
+                    )}
+                    
+                    {client.isPrivate && user?.role === 'employee' && (
+                      <Text style={styles.privateNote}>🔒 Contact info private</Text>
+                    )}
+                  </View>
                   
-                  {/* Show privacy badge */}
-                  {client.isPrivate && user?.role === 'owner' && (
-                    <Chip icon="lock" mode="outlined" style={styles.privateChip}>
-                      Private
-                    </Chip>
-                  )}
-                  
-                  {/* Only show contact info if not private, or if user is owner */}
-                  {(!client.isPrivate || user?.role === 'owner') && (
-                    <>
-                      {client.phone && (
-                        <Text style={styles.phone}>📞 {client.phone}</Text>
-                      )}
-                      {client.email && (
-                        <Text style={styles.email}>✉️ {client.email}</Text>
-                      )}
-                    </>
-                  )}
-                  
-                  {/* Show "Contact info hidden" message for private clients */}
-                  {client.isPrivate && user?.role === 'employee' && (
-                    <Text style={styles.privateNote}>🔒 Contact info private</Text>
-                  )}
-                </View>
                   <View style={styles.actions}>
                     <IconButton
                       icon="pencil"
                       size={20}
                       onPress={() => handleEditClient(client)}
+                      iconColor={Colors.primary}
                     />
                     <IconButton
                       icon="delete"
                       size={20}
-                      iconColor="#F44336"
+                      iconColor={Colors.error}
                       onPress={() => handleDeleteClient(client)}
                     />
                   </View>
@@ -157,35 +173,50 @@ export default function ClientManagementScreen() {
                 {(client.defaultPricePerYard || client.defaultSetupCharge) && (
                   <View style={styles.pricingSection}>
                     <Text style={styles.sectionLabel}>Default Pricing:</Text>
-                    {client.defaultPricePerYard && (
-                      <Text style={styles.pricingText}>
-                        💰 ${client.defaultPricePerYard}/yard
-                      </Text>
-                    )}
-                    {client.defaultSetupCharge && (
-                      <Text style={styles.pricingText}>
-                        🚚 ${client.defaultSetupCharge} setup
-                      </Text>
-                    )}
+                    <View style={styles.pricingRow}>
+                      {client.defaultPricePerYard && (
+                        <Chip 
+                          icon="currency-usd" 
+                          compact
+                          style={styles.pricingChip}
+                        >
+                          ${client.defaultPricePerYard}/yard
+                        </Chip>
+                      )}
+                      {client.defaultSetupCharge && (
+                        <Chip 
+                          icon="truck" 
+                          compact
+                          style={styles.pricingChip}
+                        >
+                          ${client.defaultSetupCharge} setup
+                        </Chip>
+                      )}
+                    </View>
                   </View>
                 )}
 
                 {/* Addresses */}
                 <View style={styles.addressSection}>
                   <Text style={styles.sectionLabel}>
-                    Saved Addresses ({client.addresses.length}):
+                    📍 Saved Addresses ({client.addresses.length}):
                   </Text>
                   {client.addresses.map((addr) => (
                     <View key={addr.id} style={styles.addressItem}>
-                      <Chip mode="outlined" style={styles.addressChip}>
-                        {addr.label}
-                      </Chip>
+                      <View style={styles.addressHeader}>
+                        <Chip mode="outlined" compact style={styles.addressChip}>
+                          {addr.label}
+                        </Chip>
+                        {(addr.pricePerYard || addr.setupCharge) && (
+                          <IconButton icon="currency-usd" size={16} iconColor={Colors.info} />
+                        )}
+                      </View>
                       <Text style={styles.addressText}>
                         {addr.address}, {addr.city}
                       </Text>
                       {(addr.pricePerYard || addr.setupCharge) && (
                         <Text style={styles.customPricing}>
-                          Custom: ${addr.pricePerYard || '—'}/yd, ${addr.setupCharge || '—'} setup
+                          Custom: ${addr.pricePerYard || '—'}/yd • ${addr.setupCharge || '—'} setup
                         </Text>
                       )}
                     </View>
@@ -193,11 +224,10 @@ export default function ClientManagementScreen() {
                 </View>
 
                 {/* Notes */}
-                {/* Notes - only show if not private or user is owner */}
                 {client.notes && (!client.isPrivate || user?.role === 'owner') && (
                   <>
                     <Divider style={styles.divider} />
-                    <Text style={styles.notesLabel}>Notes:</Text>
+                    <Text style={styles.notesLabel}>📝 Notes:</Text>
                     <Text style={styles.notes}>{client.notes}</Text>
                   </>
                 )}
@@ -211,6 +241,7 @@ export default function ClientManagementScreen() {
         icon="plus"
         label="Add Client"
         style={styles.fab}
+        color={Colors.textInverse}
         onPress={() => navigation.navigate('AddClient' as never)}
       />
     </View>
@@ -220,40 +251,53 @@ export default function ClientManagementScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: Colors.background,
+  },
+  header: {
+    paddingVertical: Spacing.xl,
+    paddingHorizontal: Spacing.lg,
+    ...Shadows.medium,
+  },
+  headerTitle: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: Colors.textInverse,
+    marginBottom: Spacing.xs,
+  },
+  headerSubtitle: {
+    fontSize: 14,
+    color: Colors.textInverse,
+    opacity: 0.9,
   },
   scrollView: {
     flex: 1,
   },
-  header: {
-    padding: 20,
-    backgroundColor: 'white',
-    marginBottom: 16,
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#2196F3',
-  },
-  subtitle: {
-    color: '#666',
-    marginTop: 4,
-  },
   loadingContainer: {
-    padding: 40,
+    padding: Spacing.xxl,
     alignItems: 'center',
   },
   loadingText: {
-    marginTop: 16,
-    color: '#666',
+    marginTop: Spacing.md,
+    color: Colors.textSecondary,
   },
   emptyCard: {
-    marginHorizontal: 20,
-    marginTop: 20,
+    marginHorizontal: Spacing.lg,
+    marginTop: Spacing.lg,
+    borderRadius: BorderRadius.large,
+    ...Shadows.medium,
+  },
+  emptyTitle: {
+    marginBottom: Spacing.sm,
+    color: Colors.text,
+  },
+  emptyText: {
+    color: Colors.textSecondary,
   },
   clientCard: {
-    marginHorizontal: 20,
-    marginBottom: 16,
+    marginHorizontal: Spacing.md,
+    marginVertical: Spacing.sm,
+    borderRadius: BorderRadius.large,
+    ...Shadows.medium,
   },
   cardHeader: {
     flexDirection: 'row',
@@ -263,87 +307,115 @@ const styles = StyleSheet.create({
   clientInfo: {
     flex: 1,
   },
-  phone: {
-    fontSize: 14,
-    color: '#666',
-    marginTop: 4,
+  clientName: {
+    marginBottom: Spacing.xs,
+    color: Colors.text,
+    fontWeight: 'bold',
   },
-  email: {
+  privateChip: {
+    alignSelf: 'flex-start',
+    marginTop: Spacing.xs,
+    marginBottom: Spacing.xs,
+    backgroundColor: Colors.warningBg,
+    borderColor: Colors.warning,
+  },
+  privateChipText: {
+    color: Colors.warning,
+  },
+  contactRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: Spacing.xs,
+  },
+  contactIcon: {
+    margin: 0,
+    marginRight: -8,
+  },
+  contactText: {
     fontSize: 14,
-    color: '#666',
-    marginTop: 2,
+    color: Colors.textSecondary,
+  },
+  privateNote: {
+    fontSize: 12,
+    color: Colors.warning,
+    fontStyle: 'italic',
+    marginTop: Spacing.xs,
   },
   actions: {
     flexDirection: 'row',
   },
   divider: {
-    marginVertical: 12,
+    marginVertical: Spacing.md,
+    backgroundColor: Colors.borderLight,
   },
   pricingSection: {
-    backgroundColor: '#E8F5E9',
-    padding: 12,
-    borderRadius: 8,
-    marginBottom: 12,
+    marginBottom: Spacing.md,
   },
   sectionLabel: {
     fontSize: 14,
-    fontWeight: 'bold',
-    marginBottom: 8,
+    fontWeight: '600',
+    marginBottom: Spacing.sm,
+    color: Colors.text,
   },
-  pricingText: {
-    fontSize: 14,
-    color: '#2E7D32',
-    marginTop: 4,
+  pricingRow: {
+    flexDirection: 'row',
+    gap: Spacing.sm,
+    flexWrap: 'wrap',
+  },
+  pricingChip: {
+    backgroundColor: Colors.successBg,
   },
   addressSection: {
-    marginTop: 8,
+    marginTop: Spacing.sm,
   },
   addressItem: {
-    marginTop: 8,
-    padding: 12,
-    backgroundColor: '#F5F5F5',
-    borderRadius: 8,
+    marginTop: Spacing.sm,
+    padding: Spacing.md,
+    backgroundColor: Colors.surfaceDark,
+    borderRadius: BorderRadius.medium,
+    borderLeftWidth: 4,
+    borderLeftColor: Colors.primary,
+  },
+  addressHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: Spacing.xs,
   },
   addressChip: {
-    alignSelf: 'flex-start',
-    marginBottom: 4,
+    backgroundColor: Colors.surface,
+    borderColor: Colors.primary,
   },
   addressText: {
     fontSize: 14,
-    marginTop: 4,
+    marginTop: Spacing.xs,
+    color: Colors.text,
   },
   customPricing: {
     fontSize: 12,
-    color: '#1976D2',
-    fontStyle: 'italic',
-    marginTop: 4,
+    color: Colors.info,
+    fontWeight: '600',
+    marginTop: Spacing.xs,
   },
   notesLabel: {
     fontSize: 14,
-    fontWeight: 'bold',
-    marginBottom: 4,
+    fontWeight: '600',
+    marginBottom: Spacing.xs,
+    color: Colors.text,
   },
   notes: {
     fontSize: 14,
     fontStyle: 'italic',
-    color: '#666',
+    color: Colors.textSecondary,
+    lineHeight: 20,
   },
   fab: {
     position: 'absolute',
-    margin: 16,
+    margin: Spacing.md,
     right: 0,
     bottom: 0,
-    backgroundColor: '#2196F3',
+    backgroundColor: Colors.primary,
+    borderRadius: BorderRadius.round,
+    ...Shadows.large,
   },
-  privateChip: {
-  marginTop: 8,
-  alignSelf: 'flex-start',
-  backgroundColor: '#FFF3E0',
-},
-privateNote: {
-  fontSize: 12,
-  color: '#FF9800',
-  fontStyle: 'italic',
-  marginTop: 4,
-},
 });

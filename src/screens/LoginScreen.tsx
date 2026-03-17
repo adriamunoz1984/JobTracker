@@ -1,158 +1,193 @@
 // src/screens/LoginScreen.tsx
-import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, TouchableOpacity, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
-import { TextInput, Button, Text, Title, Surface, Snackbar } from 'react-native-paper';
-import { useNavigation } from '@react-navigation/native';
+import React, { useState } from 'react';
+import { View, StyleSheet, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
+import { TextInput, Button, Text, Divider, Card } from 'react-native-paper';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '../context/AuthContext';
+import { Colors, Spacing, BorderRadius, Shadows } from '../theme/colors';
 
 export default function LoginScreen() {
-  const navigation = useNavigation();
-  const { login, error, clearError, isLoading, bypassAuthForTesting, loginWithGoogle } = useAuth();
-  
+  const { login, signup } = useAuth();
+  const [isSignUp, setIsSignUp] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [showError, setShowError] = useState(false);
-  
-  // Show error message when auth error occurs
-  useEffect(() => {
-    if (error) {
-      setShowError(true);
-    }
-  }, [error]);
-  
-  // Handle login
-  const handleLogin = async () => {
-    if (!email || !password) {
+  const [displayName, setDisplayName] = useState('');
+  const [businessName, setBusinessName] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+
+  const handleSubmit = async () => {
+    if (!email.trim() || !password.trim()) {
+      setError('Please enter email and password');
       return;
     }
-    
+
+    if (isSignUp && !displayName.trim()) {
+      setError('Please enter your name');
+      return;
+    }
+
+    setLoading(true);
+    setError('');
+
     try {
-      await login(email, password);
-    } catch (e) {
-      // Error is handled by auth context
+      if (isSignUp) {
+        await signup(email.trim(), password, displayName.trim(), businessName.trim());
+      } else {
+        await login(email.trim(), password);
+      }
+    } catch (err: any) {
+      setError(err.message || 'Authentication failed');
+    } finally {
+      setLoading(false);
     }
   };
-  
-  // Google login
-  const handleGoogleLogin = async () => {
-    try {
-      await loginWithGoogle();
-    } catch (e) {
-      // Error is handled by auth context
-    }
+
+  const toggleMode = () => {
+    setIsSignUp(!isSignUp);
+    setError('');
   };
-  
-  // Navigate to registration screen
-  // Navigate to role selection screen
-    const goToRegister = () => {
-  navigation.navigate('RoleSelection' as never);
-    };
-  
-  // Navigate to forgot password screen
-  const goToForgotPassword = () => {
-    navigation.navigate('ForgotPassword' as never);
-  };
-  
+
   return (
     <KeyboardAvoidingView 
-      style={styles.container}
+      style={styles.container} 
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      keyboardVerticalOffset={80}
     >
-      <ScrollView contentContainerStyle={styles.scrollContent}>
-        <Surface style={styles.formContainer}>
-          <View style={styles.logoContainer}>
-            <Title style={styles.appTitle}>Job Tracker</Title>
-            <Text style={styles.subtitle}>Track your concrete pumping jobs</Text>
-          </View>
-          
-          <TextInput
-            label="Email"
-            value={email}
-            onChangeText={setEmail}
-            mode="outlined"
-            autoCapitalize="none"
-            keyboardType="email-address"
-            style={styles.input}
-            disabled={isLoading}
-          />
-          
-          <TextInput
-            label="Password"
-            value={password}
-            onChangeText={setPassword}
-            mode="outlined"
-            secureTextEntry
-            style={styles.input}
-            disabled={isLoading}
-          />
-          
-          <TouchableOpacity onPress={goToForgotPassword} style={styles.forgotPasswordLink}>
-            <Text style={styles.forgotPasswordText}>Forgot password?</Text>
-          </TouchableOpacity>
-          
-          <Button
-            mode="contained"
-            onPress={handleLogin}
-            style={styles.loginButton}
-            loading={isLoading}
-            disabled={isLoading || !email || !password}
-          >
-            Log In
-          </Button>
-          
-          <View style={styles.dividerContainer}>
-            <View style={styles.divider} />
-            <Text style={styles.dividerText}>OR</Text>
-            <View style={styles.divider} />
-          </View>
-          
-          <Button
-            mode="outlined"
-            onPress={handleGoogleLogin}
-            style={styles.googleButton}
-            icon="google"
-            disabled={isLoading}
-          >
-            Continue with Google
-          </Button>
-          
-          <View style={styles.dividerContainer}>
-            <View style={styles.divider} />
-            <Text style={styles.dividerText}>Development</Text>
-            <View style={styles.divider} />
-          </View>
-          
-          <Button
-            mode="outlined"
-            onPress={bypassAuthForTesting}
-            style={styles.testButton}
-            icon="wrench"
-            disabled={isLoading}
-          >
-            🔧 Test Account (Dev Only)
-          </Button>
-          
-          <View style={styles.registerContainer}>
-            <Text>Don't have an account? </Text>
-            <TouchableOpacity onPress={goToRegister}>
-              <Text style={styles.registerLink}>Sign Up</Text>
-            </TouchableOpacity>
-          </View>
-        </Surface>
-      </ScrollView>
-      
-      <Snackbar
-        visible={showError}
-        onDismiss={() => {
-          setShowError(false);
-          clearError();
-        }}
-        duration={3000}
-        style={styles.snackbar}
+      <ScrollView 
+        contentContainerStyle={styles.scrollContent}
+        keyboardShouldPersistTaps="handled"
       >
-        {error}
-      </Snackbar>
+        {/* Header */}
+        <LinearGradient
+          colors={[Colors.primary, Colors.primaryDark]}
+          style={styles.header}
+        >
+          <Text style={styles.logo}>🚛</Text>
+          <Text style={styles.title}>Job Tracker</Text>
+          <Text style={styles.subtitle}>Concrete Pumping Management</Text>
+        </LinearGradient>
+
+        {/* Login Card */}
+        <Card style={styles.card}>
+          <Card.Content>
+            <Text variant="headlineSmall" style={styles.cardTitle}>
+              {isSignUp ? 'Create Account' : 'Welcome Back'}
+            </Text>
+            <Text style={styles.cardSubtitle}>
+              {isSignUp 
+                ? 'Sign up to start tracking your jobs' 
+                : 'Sign in to continue'}
+            </Text>
+
+            <Divider style={styles.divider} />
+
+            {/* Sign Up Fields */}
+            {isSignUp && (
+              <>
+                <TextInput
+                  label="Your Name *"
+                  value={displayName}
+                  onChangeText={setDisplayName}
+                  mode="outlined"
+                  style={styles.input}
+                  left={<TextInput.Icon icon="account" iconColor={Colors.primary} />}
+                  outlineColor={Colors.border}
+                  activeOutlineColor={Colors.primary}
+                />
+
+                <TextInput
+                  label="Business Name (Optional)"
+                  value={businessName}
+                  onChangeText={setBusinessName}
+                  mode="outlined"
+                  style={styles.input}
+                  left={<TextInput.Icon icon="domain" iconColor={Colors.primary} />}
+                  outlineColor={Colors.border}
+                  activeOutlineColor={Colors.primary}
+                />
+              </>
+            )}
+
+            {/* Email & Password */}
+            <TextInput
+              label="Email *"
+              value={email}
+              onChangeText={setEmail}
+              keyboardType="email-address"
+              autoCapitalize="none"
+              mode="outlined"
+              style={styles.input}
+              left={<TextInput.Icon icon="email" iconColor={Colors.primary} />}
+              outlineColor={Colors.border}
+              activeOutlineColor={Colors.primary}
+            />
+
+            <TextInput
+              label="Password *"
+              value={password}
+              onChangeText={setPassword}
+              secureTextEntry={!showPassword}
+              mode="outlined"
+              style={styles.input}
+              left={<TextInput.Icon icon="lock" iconColor={Colors.primary} />}
+              right={
+                <TextInput.Icon 
+                  icon={showPassword ? "eye-off" : "eye"} 
+                  onPress={() => setShowPassword(!showPassword)}
+                  iconColor={Colors.textSecondary}
+                />
+              }
+              outlineColor={Colors.border}
+              activeOutlineColor={Colors.primary}
+            />
+
+            {/* Error Message */}
+            {error ? (
+              <View style={styles.errorContainer}>
+                <Text style={styles.errorText}>⚠️ {error}</Text>
+              </View>
+            ) : null}
+
+            {/* Submit Button */}
+            <Button
+              mode="contained"
+              onPress={handleSubmit}
+              loading={loading}
+              disabled={loading}
+              style={styles.submitButton}
+              buttonColor={Colors.primary}
+              icon={isSignUp ? "account-plus" : "login"}
+            >
+              {isSignUp ? 'Sign Up' : 'Sign In'}
+            </Button>
+
+            {/* Toggle Mode */}
+            <Divider style={styles.divider} />
+
+            <View style={styles.toggleContainer}>
+              <Text style={styles.toggleText}>
+                {isSignUp ? 'Already have an account?' : "Don't have an account?"}
+              </Text>
+              <Button 
+                mode="text" 
+                onPress={toggleMode}
+                textColor={Colors.primary}
+                compact
+              >
+                {isSignUp ? 'Sign In' : 'Sign Up'}
+              </Button>
+            </View>
+          </Card.Content>
+        </Card>
+
+        {/* Footer */}
+        <View style={styles.footer}>
+          <Text style={styles.footerText}>
+            Manage jobs, track payments, and grow your business
+          </Text>
+        </View>
+      </ScrollView>
     </KeyboardAvoidingView>
   );
 }
@@ -160,86 +195,91 @@ export default function LoginScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: Colors.background,
   },
   scrollContent: {
     flexGrow: 1,
-    justifyContent: 'center',
-    padding: 20,
   },
-  formContainer: {
-    padding: 24,
-    borderRadius: 12,
-    elevation: 4,
-    backgroundColor: 'white',
-  },
-  logoContainer: {
+  header: {
+    paddingVertical: Spacing.xxl,
+    paddingHorizontal: Spacing.lg,
     alignItems: 'center',
-    marginBottom: 32,
+    ...Shadows.large,
   },
-  appTitle: {
+  logo: {
+    fontSize: 64,
+    marginBottom: Spacing.md,
+  },
+  title: {
     fontSize: 32,
     fontWeight: 'bold',
-    color: '#2196F3',
-    marginBottom: 8,
+    color: Colors.textInverse,
+    marginBottom: Spacing.xs,
   },
   subtitle: {
-    fontSize: 16,
-    color: '#666',
-    textAlign: 'center',
-  },
-  input: {
-    marginBottom: 16,
-    backgroundColor: 'white',
-  },
-  forgotPasswordLink: {
-    alignSelf: 'flex-end',
-    marginBottom: 24,
-  },
-  forgotPasswordText: {
-    color: '#2196F3',
     fontSize: 14,
+    color: Colors.textInverse,
+    opacity: 0.9,
   },
-  loginButton: {
-    marginBottom: 20,
-    paddingVertical: 8,
-    backgroundColor: '#2196F3',
+  card: {
+    marginHorizontal: Spacing.lg,
+    marginTop: -Spacing.xl,
+    marginBottom: Spacing.lg,
+    borderRadius: BorderRadius.large,
+    ...Shadows.large,
   },
-  dividerContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginVertical: 16,
+  cardTitle: {
+    fontWeight: 'bold',
+    color: Colors.text,
+    marginBottom: Spacing.xs,
+  },
+  cardSubtitle: {
+    color: Colors.textSecondary,
+    fontSize: 14,
   },
   divider: {
-    flex: 1,
-    height: 1,
-    backgroundColor: '#e0e0e0',
+    marginVertical: Spacing.lg,
+    backgroundColor: Colors.borderLight,
   },
-  dividerText: {
-    marginHorizontal: 16,
-    color: '#666',
+  input: {
+    marginBottom: Spacing.md,
+    backgroundColor: Colors.surface,
+  },
+  errorContainer: {
+    backgroundColor: Colors.errorBg,
+    padding: Spacing.md,
+    borderRadius: BorderRadius.medium,
+    marginBottom: Spacing.md,
+    borderLeftWidth: 4,
+    borderLeftColor: Colors.error,
+  },
+  errorText: {
+    color: Colors.error,
     fontSize: 14,
   },
-  googleButton: {
-    marginBottom: 16,
-    borderColor: '#757575',
-    paddingVertical: 8,
+  submitButton: {
+    marginTop: Spacing.sm,
+    paddingVertical: Spacing.sm,
+    borderRadius: BorderRadius.medium,
+    ...Shadows.medium,
   },
-  testButton: {
-    marginBottom: 24,
-    borderColor: '#FF9800',
-    paddingVertical: 8,
-  },
-  registerContainer: {
+  toggleContainer: {
     flexDirection: 'row',
+    alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 16,
   },
-  registerLink: {
-    color: '#2196F3',
-    fontWeight: 'bold',
+  toggleText: {
+    color: Colors.textSecondary,
+    fontSize: 14,
   },
-  snackbar: {
-    backgroundColor: '#F44336',
+  footer: {
+    padding: Spacing.xl,
+    alignItems: 'center',
+  },
+  footerText: {
+    color: Colors.textSecondary,
+    fontSize: 12,
+    textAlign: 'center',
+    fontStyle: 'italic',
   },
 });

@@ -1,16 +1,18 @@
 // src/screens/AddClientScreen.tsx
 import React, { useState } from 'react';
-import { View, StyleSheet, ScrollView, Alert, Switch } from 'react-native';
+import { View, StyleSheet, ScrollView, Alert } from 'react-native';
 import { 
   TextInput, 
   Button, 
   Text, 
-  Title, 
   Divider,
   IconButton,
-  Card
+  Card,
+  Switch,
+  Chip
 } from 'react-native-paper';
 import { useNavigation, useRoute } from '@react-navigation/native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '../context/AuthContext';
 import { Client, ClientAddress } from '../types';
 import { 
@@ -18,11 +20,11 @@ import {
   doc, 
   setDoc
 } from 'firebase/firestore';
+import { Colors, Spacing, BorderRadius, Shadows } from '../theme/colors';
 
 const db = getFirestore();
 
 export default function AddClientScreen() {
-  const [isPrivate, setIsPrivate] = useState(editingClient?.isPrivate || false);
   const navigation = useNavigation();
   const route = useRoute();
   const { user } = useAuth();
@@ -30,7 +32,6 @@ export default function AddClientScreen() {
   const editingClient = (route.params as any)?.client as Client | undefined;
   const isEditing = !!editingClient;
 
-  // Client info
   const [name, setName] = useState(editingClient?.name || '');
   const [phone, setPhone] = useState(editingClient?.phone || '');
   const [email, setEmail] = useState(editingClient?.email || '');
@@ -41,8 +42,8 @@ export default function AddClientScreen() {
     editingClient?.defaultSetupCharge?.toString() || ''
   );
   const [notes, setNotes] = useState(editingClient?.notes || '');
+  const [isPrivate, setIsPrivate] = useState(editingClient?.isPrivate || false);
   
-  // Addresses
   const [addresses, setAddresses] = useState<ClientAddress[]>(
     editingClient?.addresses || []
   );
@@ -84,7 +85,6 @@ export default function AddClientScreen() {
   };
 
   const handleSave = async () => {
-    // Validation
     if (!name.trim()) {
       Alert.alert('Missing Information', 'Please enter a client name');
       return;
@@ -95,7 +95,6 @@ export default function AddClientScreen() {
       return;
     }
 
-    // Validate addresses
     for (let i = 0; i < addresses.length; i++) {
       const addr = addresses[i];
       if (!addr.label.trim()) {
@@ -125,11 +124,10 @@ export default function AddClientScreen() {
           address: addr.address.trim(),
           city: addr.city.trim(),
         })),
-        isPrivate: isPrivate, // Add this
+        isPrivate: isPrivate,
         updatedAt: new Date().toISOString(),
       };
 
-      // Optional fields
       if (phone.trim()) clientData.phone = phone.trim();
       if (email.trim()) clientData.email = email.trim();
       if (defaultPricePerYard.trim()) {
@@ -165,162 +163,204 @@ export default function AddClientScreen() {
 
   return (
     <ScrollView style={styles.container}>
-      
-      <View style={styles.inputContainer}>
-        <Title>{isEditing ? 'Edit Client' : 'Add New Client'}</Title>
+      <LinearGradient
+        colors={[Colors.accent, Colors.accentDark]}
+        style={styles.header}
+      >
+        <Text style={styles.headerTitle}>
+          {isEditing ? '✏️ Edit Client' : '➕ Add New Client'}
+        </Text>
+      </LinearGradient>
 
+      <View style={styles.content}>
         {/* Basic Info */}
-        <Text style={styles.sectionTitle}>Client Information</Text>
-        
-        <TextInput
-          label="Client/Company Name *"
-          value={name}
-          onChangeText={setName}
-          mode="outlined"
-          style={styles.input}
-        />
-        {/* Privacy Toggle */}
-        <View style={styles.switchRow}>
-          <View style={styles.switchContent}>
-            <Text style={styles.switchLabel}>Private Client</Text>
-            <Text style={styles.switchSubtext}>
-              Employees can see name and addresses, but not contact info or notes
-            </Text>
-          </View>
-          <Switch
-            value={isPrivate}
-            onValueChange={setIsPrivate}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Client Information</Text>
+          
+          <TextInput
+            label="Client/Company Name *"
+            value={name}
+            onChangeText={setName}
+            mode="outlined"
+            style={styles.input}
+            outlineColor={Colors.border}
+            activeOutlineColor={Colors.primary}
           />
-        </View>
-        <TextInput
-          label="Phone (Optional)"
-          value={phone}
-          onChangeText={setPhone}
-          keyboardType="phone-pad"
-          mode="outlined"
-          style={styles.input}
-        />
 
-        <TextInput
-          label="Email (Optional)"
-          value={email}
-          onChangeText={setEmail}
-          keyboardType="email-address"
-          autoCapitalize="none"
-          mode="outlined"
-          style={styles.input}
-        />
+          <TextInput
+            label="Phone (Optional)"
+            value={phone}
+            onChangeText={setPhone}
+            keyboardType="phone-pad"
+            mode="outlined"
+            style={styles.input}
+            left={<TextInput.Icon icon="phone" iconColor={Colors.primary} />}
+            outlineColor={Colors.border}
+            activeOutlineColor={Colors.primary}
+          />
+
+          <TextInput
+            label="Email (Optional)"
+            value={email}
+            onChangeText={setEmail}
+            keyboardType="email-address"
+            autoCapitalize="none"
+            mode="outlined"
+            style={styles.input}
+            left={<TextInput.Icon icon="email" iconColor={Colors.primary} />}
+            outlineColor={Colors.border}
+            activeOutlineColor={Colors.primary}
+          />
+
+          {/* Privacy Toggle */}
+          <View style={styles.privacyRow}>
+            <View style={styles.privacyContent}>
+              <Text style={styles.privacyLabel}>🔒 Private Client</Text>
+              <Text style={styles.privacySubtext}>
+                Employees can see name and addresses, but not contact info or notes
+              </Text>
+            </View>
+            <Switch
+              value={isPrivate}
+              onValueChange={setIsPrivate}
+              color={Colors.primary}
+            />
+          </View>
+        </View>
 
         <Divider style={styles.divider} />
 
         {/* Default Pricing */}
-        <Text style={styles.sectionTitle}>Default Pricing (Optional)</Text>
-        <Text style={styles.subtitle}>
-          These rates will be used if an address doesn't have custom pricing
-        </Text>
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Default Pricing (Optional)</Text>
+          <Text style={styles.subtitle}>
+            These rates will be used if an address doesn't have custom pricing
+          </Text>
 
-        <TextInput
-          label="Default Price Per Yard ($)"
-          value={defaultPricePerYard}
-          onChangeText={setDefaultPricePerYard}
-          keyboardType="decimal-pad"
-          mode="outlined"
-          style={styles.input}
-          left={<TextInput.Icon icon="currency-usd" />}
-        />
+          <TextInput
+            label="Default Price Per Yard ($)"
+            value={defaultPricePerYard}
+            onChangeText={setDefaultPricePerYard}
+            keyboardType="decimal-pad"
+            mode="outlined"
+            style={styles.input}
+            left={<TextInput.Icon icon="currency-usd" />}
+            outlineColor={Colors.border}
+            activeOutlineColor={Colors.primary}
+          />
 
-        <TextInput
-          label="Default Setup Charge ($)"
-          value={defaultSetupCharge}
-          onChangeText={setDefaultSetupCharge}
-          keyboardType="decimal-pad"
-          mode="outlined"
-          style={styles.input}
-          left={<TextInput.Icon icon="currency-usd" />}
-        />
+          <TextInput
+            label="Default Setup Charge ($)"
+            value={defaultSetupCharge}
+            onChangeText={setDefaultSetupCharge}
+            keyboardType="decimal-pad"
+            mode="outlined"
+            style={styles.input}
+            left={<TextInput.Icon icon="truck" />}
+            outlineColor={Colors.border}
+            activeOutlineColor={Colors.primary}
+          />
+        </View>
 
         <Divider style={styles.divider} />
 
         {/* Addresses */}
-        <View style={styles.addressesHeader}>
-          <Text style={styles.sectionTitle}>Addresses</Text>
-          <Button
-            mode="outlined"
-            icon="plus"
-            onPress={handleAddAddress}
-            compact
-          >
-            Add Address
-          </Button>
-        </View>
+        <View style={styles.section}>
+          <View style={styles.addressesHeader}>
+            <Text style={styles.sectionTitle}>Addresses</Text>
+            <Button
+              mode="outlined"
+              icon="plus"
+              onPress={handleAddAddress}
+              compact
+              textColor={Colors.primary}
+              style={styles.addAddressButton}
+            >
+              Add Address
+            </Button>
+          </View>
 
-        {addresses.length === 0 && (
-          <Text style={styles.noAddresses}>No addresses yet. Add at least one.</Text>
-        )}
+          {addresses.length === 0 && (
+            <Text style={styles.noAddresses}>No addresses yet. Add at least one.</Text>
+          )}
 
-        {addresses.map((addr, index) => (
-          <Card key={addr.id} style={styles.addressCard}>
-            <Card.Content>
-              <View style={styles.addressHeader}>
-                <Text style={styles.addressNumber}>Address {index + 1}</Text>
-                <IconButton
-                  icon="delete"
-                  size={20}
-                  iconColor="#F44336"
-                  onPress={() => handleRemoveAddress(index)}
+          {addresses.map((addr, index) => (
+            <Card key={addr.id} style={styles.addressCard}>
+              <Card.Content>
+                <View style={styles.addressCardHeader}>
+                  <Chip mode="flat" style={styles.addressNumber}>
+                    Address {index + 1}
+                  </Chip>
+                  <IconButton
+                    icon="delete"
+                    size={20}
+                    iconColor={Colors.error}
+                    onPress={() => handleRemoveAddress(index)}
+                  />
+                </View>
+
+                <TextInput
+                  label="Label (e.g., Main Office) *"
+                  value={addr.label}
+                  onChangeText={(value) => handleUpdateAddress(index, 'label', value)}
+                  mode="outlined"
+                  style={styles.input}
+                  outlineColor={Colors.border}
+                  activeOutlineColor={Colors.primary}
                 />
-              </View>
 
-              <TextInput
-                label="Label (e.g., Main Office) *"
-                value={addr.label}
-                onChangeText={(value) => handleUpdateAddress(index, 'label', value)}
-                mode="outlined"
-                style={styles.input}
-              />
+                <TextInput
+                  label="Street Address *"
+                  value={addr.address}
+                  onChangeText={(value) => handleUpdateAddress(index, 'address', value)}
+                  mode="outlined"
+                  style={styles.input}
+                  left={<TextInput.Icon icon="map-marker" iconColor={Colors.primary} />}
+                  outlineColor={Colors.border}
+                  activeOutlineColor={Colors.primary}
+                />
 
-              <TextInput
-                label="Street Address *"
-                value={addr.address}
-                onChangeText={(value) => handleUpdateAddress(index, 'address', value)}
-                mode="outlined"
-                style={styles.input}
-              />
+                <TextInput
+                  label="City *"
+                  value={addr.city}
+                  onChangeText={(value) => handleUpdateAddress(index, 'city', value)}
+                  mode="outlined"
+                  style={styles.input}
+                  outlineColor={Colors.border}
+                  activeOutlineColor={Colors.primary}
+                />
 
-              <TextInput
-                label="City *"
-                value={addr.city}
-                onChangeText={(value) => handleUpdateAddress(index, 'city', value)}
-                mode="outlined"
-                style={styles.input}
-              />
+                <Text style={styles.customPricingLabel}>
+                  💰 Custom Pricing (Optional - overrides client defaults)
+                </Text>
 
-              <Text style={styles.customPricingLabel}>
-                Custom Pricing (Optional - overrides client defaults)
-              </Text>
+                <TextInput
+                  label="Price Per Yard ($)"
+                  value={addr.pricePerYard?.toString() || ''}
+                  onChangeText={(value) => handleUpdateAddress(index, 'pricePerYard', value ? parseFloat(value) : '')}
+                  keyboardType="decimal-pad"
+                  mode="outlined"
+                  style={styles.input}
+                  left={<TextInput.Icon icon="currency-usd" />}
+                  outlineColor={Colors.border}
+                  activeOutlineColor={Colors.primary}
+                />
 
-              <TextInput
-                label="Price Per Yard ($)"
-                value={addr.pricePerYard?.toString() || ''}
-                onChangeText={(value) => handleUpdateAddress(index, 'pricePerYard', value ? parseFloat(value) : '')}
-                keyboardType="decimal-pad"
-                mode="outlined"
-                style={styles.input}
-                left={<TextInput.Icon icon="currency-usd" />}
-              />
-
-              <TextInput
-                label="Setup Charge ($)"
-                value={addr.setupCharge?.toString() || ''}
-                onChangeText={(value) => handleUpdateAddress(index, 'setupCharge', value ? parseFloat(value) : '')}
-                keyboardType="decimal-pad"
-                mode="outlined"
-                style={styles.input}
-                left={<TextInput.Icon icon="currency-usd" />}
-              />
-            </Card.Content>
-          </Card>
-        ))}
+                <TextInput
+                  label="Setup Charge ($)"
+                  value={addr.setupCharge?.toString() || ''}
+                  onChangeText={(value) => handleUpdateAddress(index, 'setupCharge', value ? parseFloat(value) : '')}
+                  keyboardType="decimal-pad"
+                  mode="outlined"
+                  style={styles.input}
+                  left={<TextInput.Icon icon="truck" />}
+                  outlineColor={Colors.border}
+                  activeOutlineColor={Colors.primary}
+                />
+              </Card.Content>
+            </Card>
+          ))}
+        </View>
 
         <Divider style={styles.divider} />
 
@@ -334,6 +374,8 @@ export default function AddClientScreen() {
           numberOfLines={3}
           style={styles.input}
           placeholder="e.g., Call 30min before arrival, Gate code: 1234"
+          outlineColor={Colors.border}
+          activeOutlineColor={Colors.primary}
         />
 
         {/* Save Button */}
@@ -343,6 +385,8 @@ export default function AddClientScreen() {
           style={styles.saveButton}
           loading={isSaving}
           disabled={isSaving}
+          buttonColor={Colors.primary}
+          icon={isEditing ? 'check' : 'content-save'}
         >
           {isEditing ? 'Update Client' : 'Save Client'}
         </Button>
@@ -354,92 +398,113 @@ export default function AddClientScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: Colors.background,
   },
-  inputContainer: {
-    padding: 16,
+  header: {
+    paddingVertical: Spacing.xl,
+    paddingHorizontal: Spacing.lg,
+    ...Shadows.medium,
+  },
+  headerTitle: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: Colors.textInverse,
+  },
+  content: {
+    padding: Spacing.md,
+  },
+  section: {
+    marginBottom: Spacing.sm,
   },
   sectionTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    marginTop: 16,
-    marginBottom: 8,
+    marginTop: Spacing.md,
+    marginBottom: Spacing.sm,
+    color: Colors.text,
   },
   subtitle: {
     fontSize: 14,
-    color: '#666',
-    marginBottom: 12,
+    color: Colors.textSecondary,
+    marginBottom: Spacing.md,
     fontStyle: 'italic',
   },
   input: {
-    marginBottom: 16,
-    backgroundColor: 'white',
+    marginBottom: Spacing.md,
+    backgroundColor: Colors.surface,
   },
   divider: {
-    marginVertical: 16,
+    marginVertical: Spacing.lg,
+    backgroundColor: Colors.borderLight,
+  },
+  privacyRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: Spacing.md,
+    backgroundColor: Colors.warningBg,
+    borderRadius: BorderRadius.medium,
+    marginTop: Spacing.sm,
+    borderLeftWidth: 4,
+    borderLeftColor: Colors.warning,
+  },
+  privacyContent: {
+    flex: 1,
+    marginRight: Spacing.md,
+  },
+  privacyLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 4,
+    color: Colors.text,
+  },
+  privacySubtext: {
+    fontSize: 12,
+    color: Colors.textSecondary,
   },
   addressesHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: Spacing.md,
+  },
+  addAddressButton: {
+    borderColor: Colors.primary,
   },
   noAddresses: {
     fontSize: 14,
-    color: '#999',
+    color: Colors.textLight,
     fontStyle: 'italic',
     textAlign: 'center',
-    marginVertical: 16,
+    marginVertical: Spacing.lg,
   },
   addressCard: {
-    marginBottom: 16,
-    backgroundColor: '#FAFAFA',
+    marginBottom: Spacing.md,
+    backgroundColor: Colors.surfaceDark,
+    borderRadius: BorderRadius.large,
+    ...Shadows.small,
   },
-  addressHeader: {
+  addressCardHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: Spacing.sm,
   },
   addressNumber: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#2196F3',
+    backgroundColor: Colors.primary,
   },
   customPricingLabel: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#1976D2',
-    marginTop: 8,
-    marginBottom: 8,
+    color: Colors.info,
+    marginTop: Spacing.sm,
+    marginBottom: Spacing.md,
   },
   saveButton: {
-    marginTop: 24,
-    marginBottom: 32,
-    paddingVertical: 8,
-    backgroundColor: '#2196F3',
+    marginTop: Spacing.lg,
+    marginBottom: Spacing.xxl,
+    paddingVertical: Spacing.sm,
+    borderRadius: BorderRadius.medium,
+    ...Shadows.medium,
   },
-
-  switchRow: {
-  flexDirection: 'row',
-  justifyContent: 'space-between',
-  alignItems: 'center',
-  padding: 16,
-  backgroundColor: 'white',
-  borderRadius: 8,
-  marginVertical: 8,
-},
-switchContent: {
-  flex: 1,
-  marginRight: 16,
-},
-switchLabel: {
-  fontSize: 16,
-  fontWeight: '600',
-  marginBottom: 4,
-},
-switchSubtext: {
-  fontSize: 12,
-  color: '#666',
-},
 });

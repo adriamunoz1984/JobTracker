@@ -8,12 +8,13 @@ import {
   SegmentedButtons, 
   Switch, 
   Divider,
-  Card,
-  Chip
+  Chip,
+  IconButton
 } from 'react-native-paper';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { format } from 'date-fns';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useJobs } from '../context/JobsContext';
 import { useAuth } from '../context/AuthContext';
 import { Job, Client, ClientAddress } from '../types';
@@ -22,6 +23,7 @@ import {
   collection, 
   onSnapshot
 } from 'firebase/firestore';
+import { Colors, Spacing, BorderRadius, Shadows, Typography } from '../theme/colors';
 
 const db = getFirestore();
 
@@ -31,26 +33,21 @@ export default function AddJobScreen() {
   const { addJob, updateJob } = useJobs();
   const { user } = useAuth();
 
-  // Check if we're editing an existing job
   const editingJob = (route.params as any)?.job as Job | undefined;
   const isEditing = !!editingJob;
 
-  // Flat rate settings
   const FLAT_RATE_THRESHOLD = 10;
   const FLAT_RATE_AMOUNT = 350;
 
-  // Client selection
   const [clients, setClients] = useState<Client[]>([]);
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
   const [selectedAddress, setSelectedAddress] = useState<ClientAddress | null>(null);
   
-  // Autocomplete states
   const [showClientDropdown, setShowClientDropdown] = useState(false);
   const [showAddressDropdown, setShowAddressDropdown] = useState(false);
   const [filteredClients, setFilteredClients] = useState<Client[]>([]);
   const [filteredAddresses, setFilteredAddresses] = useState<ClientAddress[]>([]);
 
-  // Form state
   const [date, setDate] = useState(editingJob ? new Date(editingJob.date) : new Date());
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [companyName, setCompanyName] = useState(editingJob?.companyName || '');
@@ -69,7 +66,6 @@ export default function AddJobScreen() {
   const [notes, setNotes] = useState(editingJob?.notes || '');
   const [isSaving, setIsSaving] = useState(false);
 
-  // Load clients
   useEffect(() => {
     if (!user?.uid) return;
 
@@ -104,7 +100,6 @@ export default function AddJobScreen() {
     loadClients();
   }, [user?.uid, user?.role, user?.ownerId]);
 
-  // Filter clients as user types
   const handleCompanyNameChange = (text: string) => {
     setCompanyName(text);
     
@@ -123,7 +118,6 @@ export default function AddJobScreen() {
     setShowClientDropdown(matches.length > 0);
   };
 
-  // Select client from dropdown
   const handleSelectClient = (client: Client) => {
     setSelectedClient(client);
     setCompanyName(client.name);
@@ -139,7 +133,6 @@ export default function AddJobScreen() {
     setFilteredAddresses(client.addresses);
   };
 
-  // Filter addresses as user types
   const handleAddressChange = (text: string) => {
     setAddress(text);
     
@@ -165,7 +158,6 @@ export default function AddJobScreen() {
     setShowAddressDropdown(matches.length > 0);
   };
 
-  // Select address from dropdown
   const handleSelectAddress = (addr: ClientAddress) => {
     setSelectedAddress(addr);
     setAddress(addr.address);
@@ -185,7 +177,6 @@ export default function AddJobScreen() {
     }
   };
 
-  // Show dropdown when address field is focused
   const handleAddressFocus = () => {
     if (selectedClient && selectedClient.addresses.length > 0) {
       setFilteredAddresses(selectedClient.addresses);
@@ -193,7 +184,6 @@ export default function AddJobScreen() {
     }
   };
 
-  // Show dropdown when company name field is focused
   const handleCompanyNameFocus = () => {
     if (clients.length > 0 && companyName.trim().length === 0) {
       setFilteredClients(clients);
@@ -277,7 +267,7 @@ export default function AddJobScreen() {
         amount: total,
         paymentMethod,
         isPaidToMe,
-        isPaid: false,
+        isPaid: isPaidToMe ? true : false,
         isFlatRate: isFlatRate,
       };
 
@@ -333,13 +323,29 @@ export default function AddJobScreen() {
 
   return (
     <ScrollView style={styles.container} keyboardShouldPersistTaps="handled">
-      <View style={styles.inputContainer}>
-        <Text variant="titleLarge">{isEditing ? 'Edit Job' : 'Add New Job'}</Text>
+      <LinearGradient
+        colors={[Colors.primary, Colors.primaryDark]}
+        style={styles.header}
+      >
+        <Text style={styles.headerTitle}>
+          {isEditing ? '✏️ Edit Job' : '➕ Add New Job'}
+        </Text>
+        <Text style={styles.headerSubtitle}>{format(date, 'MMMM dd, yyyy')}</Text>
+      </LinearGradient>
 
-        <Text style={styles.dateLabel}>Job Date: {format(date, 'MMMM dd, yyyy')}</Text>
-        <Button mode="outlined" onPress={() => setShowDatePicker(true)} style={styles.dateButton}>
-          Change Date
-        </Button>
+      <View style={styles.content}>
+        {/* Date Picker */}
+        <View style={styles.section}>
+          <Button
+            mode="outlined"
+            icon="calendar"
+            onPress={() => setShowDatePicker(true)}
+            style={styles.dateButton}
+            textColor={Colors.primary}
+          >
+            Change Date
+          </Button>
+        </View>
 
         {showDatePicker && (
           <DateTimePicker
@@ -352,89 +358,118 @@ export default function AddJobScreen() {
 
         <Divider style={styles.divider} />
 
-        {/* Company Name Autocomplete */}
-        {/* Company Name Autocomplete */}
-    <View>
-  <TextInput
-    label="Company Name (Optional)"
-    value={companyName}
-    onChangeText={handleCompanyNameChange}
-    onFocus={handleCompanyNameFocus}
-    mode="outlined"
-    style={styles.input}
-    right={selectedClient ? <TextInput.Icon icon="check-circle" color="#4CAF50" /> : undefined}
-  />
-  
-  {showClientDropdown && (
-    <Card style={styles.dropdownCardStatic}>
-      <ScrollView style={styles.dropdown} nestedScrollEnabled keyboardShouldPersistTaps="always">
-        {filteredClients.map((item) => (
-          <TouchableOpacity
-            key={item.id}
-            style={styles.dropdownItem}
-            onPress={() => handleSelectClient(item)}
-          >
-            <Text style={styles.dropdownItemText}>{item.name}</Text>
-            {item.addresses.length > 0 && (
-              <Text style={styles.dropdownItemSubtext}>
-                {item.addresses.length} saved address{item.addresses.length > 1 ? 'es' : ''}
-              </Text>
-            )}
-          </TouchableOpacity>
-        ))}
-      </ScrollView>
-    </Card>
-  )}
-    </View>
+        {/* Client Autocomplete */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Client Information</Text>
+          <TextInput
+            label="Company Name (Optional)"
+            value={companyName}
+            onChangeText={handleCompanyNameChange}
+            onFocus={handleCompanyNameFocus}
+            mode="outlined"
+            style={styles.input}
+            right={selectedClient ? <TextInput.Icon icon="check-circle" iconColor={Colors.success} /> : undefined}
+            outlineColor={Colors.border}
+            activeOutlineColor={Colors.primary}
+          />
+          
+          {showClientDropdown && (
+            <View style={styles.dropdownCard}>
+              <ScrollView style={styles.dropdown} nestedScrollEnabled keyboardShouldPersistTaps="always">
+                {filteredClients.map((item) => (
+                  <TouchableOpacity
+                    key={item.id}
+                    style={styles.dropdownItem}
+                    onPress={() => handleSelectClient(item)}
+                  >
+                    <Text style={styles.dropdownItemText}>{item.name}</Text>
+                    {item.addresses.length > 0 && (
+                      <Text style={styles.dropdownItemSubtext}>
+                        {item.addresses.length} saved address{item.addresses.length > 1 ? 'es' : ''}
+                      </Text>
+                    )}
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            </View>
+          )}
+        </View>
 
         {/* Address Autocomplete */}
-       {/* Address Autocomplete */}
-<View>
-  <TextInput
-    label="Address *"
-    value={address}
-    onChangeText={handleAddressChange}
-    onFocus={handleAddressFocus}
-    mode="outlined"
-    style={styles.input}
-    right={selectedAddress ? <TextInput.Icon icon="check-circle" color="#4CAF50" /> : undefined}
-  />
-  
-  {showAddressDropdown && filteredAddresses.length > 0 && (
-    <Card style={styles.dropdownCardStatic}>
-      <ScrollView style={styles.dropdown} nestedScrollEnabled keyboardShouldPersistTaps="always">
-        {filteredAddresses.map((item) => (
-          <TouchableOpacity
-            key={item.id}
-            style={styles.dropdownItem}
-            onPress={() => handleSelectAddress(item)}
-          >
-            <View style={styles.addressDropdownItem}>
-              <Chip mode="outlined" compact style={styles.addressLabelChip}>
-                {item.label}
-              </Chip>
-              <Text style={styles.dropdownItemText}>{item.address}</Text>
-              <Text style={styles.dropdownItemSubtext}>{item.city}</Text>
-              {(item.pricePerYard || item.setupCharge) && (
-                <Text style={styles.dropdownPricing}>
-                  ${item.pricePerYard || '—'}/yd • ${item.setupCharge || '—'} setup
-                </Text>
-              )}
+        <View style={styles.section}>
+          <TextInput
+            label="Address *"
+            value={address}
+            onChangeText={handleAddressChange}
+            onFocus={handleAddressFocus}
+            mode="outlined"
+            style={styles.input}
+            right={selectedAddress ? <TextInput.Icon icon="check-circle" iconColor={Colors.success} /> : undefined}
+            outlineColor={Colors.border}
+            activeOutlineColor={Colors.primary}
+          />
+          
+          {showAddressDropdown && filteredAddresses.length > 0 && (
+            <View style={styles.dropdownCard}>
+              <ScrollView style={styles.dropdown} nestedScrollEnabled keyboardShouldPersistTaps="always">
+                {filteredAddresses.map((item) => (
+                  <TouchableOpacity
+                    key={item.id}
+                    style={styles.dropdownItem}
+                    onPress={() => handleSelectAddress(item)}
+                  >
+                    <View style={styles.addressDropdownItem}>
+                      <Chip mode="outlined" compact style={styles.addressLabelChip}>
+                        {item.label}
+                      </Chip>
+                      <Text style={styles.dropdownItemText}>{item.address}</Text>
+                      <Text style={styles.dropdownItemSubtext}>{item.city}</Text>
+                      {(item.pricePerYard || item.setupCharge) && (
+                        <Text style={styles.dropdownPricing}>
+                          ${item.pricePerYard || '—'}/yd • ${item.setupCharge || '—'} setup
+                        </Text>
+                      )}
+                    </View>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
             </View>
-          </TouchableOpacity>
-        ))}
-      </ScrollView>
-    </Card>
-  )}
-</View>
+          )}
+        </View>
 
-        <TextInput label="City *" value={city} onChangeText={setCity} mode="outlined" style={styles.input} />
-        <TextInput label="Yards *" value={yards} onChangeText={setYards} keyboardType="decimal-pad" mode="outlined" style={styles.input} />
+        <TextInput
+          label="City *"
+          value={city}
+          onChangeText={setCity}
+          mode="outlined"
+          style={styles.input}
+          outlineColor={Colors.border}
+          activeOutlineColor={Colors.primary}
+        />
+
+        <Divider style={styles.divider} />
+
+        {/* Yards & Pricing */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Job Details</Text>
+          <TextInput
+            label="Yards *"
+            value={yards}
+            onChangeText={setYards}
+            keyboardType="decimal-pad"
+            mode="outlined"
+            style={styles.input}
+            left={<TextInput.Icon icon="truck-delivery" iconColor={Colors.primary} />}
+            outlineColor={Colors.border}
+            activeOutlineColor={Colors.primary}
+          />
+        </View>
 
         {isFlatRate && !manualOverride && (
           <View style={styles.flatRateNotice}>
+            <IconButton icon="check-circle" iconColor={Colors.warning} size={20} />
             <Text style={styles.flatRateText}>
-              ✓ Flat rate applied: {yardsNum} yards ≤ {FLAT_RATE_THRESHOLD} yards = ${FLAT_RATE_AMOUNT}
+              Flat rate applied: {yardsNum} yards ≤ {FLAT_RATE_THRESHOLD} yards = ${FLAT_RATE_AMOUNT}
             </Text>
           </View>
         )}
@@ -449,6 +484,8 @@ export default function AddJobScreen() {
               mode="outlined"
               style={styles.input}
               left={<TextInput.Icon icon="currency-usd" />}
+              outlineColor={Colors.border}
+              activeOutlineColor={Colors.primary}
             />
             <TextInput
               label="Setup Charge ($) *"
@@ -458,13 +495,15 @@ export default function AddJobScreen() {
               mode="outlined"
               style={styles.input}
               left={<TextInput.Icon icon="currency-usd" />}
+              outlineColor={Colors.border}
+              activeOutlineColor={Colors.primary}
             />
           </>
         )}
 
         <View style={styles.switchRow}>
           <Text style={styles.switchLabel}>Manual amount override</Text>
-          <Switch value={manualOverride} onValueChange={setManualOverride} />
+          <Switch value={manualOverride} onValueChange={setManualOverride} color={Colors.primary} />
         </View>
 
         {manualOverride && (
@@ -476,15 +515,21 @@ export default function AddJobScreen() {
             mode="outlined"
             style={styles.input}
             left={<TextInput.Icon icon="currency-usd" />}
+            outlineColor={Colors.border}
+            activeOutlineColor={Colors.primary}
           />
         )}
 
         <Divider style={styles.divider} />
 
-        <View style={styles.totalContainer}>
+        {/* Total */}
+        <LinearGradient
+          colors={[Colors.success, Colors.successLight]}
+          style={styles.totalContainer}
+        >
           <Text style={styles.totalLabel}>Total Amount:</Text>
           <Text style={styles.totalAmount}>${total.toFixed(2)}</Text>
-        </View>
+        </LinearGradient>
 
         {!manualOverride && yards && (
           <Text style={styles.calculation}>
@@ -492,17 +537,22 @@ export default function AddJobScreen() {
           </Text>
         )}
 
-        <Text style={styles.sectionLabel}>Payment Method:</Text>
-        <SegmentedButtons
-          value={paymentMethod}
-          onValueChange={(value) => setPaymentMethod(value as any)}
-          buttons={[
-            { value: 'Cash', label: '💵 Cash' },
-            { value: 'Check', label: '📝 Check' },
-            { value: 'Charge', label: '📋 Charge' },
-          ]}
-          style={styles.segmentedButtons}
-        />
+        <Divider style={styles.divider} />
+
+        {/* Payment Method */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Payment Method</Text>
+          <SegmentedButtons
+            value={paymentMethod}
+            onValueChange={(value) => setPaymentMethod(value as any)}
+            buttons={[
+              { value: 'Cash', label: '💵 Cash' },
+              { value: 'Check', label: '📝 Check' },
+              { value: 'Charge', label: '📋 Charge' },
+            ]}
+            style={styles.segmentedButtons}
+          />
+        </View>
 
         {paymentMethod === 'Check' && (
           <TextInput
@@ -512,16 +562,25 @@ export default function AddJobScreen() {
             keyboardType="numeric"
             mode="outlined"
             style={styles.input}
+            outlineColor={Colors.border}
+            activeOutlineColor={Colors.primary}
           />
         )}
 
         <View style={styles.switchRow}>
           <Text style={styles.switchLabel}>Paid directly to me</Text>
-          <Button mode={isPaidToMe ? 'contained' : 'outlined'} onPress={() => setIsPaidToMe(!isPaidToMe)} compact>
+          <Button
+            mode={isPaidToMe ? 'contained' : 'outlined'}
+            onPress={() => setIsPaidToMe(!isPaidToMe)}
+            compact
+            buttonColor={isPaidToMe ? Colors.primary : undefined}
+            textColor={isPaidToMe ? Colors.textInverse : Colors.primary}
+          >
             {isPaidToMe ? '✓ Yes' : 'No'}
           </Button>
         </View>
 
+        {/* Notes */}
         <TextInput
           label="Notes (Optional)"
           value={notes}
@@ -530,9 +589,20 @@ export default function AddJobScreen() {
           multiline
           numberOfLines={3}
           style={styles.input}
+          outlineColor={Colors.border}
+          activeOutlineColor={Colors.primary}
         />
 
-        <Button mode="contained" onPress={handleSave} style={styles.saveButton} loading={isSaving} disabled={isSaving}>
+        {/* Save Button */}
+        <Button
+          mode="contained"
+          onPress={handleSave}
+          style={styles.saveButton}
+          loading={isSaving}
+          disabled={isSaving}
+          buttonColor={Colors.primary}
+          icon={isEditing ? 'check' : 'content-save'}
+        >
           {isEditing ? 'Update Job' : 'Save Job'}
         </Button>
       </View>
@@ -541,46 +611,152 @@ export default function AddJobScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f5f5f5' },
-  inputContainer: { padding: 16 },
-  dateLabel: { fontSize: 16, marginBottom: 8, marginTop: 16 },
-  dateButton: { marginBottom: 16 },
-  sectionLabel: { fontSize: 16, fontWeight: 'bold', marginBottom: 8, marginTop: 8 },
-  input: { marginBottom: 16, backgroundColor: 'white' },
-  segmentedButtons: { marginBottom: 16 },
-  switchRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginVertical: 8, padding: 12, backgroundColor: 'white', borderRadius: 8 },
-  switchLabel: { fontSize: 14, flex: 1 },
-  flatRateNotice: { backgroundColor: '#FFF9C4', padding: 12, borderRadius: 8, marginBottom: 16, borderLeftWidth: 4, borderLeftColor: '#FBC02D' },
-  flatRateText: { fontSize: 14, color: '#F57F17', fontWeight: 'bold' },
-  totalContainer: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#E8F5E9', padding: 16, borderRadius: 8, marginBottom: 8 },
-  totalLabel: { fontSize: 18, fontWeight: 'bold', color: '#2E7D32' },
-  totalAmount: { fontSize: 24, fontWeight: 'bold', color: '#1B5E20' },
-  calculation: { fontSize: 14, color: '#666', fontStyle: 'italic', textAlign: 'center', marginBottom: 16 },
-  divider: { marginVertical: 16 },
-  saveButton: { marginTop: 24, marginBottom: 32, paddingVertical: 8, backgroundColor: '#2196F3' },
-autocompleteContainer: {
-  marginBottom: 16,
-},
-dropdownCardStatic: {
-  marginTop: -8,
-  marginBottom: 16,
-  maxHeight: 200,
-  elevation: 4,
-  backgroundColor: 'white',
-},
+  container: {
+    flex: 1,
+    backgroundColor: Colors.background,
+  },
+  header: {
+    paddingVertical: Spacing.xl,
+    paddingHorizontal: Spacing.lg,
+    ...Shadows.medium,
+  },
+  headerTitle: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: Colors.textInverse,
+    marginBottom: Spacing.xs,
+  },
+  headerSubtitle: {
+    fontSize: 14,
+    color: Colors.textInverse,
+    opacity: 0.9,
+  },
+  content: {
+    padding: Spacing.md,
+  },
+  section: {
+    marginBottom: Spacing.sm,
+  },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: Colors.text,
+    marginBottom: Spacing.sm,
+  },
+  dateButton: {
+    borderColor: Colors.primary,
+  },
+  input: {
+    marginBottom: Spacing.md,
+    backgroundColor: Colors.surface,
+  },
+  divider: {
+    marginVertical: Spacing.lg,
+    backgroundColor: Colors.borderLight,
+  },
+  dropdownCard: {
+    marginTop: -Spacing.sm,
+    marginBottom: Spacing.md,
+    maxHeight: 200,
+    backgroundColor: Colors.surface,
+    borderRadius: BorderRadius.medium,
+    ...Shadows.medium,
+  },
   dropdown: {
-  maxHeight: 200,
-},
- dropdownItem: {
-  padding: 12,
-  borderBottomWidth: 1,
-  borderBottomColor: '#e0e0e0',
-  backgroundColor: 'white',
-},
-  dropdownItemText: { fontSize: 16, fontWeight: '600', marginBottom: 2 },
-  dropdownItemSubtext: { fontSize: 12, color: '#666' },
-  dropdownPricing: { fontSize: 12, color: '#1976D2', marginTop: 4 },
-  addressDropdownItem: { gap: 4 },
-  addressLabelChip: { alignSelf: 'flex-start', marginBottom: 4 },
-  
+    maxHeight: 200,
+  },
+  dropdownItem: {
+    padding: Spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.borderLight,
+  },
+  dropdownItemText: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 2,
+    color: Colors.text,
+  },
+  dropdownItemSubtext: {
+    fontSize: 12,
+    color: Colors.textSecondary,
+  },
+  dropdownPricing: {
+    fontSize: 12,
+    color: Colors.primary,
+    marginTop: 4,
+  },
+  addressDropdownItem: {
+    gap: 4,
+  },
+  addressLabelChip: {
+    alignSelf: 'flex-start',
+    marginBottom: 4,
+  },
+  flatRateNotice: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.warningBg,
+    padding: Spacing.md,
+    borderRadius: BorderRadius.medium,
+    marginBottom: Spacing.md,
+    borderLeftWidth: 4,
+    borderLeftColor: Colors.warning,
+  },
+  flatRateText: {
+    flex: 1,
+    fontSize: 14,
+    color: Colors.warning,
+    fontWeight: '600',
+  },
+  totalContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: Spacing.lg,
+    borderRadius: BorderRadius.large,
+    marginBottom: Spacing.sm,
+    ...Shadows.medium,
+  },
+  totalLabel: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: Colors.textInverse,
+  },
+  totalAmount: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: Colors.textInverse,
+  },
+  calculation: {
+    fontSize: 14,
+    color: Colors.textSecondary,
+    fontStyle: 'italic',
+    textAlign: 'center',
+    marginBottom: Spacing.md,
+  },
+  segmentedButtons: {
+    marginBottom: Spacing.md,
+  },
+  switchRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginVertical: Spacing.sm,
+    padding: Spacing.md,
+    backgroundColor: Colors.surface,
+    borderRadius: BorderRadius.medium,
+    ...Shadows.small,
+  },
+  switchLabel: {
+    fontSize: 14,
+    flex: 1,
+    color: Colors.text,
+  },
+  saveButton: {
+    marginTop: Spacing.lg,
+    marginBottom: Spacing.xl,
+    paddingVertical: Spacing.sm,
+    borderRadius: BorderRadius.medium,
+    ...Shadows.medium,
+  },
 });

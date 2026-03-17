@@ -1,438 +1,480 @@
-// src/screens/ReportsScreen.tsx
+// src/screens/ProfileScreen.tsx
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, ScrollView, Dimensions, Alert, Share } from 'react-native';
-import { 
-  Card, 
-  Text, 
-  Button, 
-  Divider,
-  SegmentedButtons,
-  Chip
-} from 'react-native-paper';
-import { PieChart } from 'react-native-chart-kit';
-import { useJobs } from '../context/JobsContext';
+import { View, StyleSheet, ScrollView, Alert } from 'react-native';
+import { Card, Paragraph, Button, Divider, Text, TextInput, Switch } from 'react-native-paper';
+import { useNavigation } from '@react-navigation/native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '../context/AuthContext';
-import { Job } from '../types';
-import { format, startOfWeek, endOfWeek, isWithinInterval, parseISO } from 'date-fns';
-import * as RNHTMLtoPDF from 'react-native-html-to-pdf';
-import * as Sharing from 'expo-sharing';
+import { 
+  getFirestore, 
+  collection, 
+  query, 
+  where, 
+  getDocs 
+} from 'firebase/firestore';
+import { Colors, Spacing, BorderRadius, Shadows, Typography } from '../theme/colors';
 
-const screenWidth = Dimensions.get('window').width;
-
-export default function ReportsScreen() {
-  const { jobs } = useJobs();
-  const { user } = useAuth();
-
-  // Filter states
-  const [dateRange, setDateRange] = useState<'week' | 'month'>('week');
-  const [paymentStatus, setPaymentStatus] = useState<'all' | 'paid' | 'unpaid'>('all');
-  const [showGraphs, setShowGraphs] = useState(true);
-  const [isExporting, setIsExporting] = useState(false);
-
-  // Filtered jobs
-  const [filteredJobs, setFilteredJobs] = useState<Job[]>([]);
-
-  // Calculate date range
-  const getDateRange = () => {
-    const now = new Date();
-    switch (dateRange) {
-      case 'week':
-        return {
-          start: startOfWeek(now),
-          end: endOfWeek(now)
-        };
-      case 'month':
-        return {
-          start: new Date(now.getFullYear(), now.getMonth(), 1),
-          end: new Date(now.getFullYear(), now.getMonth() + 1, 0)
-        };
-      default:
-        return { start: now, end: now };
-    }
-  };
-
-  // Filter jobs based on criteria
+export default function ProfileScreen() {
+  const navigation = useNavigation();
+  const { user, updateProfile, logout } = useAuth();
+  const [isCheckingInvites, setIsCheckingInvites] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [displayName, setDisplayName] = useState(user?.displayName || '');
+  
+  const [isEditingPayment, setIsEditingPayment] = useState(false);
+  const [commissionRate, setCommissionRate] = useState(user?.commissionRate?.toString() || '50');
+  const [keepsCash, setKeepsCash] = useState(user?.keepsCash !== false);
+  const [keepsCheck, setKeepsCheck] = useState(user?.keepsCheck !== false);
+  
   useEffect(() => {
-    const { start, end } = getDateRange();
-    
-    let filtered = jobs.filter(job => {
-      const jobDate = parseISO(job.date);
-      const inRange = isWithinInterval(jobDate, { start, end });
-      
-      if (!inRange) return false;
-      
-      // Filter by payment status
-      if (paymentStatus === 'paid' && !job.isPaid) return false;
-      if (paymentStatus === 'unpaid' && job.isPaid) return false;
-      
-      return true;
-    });
-
-    setFilteredJobs(filtered);
-  }, [jobs, dateRange, paymentStatus]);
-
-  // Calculate statistics
-  const stats = {
-    totalJobs: filteredJobs.length,
-    totalYards: filteredJobs.reduce((sum, job) => sum + (job.yards || 0), 0),
-    totalCharged: filteredJobs.reduce((sum, job) => sum + (job.amount || 0), 0),
-    totalPaid: filteredJobs.filter(j => j.isPaid).reduce((sum, job) => sum + (job.amount || 0), 0),
-    totalUnpaid: filteredJobs.filter(j => !j.isPaid).reduce((sum, job) => sum + (job.amount || 0), 0),
-    
-    // Breakdown by payment method
-    cash: filteredJobs.filter(j => j.paymentMethod === 'Cash').reduce((sum, job) => sum + (job.amount || 0), 0),
-    check: filteredJobs.filter(j => j.paymentMethod === 'Check').reduce((sum, job) => sum + (job.amount || 0), 0),
-    charge: filteredJobs.filter(j => j.paymentMethod === 'Charge').reduce((sum, job) => sum + (job.amount || 0), 0),
-    
-    cashCount: filteredJobs.filter(j => j.paymentMethod === 'Cash').length,
-    checkCount: filteredJobs.filter(j => j.paymentMethod === 'Check').length,
-    chargeCount: filteredJobs.filter(j => j.paymentMethod === 'Charge').length,
-    
-    // Paid to me
-    paidToMe: filteredJobs.filter(j => j.isPaidToMe).reduce((sum, job) => sum + (job.amount || 0), 0),
-    
-    // Employee jobs (for owners)
-    employeeJobs: filteredJobs.filter(j => (j as any).isEmployeeJob).reduce((sum, job) => sum + (job.amount || 0), 0),
-  };
-
-  // Calculate net earnings for owner
-  const calculateNetEarnings = () => {
-    let net = stats.totalCharged;
-    
-    // Subtract employee earnings if owner
-    if (user?.role === 'owner') {
-      net -= stats.employeeJobs;
+    if (user) {
+      setDisplayName(user.displayName || '');
+      setCommissionRate(user.commissionRate?.toString() || '50');
+      setKeepsCash(user.keepsCash !== false);
+      setKeepsCheck(user.keepsCheck !== false);
     }
-    
-    // Subtract "paid to me" jobs (already received)
-    net -= stats.paidToMe;
-    
-    return net;
-  };
-
-  const netEarnings = calculateNetEarnings();
-
-  // Prepare chart data
-  const pieChartData = [
-    {
-      name: 'Cash',
-      amount: stats.cash,
-      color: '#4CAF50',
-      legendFontColor: '#7F7F7F',
-      legendFontSize: 12
-    },
-    {
-      name: 'Check',
-      amount: stats.check,
-      color: '#2196F3',
-      legendFontColor: '#7F7F7F',
-      legendFontSize: 12
-    },
-    {
-      name: 'Charge',
-      amount: stats.charge,
-      color: '#FF9800',
-      legendFontColor: '#7F7F7F',
-      legendFontSize: 12
-    }
-  ].filter(item => item.amount > 0);
-
-  // Export as PDF
-  const exportPDF = async () => {
+  }, [user]);
+  
+  const handleSaveProfile = async () => {
     try {
-      setIsExporting(true);
+      await updateProfile({ displayName });
+      setIsEditing(false);
+    } catch (e) {
+      Alert.alert('Error', 'Failed to update profile');
+    }
+  };
+  
+  const handleSavePaymentSettings = async () => {
+    try {
+      const commissionRateNum = parseInt(commissionRate, 10);
+      if (isNaN(commissionRateNum) || commissionRateNum < 1 || commissionRateNum > 100) {
+        Alert.alert('Invalid Rate', 'Commission rate must be between 1 and 100');
+        return;
+      }
       
-      const htmlContent = `
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <meta charset="UTF-8">
-          <style>
-            body { font-family: Arial, sans-serif; padding: 20px; }
-            h1 { color: #2196F3; border-bottom: 2px solid #2196F3; padding-bottom: 10px; }
-            h2 { color: #666; margin-top: 20px; }
-            table { width: 100%; border-collapse: collapse; margin: 20px 0; }
-            th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-            th { background-color: #2196F3; color: white; }
-            .summary { background-color: #f5f5f5; padding: 15px; border-radius: 5px; margin: 20px 0; }
-            .total { font-size: 18px; font-weight: bold; color: #4CAF50; margin-top: 20px; }
-            .breakdown { margin: 10px 0; }
-          </style>
-        </head>
-        <body>
-          <h1>Job Report - ${format(getDateRange().start, 'MMM d, yyyy')} to ${format(getDateRange().end, 'MMM d, yyyy')}</h1>
-          
-          <div class="summary">
-            <h2>Summary</h2>
-            <p><strong>Total Jobs:</strong> ${stats.totalJobs}</p>
-            <p><strong>Total Yards:</strong> ${stats.totalYards.toFixed(1)}</p>
-            <p><strong>Total Charged:</strong> $${stats.totalCharged.toFixed(2)}</p>
-            <p><strong>Total Paid:</strong> $${stats.totalPaid.toFixed(2)}</p>
-            <p><strong>Total Unpaid:</strong> $${stats.totalUnpaid.toFixed(2)}</p>
-          </div>
-          
-          <h2>Payment Method Breakdown</h2>
-          <div class="breakdown">
-            <p>💵 Cash: $${stats.cash.toFixed(2)} (${stats.cashCount} jobs)</p>
-            <p>📝 Check: $${stats.check.toFixed(2)} (${stats.checkCount} jobs)</p>
-            <p>📋 Charge: $${stats.charge.toFixed(2)} (${stats.chargeCount} jobs)</p>
-          </div>
-          
-          ${user?.role === 'owner' ? `
-            <h2>Your Net Earnings</h2>
-            <div class="breakdown">
-              <p>Total Charged: $${stats.totalCharged.toFixed(2)}</p>
-              <p>- Employee Jobs: -$${stats.employeeJobs.toFixed(2)}</p>
-              <p>- Paid to Me: -$${stats.paidToMe.toFixed(2)}</p>
-              <hr>
-              <p class="total">You're Owed: $${netEarnings.toFixed(2)}</p>
-            </div>
-          ` : ''}
-          
-          <h2>Job Details</h2>
-          <table>
-            <tr>
-              <th>Date</th>
-              <th>Client</th>
-              <th>Yards</th>
-              <th>Amount</th>
-              <th>Payment</th>
-              <th>Status</th>
-            </tr>
-            ${filteredJobs.map(job => `
-              <tr>
-                <td>${format(parseISO(job.date), 'MMM d, yyyy')}</td>
-                <td>${job.companyName || 'No Company'}</td>
-                <td>${job.yards}</td>
-                <td>$${job.amount.toFixed(2)}</td>
-                <td>${job.paymentMethod}</td>
-                <td>${job.isPaid ? '✓ Paid' : '✗ Unpaid'}</td>
-              </tr>
-            `).join('')}
-          </table>
-          
-          <p style="margin-top: 40px; color: #999; font-size: 12px;">
-            Generated on ${format(new Date(), 'MMM d, yyyy h:mm a')}
-          </p>
-        </body>
-        </html>
-      `;
-
-      const options = {
-        html: htmlContent,
-        fileName: `JobReport_${format(new Date(), 'yyyyMMdd_HHmmss')}`,
-        directory: 'Documents',
-      };
-
-      const file = await RNHTMLtoPDF.convert(options);
+      await updateProfile({
+        commissionRate: commissionRateNum,
+        keepsCash,
+        keepsCheck
+      });
       
-      Alert.alert(
-        'PDF Created!',
-        `Your report has been saved to: ${file.filePath}`,
-        [
-          { text: 'OK' },
-          { 
-            text: 'Share', 
-            onPress: async () => {
-              try {
-                if (await Sharing.isAvailableAsync()) {
-                  await Sharing.shareAsync(file.filePath!);
-                }
-              } catch (error) {
-                console.error('Error sharing:', error);
-              }
+      setIsEditingPayment(false);
+    } catch (e) {
+      Alert.alert('Error', 'Failed to update payment settings');
+    }
+  };
+  
+  const handleToggleRole = async () => {
+    const newRole = user?.role === 'owner' ? 'employee' : 'owner';
+    
+    Alert.alert(
+      'Change Role',
+      `Switch to ${newRole} mode? This will change how your earnings are calculated.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Confirm',
+          onPress: async () => {
+            try {
+              await updateProfile({ 
+                role: newRole,
+                ...(newRole === 'employee' ? {
+                  commissionRate: user?.commissionRate || 50,
+                  keepsCash: user?.keepsCash !== undefined ? user.keepsCash : false,
+                  keepsCheck: user?.keepsCheck !== undefined ? user.keepsCheck : false,
+                } : {
+                  commissionRate: 100,
+                  keepsCash: true,
+                  keepsCheck: true,
+                })
+              });
+            } catch (e) {
+              Alert.alert('Error', 'Failed to change role');
             }
           }
-        ]
-      );
-      
-      console.log('PDF saved to:', file.filePath);
-    } catch (error) {
-      console.error('Error creating PDF:', error);
-      Alert.alert('Error', 'Failed to create PDF report');
-    } finally {
-      setIsExporting(false);
-    }
+        }
+      ]
+    );
+  };
+  
+  const handleLogout = () => {
+    Alert.alert(
+      'Logout',
+      'Are you sure you want to logout?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { 
+          text: 'Logout', 
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await logout();
+            } catch (e) {
+              console.error('Logout error:', e);
+            }
+          }
+        }
+      ]
+    );
   };
 
+  const handleCheckInvites = async () => {
+    if (!user?.email) return;
+    
+    try {
+      setIsCheckingInvites(true);
+      
+      const db = getFirestore();
+      const invitesRef = collection(db, 'employeeInvites');
+      const q = query(
+        invitesRef,
+        where('employeeEmail', '==', user.email.toLowerCase()),
+        where('status', '==', 'pending')
+      );
+      
+      const snapshot = await getDocs(q);
+      
+      if (snapshot.empty) {
+        Alert.alert('No Invitations', 'You don\'t have any pending invitations at this time.');
+      } else {
+        Alert.alert(
+          'Invitations Found!',
+          `You have ${snapshot.size} pending invitation(s). Log out and back in to view them.`,
+          [
+            { text: 'Later', style: 'cancel' },
+            { text: 'Log Out Now', onPress: () => logout() }
+          ]
+        );
+      }
+    } catch (error) {
+      console.error('Error checking invites:', error);
+      Alert.alert('Error', 'Failed to check for invitations');
+    } finally {
+      setIsCheckingInvites(false);
+    }
+  };
+  
   return (
     <ScrollView style={styles.container}>
-      <View style={styles.content}>
-        <Text variant="headlineMedium" style={styles.title}>📊 Reports & Analytics</Text>
-        
-        {/* Filters */}
-        <Card style={styles.card}>
-          <Card.Content>
-            <Text variant="titleMedium" style={styles.sectionTitle}>Filters</Text>
-            
-            <Text style={styles.filterLabel}>Date Range:</Text>
-            <SegmentedButtons
-              value={dateRange}
-              onValueChange={(value) => setDateRange(value as any)}
-              buttons={[
-                { value: 'week', label: 'This Week' },
-                { value: 'month', label: 'This Month' },
-              ]}
-              style={styles.segmentedButtons}
-            />
-            
-            <Text style={styles.filterLabel}>Payment Status:</Text>
-            <SegmentedButtons
-              value={paymentStatus}
-              onValueChange={(value) => setPaymentStatus(value as any)}
-              buttons={[
-                { value: 'all', label: 'All' },
-                { value: 'paid', label: 'Paid' },
-                { value: 'unpaid', label: 'Unpaid' },
-              ]}
-              style={styles.segmentedButtons}
-            />
-            
-            <View style={styles.switchRow}>
-              <Text>Show Graphs</Text>
-              <Chip
-                selected={showGraphs}
-                onPress={() => setShowGraphs(!showGraphs)}
-              >
-                {showGraphs ? '✓ On' : 'Off'}
-              </Chip>
-            </View>
-          </Card.Content>
-        </Card>
+      {/* Header */}
+      <LinearGradient
+        colors={[Colors.primary, Colors.primaryDark]}
+        style={styles.header}
+      >
+        <Text style={styles.headerTitle}>👤 Profile</Text>
+        <Text style={styles.headerSubtitle}>
+          {user?.role === 'owner' ? '👔 Business Owner' : '👷 Employee'}
+        </Text>
+      </LinearGradient>
 
-        {/* Summary Stats */}
-        <Card style={styles.card}>
-          <Card.Content>
-            <Text variant="titleMedium" style={styles.sectionTitle}>Summary</Text>
-            <Divider style={styles.divider} />
-            
-            <View style={styles.statRow}>
-              <Text style={styles.statLabel}>Total Jobs:</Text>
-              <Text style={styles.statValue}>{stats.totalJobs}</Text>
-            </View>
-            
-            <View style={styles.statRow}>
-              <Text style={styles.statLabel}>Total Yards:</Text>
-              <Text style={styles.statValue}>{stats.totalYards.toFixed(1)}</Text>
-            </View>
-            
-            <View style={styles.statRow}>
-              <Text style={styles.statLabel}>Total Charged:</Text>
-              <Text style={styles.statValue}>${stats.totalCharged.toFixed(2)}</Text>
-            </View>
-            
-            <View style={styles.statRow}>
-              <Text style={styles.statLabel}>Total Paid:</Text>
-              <Text style={[styles.statValue, { color: '#4CAF50' }]}>
-                ${stats.totalPaid.toFixed(2)}
-              </Text>
-            </View>
-            
-            <View style={styles.statRow}>
-              <Text style={styles.statLabel}>Total Unpaid:</Text>
-              <Text style={[styles.statValue, { color: '#F44336' }]}>
-                ${stats.totalUnpaid.toFixed(2)}
-              </Text>
-            </View>
-          </Card.Content>
-        </Card>
-
-        {/* Payment Breakdown */}
-        <Card style={styles.card}>
-          <Card.Content>
-            <Text variant="titleMedium" style={styles.sectionTitle}>Payment Breakdown</Text>
-            <Divider style={styles.divider} />
-            
-            <View style={styles.breakdownRow}>
-              <Text style={styles.breakdownLabel}>💵 Cash:</Text>
-              <Text style={styles.breakdownValue}>
-                ${stats.cash.toFixed(2)} ({stats.cashCount} jobs)
-              </Text>
-            </View>
-            
-            <View style={styles.breakdownRow}>
-              <Text style={styles.breakdownLabel}>📝 Check:</Text>
-              <Text style={styles.breakdownValue}>
-                ${stats.check.toFixed(2)} ({stats.checkCount} jobs)
-              </Text>
-            </View>
-            
-            <View style={styles.breakdownRow}>
-              <Text style={styles.breakdownLabel}>📋 Charge:</Text>
-              <Text style={styles.breakdownValue}>
-                ${stats.charge.toFixed(2)} ({stats.chargeCount} jobs)
-              </Text>
-            </View>
-          </Card.Content>
-        </Card>
-
-        {/* Pie Chart */}
-        {showGraphs && pieChartData.length > 0 && (
-          <Card style={styles.card}>
-            <Card.Content>
-              <Text variant="titleMedium" style={styles.sectionTitle}>Payment Methods</Text>
-              <PieChart
-                data={pieChartData}
-                width={screenWidth - 60}
-                height={220}
-                chartConfig={{
-                  color: (opacity = 1) => `rgba(0, 0, 0, ${opacity})`,
-                }}
-                accessor="amount"
-                backgroundColor="transparent"
-                paddingLeft="15"
-                absolute
+      {/* Profile Info Card */}
+      <Card style={styles.card}>
+        <Card.Content>
+          <View style={styles.cardHeader}>
+            <Text variant="titleLarge" style={styles.cardTitle}>Personal Information</Text>
+            <Button 
+              mode="text" 
+              onPress={() => setIsEditing(!isEditing)} 
+              icon={isEditing ? "check" : "pencil"}
+              textColor={Colors.primary}
+              compact
+            >
+              {isEditing ? "Done" : "Edit"}
+            </Button>
+          </View>
+          <Divider style={styles.divider} />
+          
+          {isEditing ? (
+            <View>
+              <TextInput
+                label="Display Name"
+                value={displayName}
+                onChangeText={setDisplayName}
+                mode="outlined"
+                style={styles.input}
+                outlineColor={Colors.border}
+                activeOutlineColor={Colors.primary}
               />
-            </Card.Content>
-          </Card>
-        )}
-
-        {/* Net Earnings - Owner Only */}
-        {user?.role === 'owner' && (
-          <Card style={[styles.card, styles.earningsCard]}>
-            <Card.Content>
-              <Text variant="titleMedium" style={styles.sectionTitle}>Your Net Earnings</Text>
-              <Divider style={styles.divider} />
               
-              <View style={styles.statRow}>
-                <Text style={styles.statLabel}>Total Charged:</Text>
-                <Text style={styles.statValue}>${stats.totalCharged.toFixed(2)}</Text>
+              <Button 
+                mode="contained" 
+                onPress={handleSaveProfile}
+                style={styles.saveButton}
+                buttonColor={Colors.primary}
+                icon="check"
+              >
+                Save Changes
+              </Button>
+            </View>
+          ) : (
+            <View>
+              <View style={styles.infoRow}>
+                <Text style={styles.label}>Name:</Text>
+                <Text style={styles.value}>{user?.displayName || 'Not set'}</Text>
               </View>
               
-              <View style={styles.statRow}>
-                <Text style={styles.statLabel}>- Employee Jobs:</Text>
-                <Text style={styles.statValue}>-${stats.employeeJobs.toFixed(2)}</Text>
+              <View style={styles.infoRow}>
+                <Text style={styles.label}>Email:</Text>
+                <Text style={styles.value}>{user?.email || 'Not available'}</Text>
               </View>
-              
-              <View style={styles.statRow}>
-                <Text style={styles.statLabel}>- Paid to Me:</Text>
-                <Text style={styles.statValue}>-${stats.paidToMe.toFixed(2)}</Text>
-              </View>
-              
-              <Divider style={styles.divider} />
-              
-              <View style={styles.totalRow}>
-                <Text style={styles.totalLabel}>You're Owed:</Text>
-                <Text style={styles.totalValue}>${netEarnings.toFixed(2)}</Text>
-              </View>
-            </Card.Content>
-          </Card>
-        )}
-
-        {/* Export Button */}
-        <View style={styles.exportContainer}>
+            </View>
+          )}
+        </Card.Content>
+      </Card>
+            {/* Dashboard */}
+      {/* <Card style={styles.card}>
+        <Card.Content>
+          <Text variant="titleLarge" style={styles.cardTitle}>📈 Dashboard</Text>
+          <Divider style={styles.divider} />
+          <Paragraph style={styles.subtitle}>
+            View trends, analytics, and performance metrics
+          </Paragraph>
           <Button
             mode="contained"
-            icon="file-pdf-box"
-            onPress={exportPDF}
-            style={styles.exportButton}
-            loading={isExporting}
-            disabled={isExporting}
+            icon="view-dashboard"
+            onPress={() => navigation.navigate('Dashboard' as never)}
+            style={styles.actionButton}
+            buttonColor={Colors.secondary}
           >
-            Export as PDF
+            View Dashboard
           </Button>
-        </View>
-      </View>
+        </Card.Content>
+      </Card> */}
+      {/* Role Toggle Card */}
+      <Card style={styles.card}>
+        <Card.Content>
+          <Text variant="titleLarge" style={styles.cardTitle}>Account Role</Text>
+          <Divider style={styles.divider} />
+          
+          <View style={styles.roleContainer}>
+            <Text style={styles.roleDescription}>
+              {user?.role === 'owner' 
+                ? 'Owners receive 100% of job earnings and can manage employees.'
+                : 'Employees earn based on commission rate with custom payment rules.'}
+            </Text>
+          </View>
+          
+          <Button
+            mode="outlined"
+            icon="swap-horizontal"
+            onPress={handleToggleRole}
+            style={styles.roleButton}
+            textColor={Colors.primary}
+          >
+            Switch to {user?.role === 'owner' ? 'Employee' : 'Owner'} Mode
+          </Button>
+        </Card.Content>
+      </Card>
+
+      {/* Employee: Check Invites */}
+      {user?.role === 'employee' && (
+        <Card style={styles.card}>
+          <Card.Content>
+            <Text variant="titleLarge" style={styles.cardTitle}>📨 Pending Invitations</Text>
+            <Divider style={styles.divider} />
+            <Paragraph style={styles.subtitle}>
+              Check if you have any pending job invitations from employers
+            </Paragraph>
+            <Button
+              mode="contained"
+              icon="email-check"
+              onPress={handleCheckInvites}
+              loading={isCheckingInvites}
+              disabled={isCheckingInvites}
+              style={styles.actionButton}
+              buttonColor={Colors.info}
+            >
+              Check for Invitations
+            </Button>
+          </Card.Content>
+        </Card>
+      )}
+
+      {/* Owner: Employee Management */}
+      {user?.role === 'owner' && (
+        <Card style={styles.card}>
+          <Card.Content>
+            <Text variant="titleLarge" style={styles.cardTitle}>👥 Employee Management</Text>
+            <Divider style={styles.divider} />
+            <Paragraph style={styles.subtitle}>
+              Invite and manage employees who work for you
+            </Paragraph>
+            <Button
+              mode="contained"
+              icon="account-group"
+              onPress={() => navigation.navigate('EmployeeManagement' as never)}
+              style={styles.actionButton}
+              buttonColor={Colors.secondary}
+            >
+              Manage Employees
+            </Button>
+          </Card.Content>
+        </Card>
+      )}
+
+      {/* Employee: Pending Jobs */}
+      {user?.role === 'employee' && user?.ownerStatus === 'active' && (
+        <Card style={styles.card}>
+          <Card.Content>
+            <Text variant="titleLarge" style={styles.cardTitle}>📋 Assigned Jobs</Text>
+            <Divider style={styles.divider} />
+            <Paragraph style={styles.subtitle}>
+              View and accept jobs assigned by your employer
+            </Paragraph>
+            <Button
+              mode="contained"
+              icon="briefcase-clock"
+              onPress={() => navigation.navigate('PendingJobs' as never)}
+              style={styles.actionButton}
+              buttonColor={Colors.warning}
+            >
+              View Pending Jobs
+            </Button>
+          </Card.Content>
+        </Card>
+      )}
+      
+      {/* Employee: Payment Settings */}
+      {user?.role === 'employee' && (
+        <Card style={styles.card}>
+          <Card.Content>
+            <View style={styles.cardHeader}>
+              <Text variant="titleLarge" style={styles.cardTitle}>💰 Payment Settings</Text>
+              <Button 
+                mode="text" 
+                onPress={() => setIsEditingPayment(!isEditingPayment)} 
+                icon={isEditingPayment ? "check" : "pencil"}
+                textColor={Colors.primary}
+                compact
+              >
+                {isEditingPayment ? "Done" : "Edit"}
+              </Button>
+            </View>
+            <Divider style={styles.divider} />
+            
+            {isEditingPayment ? (
+              <View>
+                <Text style={styles.sectionLabel}>My commission rate:</Text>
+                <View style={styles.commissionContainer}>
+                  <TextInput
+                    label="Commission %"
+                    value={commissionRate}
+                    onChangeText={setCommissionRate}
+                    mode="outlined"
+                    keyboardType="numeric"
+                    style={styles.commissionInput}
+                    outlineColor={Colors.border}
+                    activeOutlineColor={Colors.primary}
+                  />
+                  <Text style={styles.percentSign}>%</Text>
+                </View>
+                
+                <Text style={styles.sectionLabel}>Payment handling:</Text>
+                
+                <View style={styles.switchRow}>
+                  <Text style={styles.switchLabel}>I keep the cash payments</Text>
+                  <Switch 
+                    value={keepsCash} 
+                    onValueChange={setKeepsCash}
+                    color={Colors.primary}
+                  />
+                </View>
+                
+                <View style={styles.switchRow}>
+                  <Text style={styles.switchLabel}>I keep the check payments</Text>
+                  <Switch 
+                    value={keepsCheck} 
+                    onValueChange={setKeepsCheck}
+                    color={Colors.primary}
+                  />
+                </View>
+                
+                <Button 
+                  mode="contained" 
+                  onPress={handleSavePaymentSettings}
+                  style={styles.saveButton}
+                  buttonColor={Colors.primary}
+                  icon="check"
+                >
+                  Save Payment Settings
+                </Button>
+              </View>
+            ) : (
+              <View>
+                <View style={styles.infoRow}>
+                  <Text style={styles.label}>Commission Rate:</Text>
+                  <Text style={styles.value}>{user?.commissionRate || 50}%</Text>
+                </View>
+                
+                <View style={styles.infoRow}>
+                  <Text style={styles.label}>Cash Handling:</Text>
+                  <Text style={styles.value}>
+                    {user?.keepsCash !== false ? 'I keep cash' : 'I remit cash'}
+                  </Text>
+                </View>
+                
+                <View style={styles.infoRow}>
+                  <Text style={styles.label}>Check Handling:</Text>
+                  <Text style={styles.value}>
+                    {user?.keepsCheck !== false ? 'I keep checks' : 'I remit checks'}
+                  </Text>
+                </View>
+              </View>
+            )}
+          </Card.Content>
+        </Card>
+      )}
+
+      {/* Client Management */}
+      <Card style={styles.card}>
+        <Card.Content>
+          <Text variant="titleLarge" style={styles.cardTitle}>🏢 Client Management</Text>
+          <Divider style={styles.divider} />
+          <Paragraph style={styles.subtitle}>
+            Manage your clients and save their addresses for quick job entry
+          </Paragraph>
+          <Button
+            mode="contained"
+            icon="office-building"
+            onPress={() => navigation.navigate('ClientManagement' as never)}
+            style={styles.actionButton}
+            buttonColor={Colors.accent}
+          >
+            Manage Clients
+          </Button>
+        </Card.Content>
+      </Card>
+
+      {/* Reports & Analytics */}
+      <Card style={styles.card}>
+        <Card.Content>
+          <Text variant="titleLarge" style={styles.cardTitle}>📊 Reports & Analytics</Text>
+          <Divider style={styles.divider} />
+          <Paragraph style={styles.subtitle}>
+            View summaries, export PDFs, and analyze your job data
+          </Paragraph>
+          <Button
+            mode="contained"
+            icon="chart-box"
+            onPress={() => navigation.navigate('Reports' as never)}
+            style={styles.actionButton}
+            buttonColor={Colors.info}
+          >
+            View Reports
+          </Button>
+        </Card.Content>
+      </Card>
+      
+      {/* Logout Button */}
+      <Button 
+        mode="outlined" 
+        onPress={handleLogout}
+        style={styles.logoutButton}
+        icon="logout"
+        textColor={Colors.error}
+      >
+        Logout
+      </Button>
     </ScrollView>
   );
 }
@@ -440,87 +482,125 @@ export default function ReportsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: Colors.background,
   },
-  content: {
-    padding: 16,
+  header: {
+    paddingVertical: Spacing.xl,
+    paddingHorizontal: Spacing.lg,
+    ...Shadows.medium,
   },
-  title: {
-    marginBottom: 16,
-    color: '#2196F3',
+  headerTitle: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: Colors.textInverse,
+    marginBottom: Spacing.xs,
+  },
+  headerSubtitle: {
+    fontSize: 14,
+    color: Colors.textInverse,
+    opacity: 0.9,
   },
   card: {
-    marginBottom: 16,
+    marginHorizontal: Spacing.md,
+    marginVertical: Spacing.sm,
+    borderRadius: BorderRadius.large,
+    ...Shadows.medium,
   },
-  sectionTitle: {
-    marginBottom: 8,
+  cardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  cardTitle: {
+    color: Colors.text,
     fontWeight: 'bold',
   },
   divider: {
-    marginVertical: 12,
+    marginVertical: Spacing.md,
+    backgroundColor: Colors.borderLight,
   },
-  filterLabel: {
-    fontSize: 14,
+  infoRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginVertical: Spacing.sm,
+  },
+  label: {
+    fontSize: 16,
     fontWeight: '600',
-    marginTop: 12,
-    marginBottom: 8,
+    color: Colors.textSecondary,
   },
-  segmentedButtons: {
-    marginBottom: 8,
+  value: {
+    fontSize: 16,
+    color: Colors.text,
+  },
+  subtitle: {
+    color: Colors.textSecondary,
+    marginBottom: Spacing.md,
+  },
+  input: {
+    marginBottom: Spacing.md,
+    backgroundColor: Colors.surface,
+  },
+  saveButton: {
+    marginTop: Spacing.sm,
+    borderRadius: BorderRadius.medium,
+  },
+  actionButton: {
+    marginTop: Spacing.sm,
+    borderRadius: BorderRadius.medium,
+  },
+  roleContainer: {
+    backgroundColor: Colors.infoBg,
+    padding: Spacing.md,
+    borderRadius: BorderRadius.medium,
+    marginBottom: Spacing.md,
+  },
+  roleDescription: {
+    fontSize: 14,
+    color: Colors.info,
+    lineHeight: 20,
+  },
+  roleButton: {
+    borderColor: Colors.primary,
+  },
+  sectionLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginTop: Spacing.md,
+    marginBottom: Spacing.sm,
+    color: Colors.text,
+  },
+  commissionContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: Spacing.md,
+  },
+  commissionInput: {
+    flex: 1,
+    marginRight: Spacing.sm,
+    backgroundColor: Colors.surface,
+  },
+  percentSign: {
+    fontSize: 18,
+    color: Colors.text,
   },
   switchRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginTop: 16,
+    marginVertical: Spacing.sm,
+    padding: Spacing.md,
+    backgroundColor: Colors.surfaceDark,
+    borderRadius: BorderRadius.medium,
   },
-  statRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginVertical: 6,
-  },
-  statLabel: {
-    fontSize: 16,
-  },
-  statValue: {
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  breakdownRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginVertical: 6,
-  },
-  breakdownLabel: {
+  switchLabel: {
     fontSize: 14,
+    color: Colors.text,
   },
-  breakdownValue: {
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  earningsCard: {
-    backgroundColor: '#E8F5E9',
-  },
-  totalRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: 8,
-  },
-  totalLabel: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#2E7D32',
-  },
-  totalValue: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#1B5E20',
-  },
-  exportContainer: {
-    marginBottom: 32,
-  },
-  exportButton: {
-    backgroundColor: '#2196F3',
-    paddingVertical: 8,
+  logoutButton: {
+    marginHorizontal: Spacing.md,
+    marginVertical: Spacing.xl,
+    borderColor: Colors.error,
+    borderWidth: 1,
   },
 });

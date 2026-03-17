@@ -1,13 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { View, StyleSheet, FlatList, Text } from 'react-native';
-import { FAB, Searchbar, IconButton, Button, Divider } from 'react-native-paper';
+import { FAB, Searchbar, IconButton, Button, Divider, Chip } from 'react-native-paper';
 import { useNavigation } from '@react-navigation/native';
 import { format, endOfWeek, startOfWeek, isSameDay, parseISO } from 'date-fns';
-import SyncStatus from '../components/SyncStatus'
+import { LinearGradient } from 'expo-linear-gradient';
+import SyncStatus from '../components/SyncStatus';
 import { useJobs } from '../context/JobsContext';
 import { useAuth } from '../context/AuthContext';
 import JobCard from '../components/JobCard';
 import { Job } from '../types';
+import { Colors, Spacing, BorderRadius, Shadows, Typography } from '../theme/colors';
 
 export default function HomeScreen() {
   const navigation = useNavigation();
@@ -22,15 +24,13 @@ export default function HomeScreen() {
     deleteJob,
   } = useJobs();
   const [searchQuery, setSearchQuery] = useState('');
-  const [sortNewestFirst, setSortNewestFirst] = useState(true); // Default to newest first
+  const [sortNewestFirst, setSortNewestFirst] = useState(true);
   
   // Function to group jobs by date and assign sequence numbers
   const processJobs = (jobsList: Job[]): {jobsWithSequence: Job[], jobsByDate: Record<string, Job[]>} => {
-    // Group jobs by date
     const jobsByDate: Record<string, Job[]> = {};
     
     jobsList.forEach(job => {
-      // Get just the date part (without time)
       const dateKey = job.date.split('T')[0];
       
       if (!jobsByDate[dateKey]) {
@@ -40,25 +40,20 @@ export default function HomeScreen() {
       jobsByDate[dateKey].push(job);
     });
     
-    // Sort each date group by id or createdAt (to maintain original posting order)
-    // and assign sequence numbers
     const jobsWithSequence: Job[] = [];
     
     Object.entries(jobsByDate).forEach(([dateKey, dateJobs]) => {
-      // Sort jobs by creation timestamp/id to ensure original posting order
       const sortedJobs = [...dateJobs].sort((a, b) => {
-        // Use createdAt if available, otherwise use id as a fallback
         const aTime = a.createdAt ? new Date(a.createdAt).getTime() : parseInt(a.id);
         const bTime = b.createdAt ? new Date(b.createdAt).getTime() : parseInt(b.id);
-        return aTime - bTime; // Always sort in ascending order (oldest first within the date)
+        return aTime - bTime;
       });
       
-      // Assign sequence numbers within the date group
       sortedJobs.forEach((job, index) => {
         jobsWithSequence.push({
           ...job,
-          sequenceNumber: index + 1, // 1-based sequence number
-          totalJobsOnDate: sortedJobs.length // Add total jobs count for this date
+          sequenceNumber: index + 1,
+          totalJobsOnDate: sortedJobs.length
         });
       });
     });
@@ -72,7 +67,7 @@ export default function HomeScreen() {
     
     processedJobs.forEach(job => {
       const jobDate = parseISO(job.date);
-      const weekEnd = format(endOfWeek(jobDate), 'yyyy-MM-dd'); // Saturday
+      const weekEnd = format(endOfWeek(jobDate), 'yyyy-MM-dd');
       
       if (!jobsByWeek[weekEnd]) {
         jobsByWeek[weekEnd] = [];
@@ -94,30 +89,24 @@ export default function HomeScreen() {
       )
     : jobs;
 
-  // Filter jobs based on employee toggle (only for owners)
+  // Filter jobs based on employee toggle
   const filteredJobs = (user?.role === 'owner' && !showEmployeeJobs)
     ? searchFilteredJobs.filter(job => !(job as any).isEmployeeJob)
     : searchFilteredJobs;
 
-  // Process jobs with sequence numbers
   const { jobsWithSequence, jobsByDate } = processJobs(filteredJobs);
-  
-  // Group by week
   const jobsByWeek = groupJobsByWeek(jobsWithSequence);
   
   // Create week section data
   const weekSections = Object.keys(jobsByWeek)
     .sort((a, b) => {
-      // Parse dates for comparison
       const dateA = parseISO(a);
       const dateB = parseISO(b);
-      // Sort based on the direction
       return sortNewestFirst ? dateB.getTime() - dateA.getTime() : dateA.getTime() - dateB.getTime();
     })
     .map(weekEnd => {
       const jobs = jobsByWeek[weekEnd];
       
-      // Group jobs by date first
       const jobsByDateInWeek: Record<string, Job[]> = {};
       jobs.forEach(job => {
         const dateKey = job.date.split('T')[0];
@@ -127,22 +116,17 @@ export default function HomeScreen() {
         jobsByDateInWeek[dateKey].push(job);
       });
       
-      // Sort the dates based on the sort direction
       const sortedDates = Object.keys(jobsByDateInWeek).sort((a, b) => {
         const dateA = new Date(a).getTime();
         const dateB = new Date(b).getTime();
         return sortNewestFirst ? dateB - dateA : dateA - dateB;
       });
       
-      // Create a new sorted job array, maintaining sequence order within dates
       const sortedJobs: Job[] = [];
       sortedDates.forEach(dateKey => {
-        // For each date, sort by sequence number (always ascending)
         const dateJobs = [...jobsByDateInWeek[dateKey]].sort((a, b) => 
           (a.sequenceNumber || 1) - (b.sequenceNumber || 1)
         );
-        
-        // Add all jobs for this date to the final array
         sortedJobs.push(...dateJobs);
       });
       
@@ -152,7 +136,6 @@ export default function HomeScreen() {
       };
     });
 
-  // Flatten the data for rendering
   const flatListData = weekSections.flatMap(section => [
     { 
       type: 'header', 
@@ -174,12 +157,10 @@ export default function HomeScreen() {
     navigation.navigate('JobDetail' as never, { jobId: job.id } as never);
   };
   
-  // Toggle sort order
   const toggleSortOrder = () => {
     setSortNewestFirst(!sortNewestFirst);
   };
   
-  // Handle toggle payment status
   const handleTogglePaid = async (jobId: string, isPaid: boolean) => {
     const jobToUpdate = jobs.find(job => job.id === jobId);
     if (jobToUpdate) {
@@ -188,21 +169,25 @@ export default function HomeScreen() {
     }
   };
   
-  // Handle job deletion
   const handleDeleteJob = async (jobId: string) => {
     await deleteJob(jobId);
   };
 
-  // Render item based on type
   const renderItem = ({ item }: { item: any }) => {
     if (item.type === 'header') {
-      // Parse the date to display
       const weekEndDate = parseISO(item.weekEnd);
       return (
-        <View style={styles.weekHeader}>
-          <Divider style={styles.weekDivider} />
-          <Text style={styles.weekEndText}>Week ending {format(weekEndDate, 'MMM d, yyyy')}</Text>
-          <Divider style={styles.weekDivider} />
+        <View style={styles.weekHeaderContainer}>
+          <LinearGradient
+            colors={[Colors.primary, Colors.accent]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={styles.weekHeaderGradient}
+          >
+            <Text style={styles.weekEndText}>
+              📅 Week ending {format(weekEndDate, 'MMM d, yyyy')}
+            </Text>
+          </LinearGradient>
         </View>
       );
     } else {
@@ -216,46 +201,82 @@ export default function HomeScreen() {
     }
   };
 
+  // Calculate summary stats
+  const totalJobs = filteredJobs.length;
+  const totalAmount = filteredJobs.reduce((sum, job) => sum + (job.amount || 0), 0);
+  const paidAmount = filteredJobs.filter(j => j.isPaid).reduce((sum, job) => sum + (job.amount || 0), 0);
+  const unpaidAmount = totalAmount - paidAmount;
+
   return (
     <View style={styles.container}>
       <SyncStatus />
+      
+      {/* Summary Stats Bar */}
+      <LinearGradient
+        colors={[Colors.primary, Colors.primaryDark]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 0 }}
+        style={styles.summaryBar}
+      >
+        <View style={styles.summaryItem}>
+          <Text style={styles.summaryLabel}>Jobs</Text>
+          <Text style={styles.summaryValue}>{totalJobs}</Text>
+        </View>
+        <View style={styles.summaryDivider} />
+        <View style={styles.summaryItem}>
+          <Text style={styles.summaryLabel}>Paid</Text>
+          <Text style={styles.summaryValue}>${paidAmount.toFixed(0)}</Text>
+        </View>
+        <View style={styles.summaryDivider} />
+        <View style={styles.summaryItem}>
+          <Text style={styles.summaryLabel}>Unpaid</Text>
+          <Text style={styles.summaryValue}>${unpaidAmount.toFixed(0)}</Text>
+        </View>
+      </LinearGradient>
+
+      {/* Search and Filters */}
       <View style={styles.searchContainer}>
         <Searchbar
           placeholder="Search jobs..."
           onChangeText={handleSearch}
           value={searchQuery}
           style={styles.searchBar}
+          iconColor={Colors.primary}
+          placeholderTextColor={Colors.textSecondary}
         />
         <IconButton
           icon={sortNewestFirst ? "sort-calendar-descending" : "sort-calendar-ascending"}
           size={24}
           onPress={toggleSortOrder}
           style={styles.sortButton}
-          color="#2196F3"
+          iconColor={Colors.primary}
         />
       </View>
       
-      <View style={styles.sortLabelContainer}>
-        <Button 
-          mode="text" 
-          compact 
-          icon={sortNewestFirst ? "arrow-down" : "arrow-up"} 
+      <View style={styles.filterContainer}>
+        <Chip
+          icon={sortNewestFirst ? "arrow-down" : "arrow-up"}
           onPress={toggleSortOrder}
+          mode="outlined"
+          style={styles.filterChip}
+          textStyle={styles.filterChipText}
         >
           {sortNewestFirst ? "Newest first" : "Oldest first"}
-        </Button>
+        </Chip>
         
-        {/* Filter Toggle - Only show for owners */}
         {user?.role === 'owner' && (
-          <Button
-            mode={showEmployeeJobs ? 'contained' : 'outlined'}
+          <Chip
+            mode={showEmployeeJobs ? 'flat' : 'outlined'}
             onPress={() => setShowEmployeeJobs(!showEmployeeJobs)}
-            compact
-            style={styles.filterButton}
             icon={showEmployeeJobs ? 'account-group' : 'account'}
+            style={[
+              styles.filterChip,
+              showEmployeeJobs && styles.filterChipActive
+            ]}
+            textStyle={showEmployeeJobs ? styles.filterChipActiveText : styles.filterChipText}
           >
             {showEmployeeJobs ? 'All Jobs' : 'My Jobs'}
-          </Button>
+          </Chip>
         )}
       </View>
 
@@ -274,56 +295,91 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: Colors.background,
+  },
+  summaryBar: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    alignItems: 'center',
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.lg,
+    ...Shadows.medium,
+  },
+  summaryItem: {
+    alignItems: 'center',
+    flex: 1,
+  },
+  summaryLabel: {
+    color: Colors.textInverse,
+    fontSize: 12,
+    fontWeight: '600',
+    opacity: 0.9,
+    marginBottom: 4,
+  },
+  summaryValue: {
+    color: Colors.textInverse,
+    fontSize: 20,
+    fontWeight: 'bold',
+  },
+  summaryDivider: {
+    width: 1,
+    height: 40,
+    backgroundColor: Colors.textInverse,
+    opacity: 0.3,
   },
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 10,
-    paddingTop: 10,
+    paddingHorizontal: Spacing.md,
+    paddingTop: Spacing.md,
+    backgroundColor: Colors.background,
   },
   searchBar: {
     flex: 1,
-    marginBottom: 0,
+    elevation: 0,
+    backgroundColor: Colors.surface,
+    borderRadius: BorderRadius.large,
   },
   sortButton: {
-    marginLeft: 5,
+    marginLeft: Spacing.sm,
   },
-  sortLabelContainer: {
+  filterContainer: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 10,
-    paddingBottom: 5,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    gap: Spacing.sm,
   },
-  filterButton: {
-    marginLeft: 8,
+  filterChip: {
+    borderColor: Colors.primary,
+  },
+  filterChipActive: {
+    backgroundColor: Colors.primary,
+  },
+  filterChipText: {
+    color: Colors.primary,
+  },
+  filterChipActiveText: {
+    color: Colors.textInverse,
   },
   listContent: {
-    padding: 10,
-    paddingBottom: 80, // Space for the FAB
+    paddingBottom: 80,
   },
-  weekHeader: {
-    marginTop: 16,
-    marginBottom: 8,
+  weekHeaderContainer: {
+    marginTop: Spacing.md,
+    marginBottom: Spacing.sm,
+    marginHorizontal: Spacing.md,
+    borderRadius: BorderRadius.medium,
+    overflow: 'hidden',
+    ...Shadows.small,
   },
-  weekDivider: {
-    height: 1,
-    backgroundColor: '#bdbdbd',
+  weekHeaderGradient: {
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.lg,
   },
   weekEndText: {
     textAlign: 'center',
-    paddingVertical: 8,
     fontSize: 14,
     fontWeight: 'bold',
-    color: '#616161',
-    backgroundColor: '#f0f0f0',
-  },
-  fab: {
-    position: 'absolute',
-    margin: 16,
-    right: 0,
-    bottom: 0,
-    backgroundColor: '#2196F3',
+    color: Colors.textInverse,
   },
 });

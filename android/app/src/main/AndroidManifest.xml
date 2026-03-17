@@ -27,6 +27,7 @@
         <category android:name="android.intent.category.BROWSABLE"/>
         <data android:scheme="job-tracker"/>
         <data android:scheme="com.jobtracker.app"/>
+        <data android:scheme="exp+job-tracker"/>
       </intent-filter>
     </activity>
   </application>

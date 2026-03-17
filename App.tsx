@@ -1,5 +1,8 @@
 // App.tsx - Updated with debugging
 // Authentication Screens
+
+import { MD3LightTheme} from 'react-native-paper';
+import { Colors } from './src/theme/colors';
 import ReportsScreen from './src/screens/ReportsScreen';
 import ClientManagementScreen from './src/screens/ClientManagementScreen';
 import AddClientScreen from './src/screens/AddClientScreen';
@@ -32,6 +35,7 @@ import DraggableFAB from './src/components/DraggableFAB';
 import AddJobScreen from './src/screens/AddjobScreen';
 import JobDetailScreen from './src/screens/JobDetailScreen';
 import DummyDataSeeder from './src/screens/DummyDataSeeder';
+// import DashboardScreen from './src/screens/DashboardScreen';
 
 const Stack = createStackNavigator();
 
@@ -109,6 +113,12 @@ function AppNavigatorWithFAB({ user }: { user: any }) {
                 headerTitleAlign: 'center'
               }}
             />
+            {/* <Stack.Screen 
+              name="Dashboard" 
+              component={DashboardScreen}
+              options={{ headerShown: false }}
+            /> */}
+
             <Stack.Screen 
               name="EmployeeManagement" 
               component={EmployeeManagementScreen}
@@ -237,10 +247,26 @@ function AppNavigatorWithFAB({ user }: { user: any }) {
     </>
   );
 }
+  const theme = {
+  ...MD3LightTheme,
+  colors: {
+    ...MD3LightTheme.colors,
+    primary: Colors.primary,
+    secondary: Colors.secondary,
+    tertiary: Colors.accent,
+    error: Colors.error,
+    background: Colors.background,
+    surface: Colors.surface,
+    onPrimary: Colors.textInverse,
+    onSecondary: Colors.textInverse,
+    onSurface: Colors.text,
+  },
+};
 
 // Main App Component
 export default function App() {
   return (
+    <PaperProvider theme={theme}>
     <GestureHandlerRootView style={{ flex: 1 }}>
       <PaperProvider>
         <AuthProvider>
@@ -251,5 +277,6 @@ export default function App() {
         </AuthProvider>
       </PaperProvider>
     </GestureHandlerRootView>
+    </PaperProvider>
   );
 }
