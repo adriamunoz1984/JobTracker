@@ -35,7 +35,7 @@ import DraggableFAB from './src/components/DraggableFAB';
 import AddJobScreen from './src/screens/AddjobScreen';
 import JobDetailScreen from './src/screens/JobDetailScreen';
 import DummyDataSeeder from './src/screens/DummyDataSeeder';
-// import DashboardScreen from './src/screens/DashboardScreen';
+import DashboardScreen from './src/screens/DashboardScreen';
 
 const Stack = createStackNavigator();
 
@@ -113,11 +113,11 @@ function AppNavigatorWithFAB({ user }: { user: any }) {
                 headerTitleAlign: 'center'
               }}
             />
-            {/* <Stack.Screen 
+            <Stack.Screen 
               name="Dashboard" 
               component={DashboardScreen}
               options={{ headerShown: false }}
-            /> */}
+            />
 
             <Stack.Screen 
               name="EmployeeManagement" 

@@ -1,264 +1,429 @@
+// src/screens/WeeklyDashboardScreen.tsx
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
-import { Card, Title, Paragraph, Button, Divider, Text, FAB } from 'react-native-paper';
-import { useNavigation } from '@react-navigation/native';
-import { format, startOfWeek, endOfWeek, addWeeks, subWeeks } from 'date-fns';
-
+import { View, StyleSheet, ScrollView, Dimensions } from 'react-native';
+import { Card, Text, Button, Divider, Chip } from 'react-native-paper';
+import { LineChart } from 'react-native-chart-kit';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useJobs } from '../context/JobsContext';
 import { useAuth } from '../context/AuthContext';
 import { Job } from '../types';
+import { 
+  format, 
+  startOfWeek, 
+  endOfWeek,
+  eachDayOfInterval,
+  isWithinInterval,
+  parseISO,
+  addDays
+} from 'date-fns';
+import * as Print from 'expo-print';
+import * as Sharing from 'expo-sharing';
+import { Colors, Spacing, BorderRadius, Shadows } from '../theme/colors';
+
+const screenWidth = Dimensions.get('window').width;
 
 export default function WeeklyDashboardScreen() {
-  const navigation = useNavigation();
-  const { getJobsByDateRange, calculateWeeklySummary } = useJobs();
+  const { jobs } = useJobs();
   const { user } = useAuth();
-  
-  const [currentDate, setCurrentDate] = useState(new Date());
-  const [weeklyJobs, setWeeklyJobs] = useState<Job[]>([]);
-  
-  // Calculate start and end of week
-  const weekStart = startOfWeek(currentDate, { weekStartsOn: 0 }); // Sunday
-  const weekEnd = endOfWeek(currentDate, { weekStartsOn: 0 }); // Saturday
-  
-  // Format dates for display
-  const weekRangeText = `${format(weekStart, 'MMM d')} - ${format(weekEnd, 'MMM d, yyyy')}`;
-  
-  // Get user's role and commission rate
-  const isOwner = user?.role === 'owner';
-  const commissionRate = user?.commissionRate || 50;
-  
-  // State for calculated totals
-  const [totals, setTotals] = useState({
-    income: 0,
-    commission: 0,
-    cashPayments: 0,
-    paidToMeAmount: 0,
-    yourPay: 0,
-    totalUnpaid: 0
+  const [isExporting, setIsExporting] = useState(false);
+
+  const currentDate = new Date();
+  const weekStart = startOfWeek(currentDate);
+  const weekEnd = endOfWeek(currentDate);
+
+  // Filter jobs for current week
+  const weekJobs = jobs.filter(job => {
+    const jobDate = parseISO(job.date);
+    return isWithinInterval(jobDate, { start: weekStart, end: weekEnd });
   });
 
-  // Fetch data and calculate totals
-  useEffect(() => {
-    try {
-      // Format dates for API calls
-      const startStr = weekStart.toISOString();
-      const endStr = weekEnd.toISOString();
-      
-      // Get jobs for the current week
-      const jobs = getJobsByDateRange(startStr, endStr);
-      setWeeklyJobs(jobs);
-      
-      // Get weekly summary
-      const summary = calculateWeeklySummary(startStr, endStr);
-      
-      // Calculate income
-      const totalIncome = summary.totalEarnings;
-      
-      // Calculate commission based on user role
-      let yourPay = 0;
-      if (isOwner) {
-        yourPay = totalIncome;
-      } else {
-        // Calculate based on commission rate
-        const commission = totalIncome * (commissionRate / 100);
-        yourPay = commission;
-        
-        // Adjust for direct payments
-        if (user?.keepsCash) {
-          yourPay -= summary.cashPayments;
-        }
-        yourPay -= summary.paidToMeAmount;
-      }
-      
-      setTotals({
-        income: totalIncome,
-        commission: totalIncome * (commissionRate / 100),
-        cashPayments: summary.cashPayments,
-        paidToMeAmount: summary.paidToMeAmount,
-        yourPay,
-        totalUnpaid: summary.totalUnpaid
-      });
-    } catch (error) {
-      console.error('Error fetching weekly data:', error);
-    }
-  }, [
-    currentDate, 
-    getJobsByDateRange, 
-    calculateWeeklySummary,
-    isOwner,
-    commissionRate,
-    user
-  ]);
-  
-  const navigateToPreviousWeek = () => {
-    setCurrentDate(subWeeks(currentDate, 1));
+  // Calculate totals
+  const totals = {
+    income: weekJobs.reduce((sum, job) => sum + (job.amount || 0), 0),
+    commission: 0,
+    cashPayments: weekJobs.filter(j => j.paymentMethod === 'Cash').reduce((sum, job) => sum + (job.amount || 0), 0),
+    paidToMeAmount: weekJobs.filter(j => j.isPaidToMe).reduce((sum, job) => sum + (job.amount || 0), 0),
+    yourPay: 0,
+    totalUnpaid: weekJobs.filter(j => !j.isPaid).reduce((sum, job) => sum + (job.amount || 0), 0),
+    finalTakeHome: 0,
+    totalJobs: weekJobs.length,
+    totalYards: weekJobs.reduce((sum, job) => sum + (job.yards || 0), 0),
+    paidJobs: weekJobs.filter(j => j.isPaid).length,
+    unpaidJobs: weekJobs.filter(j => !j.isPaid).length,
+    avgJobSize: weekJobs.length > 0 ? weekJobs.reduce((sum, job) => sum + (job.amount || 0), 0) / weekJobs.length : 0,
   };
-  
-  const navigateToNextWeek = () => {
-    setCurrentDate(addWeeks(currentDate, 1));
-  };
-  
-  const navigateToCurrentWeek = () => {
-    setCurrentDate(new Date());
-  };
-  
-  // Navigation handlers
-  const handleAddJob = () => {
-    navigation.navigate('AddJob' as never);
-  };
-  
-  const handleViewJobDetail = (jobId: string) => {
-    navigation.navigate('JobDetail' as never, { jobId: jobId } as never);
-  };
-  
-  // Format currency for display
-  const formatCurrency = (amount: number | undefined) => {
-    if (amount === undefined) return '$0.00';
-    return amount.toLocaleString('en-US', {
-      style: 'currency',
-      currency: 'USD',
+
+  const isOwner = user?.role === 'owner';
+  const commissionRate = user?.commissionRate || 50;
+
+  if (!isOwner) {
+    totals.commission = (totals.income * commissionRate) / 100;
+    totals.yourPay = totals.commission - totals.cashPayments;
+    totals.finalTakeHome = totals.yourPay;
+  } else {
+    totals.finalTakeHome = totals.income - totals.paidToMeAmount;
+  }
+
+  // Get daily breakdown
+  const days = eachDayOfInterval({ start: weekStart, end: weekEnd });
+  const dailyData = days.map((day) => {
+    const dayJobs = weekJobs.filter(job => {
+      const jobDate = parseISO(job.date);
+      return format(jobDate, 'yyyy-MM-dd') === format(day, 'yyyy-MM-dd');
     });
+
+    return {
+      day: format(day, 'EEE'),
+      date: format(day, 'MMM d'),
+      jobs: dayJobs.length,
+      revenue: dayJobs.reduce((sum, job) => sum + (job.amount || 0), 0),
+      yards: dayJobs.reduce((sum, job) => sum + (job.yards || 0), 0),
+    };
+  });
+
+  const chartData = {
+    labels: dailyData.map(d => d.day),
+    datasets: [{
+      data: dailyData.map(d => d.revenue > 0 ? d.revenue : 0),
+    }],
   };
-  
+
+  const chartConfig = {
+    backgroundColor: Colors.surface,
+    backgroundGradientFrom: Colors.surface,
+    backgroundGradientTo: Colors.surface,
+    decimalPlaces: 0,
+    color: (opacity = 1) => `rgba(255, 107, 53, ${opacity})`,
+    labelColor: (opacity = 1) => `rgba(0, 0, 0, ${opacity})`,
+    style: {
+      borderRadius: BorderRadius.large,
+    },
+    propsForDots: {
+      r: '5',
+      strokeWidth: '2',
+      stroke: Colors.primary,
+    },
+  };
+
+  const exportPDF = async () => {
+    try {
+      setIsExporting(true);
+
+      const dailyRows = dailyData.map(day => `
+        <tr>
+          <td>${day.day} ${day.date}</td>
+          <td>${day.jobs}</td>
+          <td>${day.yards.toFixed(1)}</td>
+          <td>$${day.revenue.toFixed(2)}</td>
+        </tr>
+      `).join('');
+
+      const htmlContent = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="UTF-8">
+          <style>
+            body { 
+              font-family: Arial, sans-serif; 
+              padding: 20px;
+              line-height: 1.6;
+            }
+            h1 { 
+              color: ${Colors.primary}; 
+              border-bottom: 3px solid ${Colors.primary}; 
+              padding-bottom: 10px;
+            }
+            h2 { 
+              color: ${Colors.secondary}; 
+              margin-top: 30px;
+              border-left: 4px solid ${Colors.primary};
+              padding-left: 10px;
+            }
+            table { 
+              width: 100%; 
+              border-collapse: collapse; 
+              margin: 20px 0;
+              box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            }
+            th, td { 
+              border: 1px solid #ddd; 
+              padding: 12px; 
+              text-align: left;
+            }
+            th { 
+              background-color: ${Colors.primary}; 
+              color: white;
+            }
+            tr:nth-child(even) { background-color: #f9f9f9; }
+            .summary { 
+              background: linear-gradient(135deg, #f5f5f5 0%, #e8e8e8 100%);
+              padding: 20px; 
+              border-radius: 8px; 
+              margin: 20px 0;
+            }
+            .summary p { margin: 10px 0; font-size: 16px; }
+            .total { 
+              font-size: 24px; 
+              font-weight: bold; 
+              color: ${Colors.success}; 
+              margin-top: 20px;
+              padding: 15px;
+              background-color: ${Colors.successBg};
+              border-radius: 5px;
+              text-align: center;
+            }
+          </style>
+        </head>
+        <body>
+          <h1>📊 Weekly Dashboard</h1>
+          <p style="color: #666; font-size: 14px;">
+            ${format(weekStart, 'MMMM d')} - ${format(weekEnd, 'MMMM d, yyyy')}
+          </p>
+          
+          <div class="summary">
+            <h2>Week Totals</h2>
+            <p><strong>Total Jobs:</strong> ${totals.totalJobs}</p>
+            <p><strong>Total Yards:</strong> ${totals.totalYards.toFixed(1)}</p>
+            <p><strong>Total Income:</strong> $${totals.income.toFixed(2)}</p>
+            <p><strong>Average Job Size:</strong> $${totals.avgJobSize.toFixed(2)}</p>
+            <p><strong>Paid Jobs:</strong> ${totals.paidJobs}</p>
+            <p><strong>Unpaid Jobs:</strong> ${totals.unpaidJobs}</p>
+            <p><strong>Total Unpaid:</strong> $${totals.totalUnpaid.toFixed(2)}</p>
+            ${!isOwner ? `
+              <p><strong>Commission (${commissionRate}%):</strong> $${totals.commission.toFixed(2)}</p>
+              <p><strong>Cash Payments:</strong> $${totals.cashPayments.toFixed(2)}</p>
+            ` : `
+              <p><strong>Paid to Me:</strong> $${totals.paidToMeAmount.toFixed(2)}</p>
+            `}
+            <div class="total">Final Take Home: $${totals.finalTakeHome.toFixed(2)}</div>
+          </div>
+          
+          <h2>Daily Breakdown</h2>
+          <table>
+            <thead>
+              <tr>
+                <th>Day</th>
+                <th>Jobs</th>
+                <th>Yards</th>
+                <th>Revenue</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${dailyRows}
+            </tbody>
+          </table>
+          
+          <div style="margin-top: 50px; padding-top: 20px; border-top: 1px solid #ddd; color: #999; font-size: 12px; text-align: center;">
+            Generated on ${format(new Date(), 'MMMM d, yyyy h:mm a')}
+          </div>
+        </body>
+        </html>
+      `;
+
+      const { uri } = await Print.printToFileAsync({ html: htmlContent });
+      
+      if (await Sharing.isAvailableAsync()) {
+        await Sharing.shareAsync(uri);
+      }
+    } catch (error) {
+      console.error('Error exporting PDF:', error);
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
   return (
     <ScrollView style={styles.container}>
-      <View style={styles.weekSelector}>
-        <Button icon="chevron-left" onPress={navigateToPreviousWeek} mode="text">
-          Prev
-        </Button>
-        <Button onPress={navigateToCurrentWeek} mode="text">
-          Today
-        </Button>
-        <Button icon="chevron-right" onPress={navigateToNextWeek} mode="text" contentStyle={{ flexDirection: 'row-reverse' }}>
-          Next
-        </Button>
-      </View>
-      
-      <Title style={styles.weekTitle}>{weekRangeText}</Title>
-      
-      {/* Weekly Summary Card */}
-      <Card style={styles.summaryCard}>
-        <Card.Content>
-          <Title>Weekly Earnings</Title>
-          <Divider style={styles.divider} />
-          
-          <View style={styles.summaryRow}>
-            <Paragraph style={styles.label}>Total Jobs:</Paragraph>
-            <Paragraph>{weeklyJobs.length}</Paragraph>
-          </View>
-          
-          <View style={styles.summaryRow}>
-            <Paragraph style={styles.label}>Total Income:</Paragraph>
-            <Paragraph style={styles.amount}>{formatCurrency(totals.income)}</Paragraph>
-          </View>
-          
-          <View style={styles.summaryRow}>
-            <Paragraph style={styles.label}>Unpaid Amount:</Paragraph>
-            <Paragraph style={styles.unpaidAmount}>{formatCurrency(totals.totalUnpaid)}</Paragraph>
-          </View>
-          
-          {/* Show different calculations based on role */}
-          {isOwner ? (
-            // Owner view - simpler calculation
-            <View style={styles.summaryRow}>
-              <Paragraph style={styles.label}>Your Income:</Paragraph>
-              <Paragraph style={styles.amount}>{formatCurrency(totals.yourPay)}</Paragraph>
-            </View>
-          ) : (
-            // Employee view - show commission and payment details
-            <>
-              <View style={styles.summaryRow}>
-                <Paragraph style={styles.label}>Your Commission ({commissionRate}%):</Paragraph>
-                <Paragraph style={styles.amount}>{formatCurrency(totals.commission)}</Paragraph>
-              </View>
-              
-              {user?.keepsCash && totals.cashPayments > 0 && (
-                <View style={styles.summaryRow}>
-                  <Paragraph style={styles.label}>Cash Kept:</Paragraph>
-                  <Paragraph style={styles.deductionText}>- {formatCurrency(totals.cashPayments)}</Paragraph>
-                </View>
-              )}
-              
-              {totals.paidToMeAmount > 0 && (
-                <View style={styles.summaryRow}>
-                  <Paragraph style={styles.label}>"Paid To Me" Jobs:</Paragraph>
-                  <Paragraph style={styles.deductionText}>- {formatCurrency(totals.paidToMeAmount)}</Paragraph>
-                </View>
-              )}
-              
-              <Divider style={styles.divider} />
-              
-              <View style={styles.summaryRow}>
-                <Paragraph style={styles.label}>Your Pay:</Paragraph>
-                <Paragraph style={styles.yourPay}>{formatCurrency(totals.yourPay)}</Paragraph>
-              </View>
-            </>
-          )}
-        </Card.Content>
-      </Card>
-      
-      {/* Action Buttons */}
-      <Card style={styles.actionsCard}>
-        <Card.Content>
-          <Title>Weekly Actions</Title>
-          <Divider style={styles.divider} />
-          
-          <View style={styles.actionButtonsContainer}>
-            {/*add smething here*/}
-          </View>
-        </Card.Content>
-      </Card>
-      
-      {/* Jobs This Week Card */}
-      <Title style={styles.jobsTitle}>Jobs This Week ({weeklyJobs.length})</Title>
-      
-      {weeklyJobs.length === 0 ? (
-        <Card style={styles.noJobsCard}>
+      <LinearGradient
+        colors={[Colors.primary, Colors.primaryDark]}
+        style={styles.header}
+      >
+        <Text style={styles.headerTitle}>📅 Weekly Dashboard</Text>
+        <Text style={styles.headerSubtitle}>
+          {format(weekStart, 'MMM d')} - {format(weekEnd, 'MMM d, yyyy')}
+        </Text>
+      </LinearGradient>
+
+      <View style={styles.content}>
+        {/* Quick Stats */}
+        <Card style={styles.card}>
           <Card.Content>
-            <Paragraph style={styles.noJobsText}>No jobs recorded for this week</Paragraph>
-            
+            <Text variant="titleMedium" style={styles.sectionTitle}>This Week at a Glance</Text>
+            <Divider style={styles.divider} />
+
+            <View style={styles.metricsGrid}>
+              <View style={[styles.metricBox, styles.metricBoxPrimary]}>
+                <Text style={styles.metricLabelInverse}>Total Income</Text>
+                <Text style={styles.metricValueInverse}>${totals.income.toLocaleString()}</Text>
+              </View>
+
+              <View style={[styles.metricBox, styles.metricBoxSuccess]}>
+                <Text style={styles.metricLabelInverse}>Take Home</Text>
+                <Text style={styles.metricValueInverse}>${totals.finalTakeHome.toLocaleString()}</Text>
+              </View>
+            </View>
+
+            <View style={styles.metricsGrid}>
+              <View style={styles.metricBox}>
+                <Text style={styles.metricLabel}>Jobs</Text>
+                <Text style={styles.metricValue}>{totals.totalJobs}</Text>
+              </View>
+
+              <View style={styles.metricBox}>
+                <Text style={styles.metricLabel}>Yards</Text>
+                <Text style={styles.metricValue}>{totals.totalYards.toFixed(0)}</Text>
+              </View>
+
+              <View style={styles.metricBox}>
+                <Text style={styles.metricLabel}>Avg Job</Text>
+                <Text style={styles.metricValue}>${totals.avgJobSize.toFixed(0)}</Text>
+              </View>
+            </View>
+
+            <View style={styles.metricsGrid}>
+              <View style={[styles.metricBox, styles.metricBoxSuccess]}>
+                <Text style={styles.metricLabelInverse}>Paid</Text>
+                <Text style={styles.metricValueInverse}>{totals.paidJobs}</Text>
+              </View>
+
+              <View style={[styles.metricBox, styles.metricBoxError]}>
+                <Text style={styles.metricLabelInverse}>Unpaid</Text>
+                <Text style={styles.metricValueInverse}>{totals.unpaidJobs}</Text>
+              </View>
+            </View>
           </Card.Content>
         </Card>
-      ) : (
-        <Card style={styles.jobsCard}>
-          <Card.Content>
-            {weeklyJobs.map((job) => (
-              <TouchableOpacity 
-                key={job.id}
-                onPress={() => handleViewJobDetail(job.id)}
-                style={[
-                  styles.jobItem,
-                  { borderLeftColor: job.isPaid ? '#4CAF50' : '#F44336' }
-                ]}
-              >
-                <View style={styles.jobInfo}>
-                  <Text style={styles.jobAddress}>{format(new Date(job.date),'EEE, MMM d')}</Text>
-                  <Text style={styles.jobCompany}>{job.companyName || 'Unnamed Job'}</Text>
-                  
-                  <Text style={styles.jobAddress}>{job.address}</Text>
-                  <Text style={styles.jobAddress}>{job.city}</Text>
 
-                  <View style={styles.jobDetails}>
-                    <Text style={styles.jobYards}>{job.yards} yards</Text>
-                    <Text style={styles.jobPaymentMethod}>{job.paymentMethod}</Text>
-                  </View>
+        {/* Earnings Breakdown */}
+        {!isOwner && (
+          <Card style={styles.card}>
+            <Card.Content>
+              <Text variant="titleMedium" style={styles.sectionTitle}>💰 Your Earnings</Text>
+              <Divider style={styles.divider} />
+
+              <View style={styles.earningsRow}>
+                <Text style={styles.earningsLabel}>Total Income:</Text>
+                <Text style={styles.earningsValue}>${totals.income.toFixed(2)}</Text>
+              </View>
+
+              <View style={styles.earningsRow}>
+                <Text style={styles.earningsLabel}>Your Commission ({commissionRate}%):</Text>
+                <Text style={styles.earningsValue}>${totals.commission.toFixed(2)}</Text>
+              </View>
+
+              <View style={styles.earningsRow}>
+                <Text style={styles.earningsLabel}>- Cash Payments:</Text>
+                <Text style={styles.earningsValue}>-${totals.cashPayments.toFixed(2)}</Text>
+              </View>
+
+              <Divider style={styles.divider} />
+
+              <LinearGradient
+                colors={[Colors.success, Colors.successLight]}
+                style={styles.totalBox}
+              >
+                <Text style={styles.totalLabel}>Your Pay:</Text>
+                <Text style={styles.totalValue}>${totals.yourPay.toFixed(2)}</Text>
+              </LinearGradient>
+            </Card.Content>
+          </Card>
+        )}
+
+        {/* Owner Earnings */}
+        {isOwner && (
+          <Card style={styles.card}>
+            <Card.Content>
+              <Text variant="titleMedium" style={styles.sectionTitle}>💼 Owner Earnings</Text>
+              <Divider style={styles.divider} />
+
+              <View style={styles.earningsRow}>
+                <Text style={styles.earningsLabel}>Total Income:</Text>
+                <Text style={styles.earningsValue}>${totals.income.toFixed(2)}</Text>
+              </View>
+
+              <View style={styles.earningsRow}>
+                <Text style={styles.earningsLabel}>- Paid to Me:</Text>
+                <Text style={styles.earningsValue}>-${totals.paidToMeAmount.toFixed(2)}</Text>
+              </View>
+
+              <Divider style={styles.divider} />
+
+              <LinearGradient
+                colors={[Colors.success, Colors.successLight]}
+                style={styles.totalBox}
+              >
+                <Text style={styles.totalLabel}>Final Take Home:</Text>
+                <Text style={styles.totalValue}>${totals.finalTakeHome.toFixed(2)}</Text>
+              </LinearGradient>
+            </Card.Content>
+          </Card>
+        )}
+
+        {/* Daily Revenue Chart */}
+        <Card style={styles.card}>
+          <Card.Content>
+            <Text variant="titleMedium" style={styles.sectionTitle}>📊 Daily Revenue</Text>
+            <Divider style={styles.divider} />
+
+            {dailyData.some(d => d.revenue > 0) ? (
+              <LineChart
+                data={chartData}
+                width={screenWidth - 60}
+                height={220}
+                chartConfig={chartConfig}
+                bezier
+                style={styles.chart}
+                yAxisLabel="$"
+                formatYLabel={(value) => `$${parseFloat(value).toFixed(0)}`}
+              />
+            ) : (
+              <Text style={styles.noDataText}>No revenue data for this week</Text>
+            )}
+          </Card.Content>
+        </Card>
+
+        {/* Daily Breakdown */}
+        <Card style={styles.card}>
+          <Card.Content>
+            <Text variant="titleMedium" style={styles.sectionTitle}>📋 Daily Breakdown</Text>
+            <Divider style={styles.divider} />
+
+            {dailyData.map((day, index) => (
+              <View key={index} style={styles.dayRow}>
+                <View style={styles.dayInfo}>
+                  <Text style={styles.dayName}>{day.day}</Text>
+                  <Text style={styles.dayDate}>{day.date}</Text>
                 </View>
-                <View style={styles.jobAmount}>
-                  <Text style={[
-                    styles.jobStatus,
-                    job.isPaid ? styles.paidStatus : styles.unpaidStatus
-                  ]}>
-                    {job.isPaid ? 'PAID' : 'UNPAID'}
-                  </Text>
-                  <Text style={styles.jobTotal}>{formatCurrency(job.amount)}</Text>
+                <View style={styles.dayStats}>
+                  {day.jobs > 0 ? (
+                    <>
+                      <Chip compact style={styles.jobsChip}>{day.jobs} jobs</Chip>
+                      <Chip compact style={styles.yardsChip}>{day.yards.toFixed(0)} yds</Chip>
+                      <Text style={styles.dayRevenue}>${day.revenue.toFixed(0)}</Text>
+                    </>
+                  ) : (
+                    <Text style={styles.noJobsText}>No jobs</Text>
+                  )}
                 </View>
-              </TouchableOpacity>
+              </View>
             ))}
           </Card.Content>
         </Card>
-      )}
-      
-      
+
+        {/* Export Button */}
+        <Button
+          mode="contained"
+          icon="file-pdf-box"
+          onPress={exportPDF}
+          loading={isExporting}
+          disabled={isExporting}
+          style={styles.exportButton}
+          buttonColor={Colors.error}
+        >
+          Export as PDF
+        </Button>
+      </View>
     </ScrollView>
   );
 }
@@ -266,142 +431,179 @@ export default function WeeklyDashboardScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: Colors.background,
   },
-  weekSelector: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    padding: 8,
+  header: {
+    paddingVertical: Spacing.xl,
+    paddingHorizontal: Spacing.lg,
+    ...Shadows.medium,
   },
-  weekTitle: {
-    textAlign: 'center',
-    marginVertical: 8,
+  headerTitle: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: Colors.textInverse,
+    marginBottom: Spacing.xs,
   },
-  summaryCard: {
-    margin: 16,
-    marginBottom: 8,
-    elevation: 4,
+  headerSubtitle: {
+    fontSize: 14,
+    color: Colors.textInverse,
+    opacity: 0.9,
+  },
+  content: {
+    padding: Spacing.md,
+  },
+  card: {
+    marginBottom: Spacing.md,
+    borderRadius: BorderRadius.large,
+    ...Shadows.medium,
+  },
+  sectionTitle: {
+    marginBottom: Spacing.sm,
+    fontWeight: 'bold',
+    color: Colors.text,
   },
   divider: {
-    marginVertical: 12,
+    marginVertical: Spacing.md,
+    backgroundColor: Colors.borderLight,
   },
-  summaryRow: {
+  metricsGrid: {
+    flexDirection: 'row',
+    gap: Spacing.sm,
+    marginBottom: Spacing.sm,
+  },
+  metricBox: {
+    flex: 1,
+    padding: Spacing.md,
+    backgroundColor: Colors.surfaceDark,
+    borderRadius: BorderRadius.medium,
+    alignItems: 'center',
+  },
+  metricBoxPrimary: {
+    backgroundColor: Colors.primary,
+  },
+  metricBoxSuccess: {
+    backgroundColor: Colors.success,
+  },
+  metricBoxError: {
+    backgroundColor: Colors.error,
+  },
+  metricLabel: {
+    fontSize: 11,
+    color: Colors.textSecondary,
+    marginBottom: Spacing.xs,
+    textAlign: 'center',
+  },
+  metricValue: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: Colors.text,
+    textAlign: 'center',
+  },
+  metricLabelInverse: {
+    fontSize: 11,
+    color: Colors.textInverse,
+    opacity: 0.9,
+    marginBottom: Spacing.xs,
+    textAlign: 'center',
+  },
+  metricValueInverse: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: Colors.textInverse,
+    textAlign: 'center',
+  },
+  earningsRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 8,
+    marginVertical: Spacing.sm,
   },
-  label: {
-    fontWeight: 'bold',
+  earningsLabel: {
+    fontSize: 16,
+    color: Colors.text,
   },
-  amount: {
-    fontWeight: 'bold',
+  earningsValue: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: Colors.text,
   },
-  unpaidAmount: {
-    color: '#F44336',
-    fontWeight: 'bold',
-  },
-  deductionText: {
-    color: '#F44336',
-    fontWeight: 'bold',
-  },
-  yourPay: {
-    fontWeight: 'bold',
-    color: '#4CAF50',
-  },
-  actionsCard: {
-    margin: 16,
-    marginBottom: 8,
-  },
-  actionButtonsContainer: {
+  totalBox: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'center',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: Spacing.lg,
+    borderRadius: BorderRadius.medium,
+    marginTop: Spacing.sm,
   },
-  actionButton: {
-    width: '100%',
-    marginBottom: 16,
+  totalLabel: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: Colors.textInverse,
   },
-  addJobButton: {
-    backgroundColor: '#2196F3',
+  totalValue: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: Colors.textInverse,
   },
-  jobsTitle: {
-    marginHorizontal: 16,
-    marginTop: 8,
+  chart: {
+    marginVertical: Spacing.sm,
+    borderRadius: BorderRadius.medium,
   },
-  noJobsCard: {
-    margin: 16,
+  noDataText: {
+    textAlign: 'center',
+    color: Colors.textLight,
+    fontStyle: 'italic',
+    paddingVertical: Spacing.xl,
+  },
+  dayRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: Spacing.md,
+    backgroundColor: Colors.surfaceDark,
+    borderRadius: BorderRadius.medium,
+    marginBottom: Spacing.sm,
+  },
+  dayInfo: {
+    minWidth: 80,
+  },
+  dayName: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: Colors.text,
+  },
+  dayDate: {
+    fontSize: 12,
+    color: Colors.textSecondary,
+    marginTop: 2,
+  },
+  dayStats: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+  },
+  jobsChip: {
+    backgroundColor: Colors.infoBg,
+  },
+  yardsChip: {
+    backgroundColor: Colors.warningBg,
+  },
+  dayRevenue: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: Colors.success,
+    minWidth: 60,
+    textAlign: 'right',
   },
   noJobsText: {
-    textAlign: 'center',
+    fontSize: 14,
+    color: Colors.textLight,
     fontStyle: 'italic',
-    marginBottom: 16,
   },
-  addButton: {
-    backgroundColor: '#2196F3',
-  },
-  jobsCard: {
-    margin: 16,
-    marginBottom: 80, // Extra padding for FAB
-    elevation: 2,
-  },
-  jobItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingVertical: 12,
-    paddingHorizontal: 8,
-    borderBottomWidth: 1,
-   borderBottomColor: '#e0e0e0', // Light gray separator line
-    borderLeftWidth: 3,
-  },
-  jobInfo: {
-    flex: 1,
-  },
-  jobCompany: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    marginBottom: 4,
-  },
-  jobAddress: {
-    color: '#757575',
-    fontSize: 14,
-    marginBottom: 4,
-  },
-  jobDetails: {
-    flexDirection: 'row',
-  },
-  jobYards: {
-    fontSize: 14,
-    color: '#616161',
-    marginRight: 8,
-  },
-  jobPaymentMethod: {
-    fontSize: 14,
-    color: '#616161',
-  },
-  jobAmount: {
-    alignItems: 'flex-end',
-    justifyContent: 'center',
-  },
-  jobStatus: {
-    fontSize: 12,
-    fontWeight: 'bold',
-    marginBottom: 4,
-  },
-  paidStatus: {
-    color: '#4CAF50',
-  },
-  unpaidStatus: {
-    color: '#F44336',
-  },
-  jobTotal: {
-    fontWeight: 'bold',
-    fontSize: 16,
-  },
-  fab: {
-    position: 'absolute',
-    margin: 16,
-    right: 0,
-    bottom: 0,
-    backgroundColor: '#2196F3',
+  exportButton: {
+    marginTop: Spacing.md,
+    marginBottom: Spacing.xxl,
+    paddingVertical: Spacing.sm,
+    borderRadius: BorderRadius.medium,
+    ...Shadows.medium,
   },
 });

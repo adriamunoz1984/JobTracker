@@ -1,16 +1,18 @@
 // src/screens/ReportsScreen.tsx
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, ScrollView, Dimensions, Alert } from 'react-native';
+import { View, StyleSheet, ScrollView, Dimensions, Alert, Platform } from 'react-native';
 import { 
   Card, 
   Text, 
   Button, 
   Divider,
   SegmentedButtons,
-  Chip
+  Chip,
+  Checkbox
 } from 'react-native-paper';
 import { PieChart } from 'react-native-chart-kit';
 import { LinearGradient } from 'expo-linear-gradient';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import { useJobs } from '../context/JobsContext';
 import { useAuth } from '../context/AuthContext';
 import { Job } from '../types';
@@ -21,14 +23,47 @@ import { Colors, Spacing, BorderRadius, Shadows } from '../theme/colors';
 
 const screenWidth = Dimensions.get('window').width;
 
+interface ColumnConfig {
+  date: boolean;
+  weekOf: boolean;
+  client: boolean;
+  address: boolean;
+  yards: boolean;
+  paymentType: boolean;
+  amount: boolean;
+  status: boolean;
+  checkNumber: boolean;
+  notes: boolean;
+}
+
 export default function ReportsScreen() {
   const { jobs } = useJobs();
   const { user } = useAuth();
 
-  const [dateRange, setDateRange] = useState<'week' | 'lastweek' | 'month'>('week');
+  const [dateRange, setDateRange] = useState<'week' | 'lastweek' | 'month' | 'custom'>('week');
   const [paymentStatus, setPaymentStatus] = useState<'all' | 'paid' | 'unpaid'>('all');
   const [showGraphs, setShowGraphs] = useState(true);
   const [isExporting, setIsExporting] = useState(false);
+
+  // Custom date range
+  const [customStartDate, setCustomStartDate] = useState(new Date());
+  const [customEndDate, setCustomEndDate] = useState(new Date());
+  const [showStartPicker, setShowStartPicker] = useState(false);
+  const [showEndPicker, setShowEndPicker] = useState(false);
+
+  // Column toggles
+  const [columns, setColumns] = useState<ColumnConfig>({
+    date: true,
+    weekOf: true,
+    client: true,
+    address: true,
+    yards: true,
+    paymentType: true,
+    amount: true,
+    status: true,
+    checkNumber: false,
+    notes: false,
+  });
 
   const [filteredJobs, setFilteredJobs] = useState<Job[]>([]);
 
@@ -51,6 +86,11 @@ export default function ReportsScreen() {
           start: new Date(now.getFullYear(), now.getMonth(), 1),
           end: new Date(now.getFullYear(), now.getMonth() + 1, 0)
         };
+      case 'custom':
+        return {
+          start: customStartDate,
+          end: customEndDate
+        };
       default:
         return { start: now, end: now };
     }
@@ -71,8 +111,11 @@ export default function ReportsScreen() {
       return true;
     });
 
+    // Sort by date descending
+    filtered.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
     setFilteredJobs(filtered);
-  }, [jobs, dateRange, paymentStatus]);
+  }, [jobs, dateRange, paymentStatus, customStartDate, customEndDate]);
 
   const stats = {
     totalJobs: filteredJobs.length,
@@ -128,9 +171,46 @@ export default function ReportsScreen() {
     }
   ].filter(item => item.amount > 0);
 
+  const toggleColumn = (column: keyof ColumnConfig) => {
+    setColumns(prev => ({ ...prev, [column]: !prev[column] }));
+  };
+
   const exportPDF = async () => {
     try {
       setIsExporting(true);
+      
+      // Build table headers based on selected columns
+      let tableHeaders = '';
+      if (columns.date) tableHeaders += '<th>Date</th>';
+      if (columns.weekOf) tableHeaders += '<th>Week Of</th>';
+      if (columns.client) tableHeaders += '<th>Client</th>';
+      if (columns.address) tableHeaders += '<th>Address</th>';
+      if (columns.yards) tableHeaders += '<th>Yards</th>';
+      if (columns.paymentType) tableHeaders += '<th>Payment</th>';
+      if (columns.amount) tableHeaders += '<th>Amount</th>';
+      if (columns.status) tableHeaders += '<th>Status</th>';
+      if (columns.checkNumber) tableHeaders += '<th>Check #</th>';
+      if (columns.notes) tableHeaders += '<th>Notes</th>';
+
+      // Build table rows based on selected columns
+      const tableRows = filteredJobs.map(job => {
+        const jobDate = parseISO(job.date);
+        const weekStart = startOfWeek(jobDate);
+        
+        let row = '<tr>';
+        if (columns.date) row += `<td>${format(jobDate, 'MMM d, yyyy')}</td>`;
+        if (columns.weekOf) row += `<td>${format(weekStart, 'MMM d, yyyy')}</td>`;
+        if (columns.client) row += `<td>${job.companyName || 'No Company'}</td>`;
+        if (columns.address) row += `<td>${job.address}, ${job.city}</td>`;
+        if (columns.yards) row += `<td>${job.yards}</td>`;
+        if (columns.paymentType) row += `<td>${job.paymentMethod}</td>`;
+        if (columns.amount) row += `<td>$${job.amount.toFixed(2)}</td>`;
+        if (columns.status) row += `<td class="${job.isPaid ? 'paid' : 'unpaid'}">${job.isPaid ? '✓ Paid' : '✗ Unpaid'}</td>`;
+        if (columns.checkNumber) row += `<td>${job.checkNumber || '—'}</td>`;
+        if (columns.notes) row += `<td>${job.notes || '—'}</td>`;
+        row += '</tr>';
+        return row;
+      }).join('');
       
       const htmlContent = `
         <!DOCTYPE html>
@@ -162,10 +242,11 @@ export default function ReportsScreen() {
               border-collapse: collapse; 
               margin: 20px 0;
               box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+              font-size: 11px;
             }
             th, td { 
               border: 1px solid #ddd; 
-              padding: 12px 8px; 
+              padding: 8px 6px; 
               text-align: left;
             }
             th { 
@@ -255,27 +336,11 @@ export default function ReportsScreen() {
           <table>
             <thead>
               <tr>
-                <th>Date</th>
-                <th>Client</th>
-                <th>Yards</th>
-                <th>Amount</th>
-                <th>Payment</th>
-                <th>Status</th>
+                ${tableHeaders}
               </tr>
             </thead>
             <tbody>
-              ${filteredJobs.map(job => `
-                <tr>
-                  <td>${format(parseISO(job.date), 'MMM d, yyyy')}</td>
-                  <td>${job.companyName || 'No Company'}</td>
-                  <td>${job.yards}</td>
-                  <td>$${job.amount.toFixed(2)}</td>
-                  <td>${job.paymentMethod}</td>
-                  <td class="${job.isPaid ? 'paid' : 'unpaid'}">
-                    ${job.isPaid ? '✓ Paid' : '✗ Unpaid'}
-                  </td>
-                </tr>
-              `).join('')}
+              ${tableRows}
             </tbody>
           </table>
           
@@ -333,12 +398,11 @@ export default function ReportsScreen() {
       </LinearGradient>
 
       <View style={styles.content}>
-        {/* Filters */}
+        {/* Date Range Filters */}
         <Card style={styles.card}>
           <Card.Content>
-            <Text variant="titleMedium" style={styles.sectionTitle}>Filters</Text>
+            <Text variant="titleMedium" style={styles.sectionTitle}>Date Range</Text>
             
-            <Text style={styles.filterLabel}>Date Range:</Text>
             <SegmentedButtons
               value={dateRange}
               onValueChange={(value) => setDateRange(value as any)}
@@ -346,9 +410,73 @@ export default function ReportsScreen() {
                 { value: 'week', label: 'This Week' },
                 { value: 'lastweek', label: 'Last Week' },
                 { value: 'month', label: 'This Month' },
+                { value: 'custom', label: 'Custom' },
               ]}
               style={styles.segmentedButtons}
             />
+
+            {/* Custom Date Range Pickers */}
+            {dateRange === 'custom' && (
+              <View style={styles.customDateContainer}>
+                <Text style={styles.filterLabel}>Custom Date Range:</Text>
+                
+                <View style={styles.datePickerRow}>
+                  <View style={styles.datePickerItem}>
+                    <Text style={styles.dateLabel}>Start Date:</Text>
+                    <Button
+                      mode="outlined"
+                      icon="calendar"
+                      onPress={() => setShowStartPicker(true)}
+                      style={styles.dateButton}
+                      textColor={Colors.primary}
+                    >
+                      {format(customStartDate, 'MMM d, yyyy')}
+                    </Button>
+                  </View>
+
+                  <View style={styles.datePickerItem}>
+                    <Text style={styles.dateLabel}>End Date:</Text>
+                    <Button
+                      mode="outlined"
+                      icon="calendar"
+                      onPress={() => setShowEndPicker(true)}
+                      style={styles.dateButton}
+                      textColor={Colors.primary}
+                    >
+                      {format(customEndDate, 'MMM d, yyyy')}
+                    </Button>
+                  </View>
+                </View>
+
+                {showStartPicker && (
+                  <DateTimePicker
+                    value={customStartDate}
+                    mode="date"
+                    display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                    onChange={(event, selectedDate) => {
+                      setShowStartPicker(Platform.OS === 'ios');
+                      if (selectedDate) {
+                        setCustomStartDate(selectedDate);
+                      }
+                    }}
+                  />
+                )}
+
+                {showEndPicker && (
+                  <DateTimePicker
+                    value={customEndDate}
+                    mode="date"
+                    display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                    onChange={(event, selectedDate) => {
+                      setShowEndPicker(Platform.OS === 'ios');
+                      if (selectedDate) {
+                        setCustomEndDate(selectedDate);
+                      }
+                    }}
+                  />
+                )}
+              </View>
+            )}
             
             <Text style={styles.filterLabel}>Payment Status:</Text>
             <SegmentedButtons
@@ -373,6 +501,107 @@ export default function ReportsScreen() {
               >
                 {showGraphs ? '✓ On' : 'Off'}
               </Chip>
+            </View>
+          </Card.Content>
+        </Card>
+
+        {/* Column Selection */}
+        <Card style={styles.card}>
+          <Card.Content>
+            <Text variant="titleMedium" style={styles.sectionTitle}>Report Columns</Text>
+            <Text style={styles.subtitle}>Select which columns to include in the PDF report</Text>
+            <Divider style={styles.divider} />
+            
+            <View style={styles.checkboxGrid}>
+              <View style={styles.checkboxRow}>
+                <Checkbox
+                  status={columns.date ? 'checked' : 'unchecked'}
+                  onPress={() => toggleColumn('date')}
+                  color={Colors.primary}
+                />
+                <Text style={styles.checkboxLabel}>Date</Text>
+              </View>
+
+              <View style={styles.checkboxRow}>
+                <Checkbox
+                  status={columns.weekOf ? 'checked' : 'unchecked'}
+                  onPress={() => toggleColumn('weekOf')}
+                  color={Colors.primary}
+                />
+                <Text style={styles.checkboxLabel}>Week Of</Text>
+              </View>
+
+              <View style={styles.checkboxRow}>
+                <Checkbox
+                  status={columns.client ? 'checked' : 'unchecked'}
+                  onPress={() => toggleColumn('client')}
+                  color={Colors.primary}
+                />
+                <Text style={styles.checkboxLabel}>Client</Text>
+              </View>
+
+              <View style={styles.checkboxRow}>
+                <Checkbox
+                  status={columns.address ? 'checked' : 'unchecked'}
+                  onPress={() => toggleColumn('address')}
+                  color={Colors.primary}
+                />
+                <Text style={styles.checkboxLabel}>Address</Text>
+              </View>
+
+              <View style={styles.checkboxRow}>
+                <Checkbox
+                  status={columns.yards ? 'checked' : 'unchecked'}
+                  onPress={() => toggleColumn('yards')}
+                  color={Colors.primary}
+                />
+                <Text style={styles.checkboxLabel}>Yards</Text>
+              </View>
+
+              <View style={styles.checkboxRow}>
+                <Checkbox
+                  status={columns.paymentType ? 'checked' : 'unchecked'}
+                  onPress={() => toggleColumn('paymentType')}
+                  color={Colors.primary}
+                />
+                <Text style={styles.checkboxLabel}>Payment Type</Text>
+              </View>
+
+              <View style={styles.checkboxRow}>
+                <Checkbox
+                  status={columns.amount ? 'checked' : 'unchecked'}
+                  onPress={() => toggleColumn('amount')}
+                  color={Colors.primary}
+                />
+                <Text style={styles.checkboxLabel}>Amount</Text>
+              </View>
+
+              <View style={styles.checkboxRow}>
+                <Checkbox
+                  status={columns.status ? 'checked' : 'unchecked'}
+                  onPress={() => toggleColumn('status')}
+                  color={Colors.primary}
+                />
+                <Text style={styles.checkboxLabel}>Paid/Unpaid</Text>
+              </View>
+
+              <View style={styles.checkboxRow}>
+                <Checkbox
+                  status={columns.checkNumber ? 'checked' : 'unchecked'}
+                  onPress={() => toggleColumn('checkNumber')}
+                  color={Colors.primary}
+                />
+                <Text style={styles.checkboxLabel}>Check Number</Text>
+              </View>
+
+              <View style={styles.checkboxRow}>
+                <Checkbox
+                  status={columns.notes ? 'checked' : 'unchecked'}
+                  onPress={() => toggleColumn('notes')}
+                  color={Colors.primary}
+                />
+                <Text style={styles.checkboxLabel}>Notes</Text>
+              </View>
             </View>
           </Card.Content>
         </Card>
@@ -543,6 +772,12 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: Colors.text,
   },
+  subtitle: {
+    fontSize: 12,
+    color: Colors.textSecondary,
+    fontStyle: 'italic',
+    marginBottom: Spacing.sm,
+  },
   divider: {
     marginVertical: Spacing.md,
     backgroundColor: Colors.borderLight,
@@ -556,6 +791,28 @@ const styles = StyleSheet.create({
   },
   segmentedButtons: {
     marginBottom: Spacing.sm,
+  },
+  customDateContainer: {
+    marginTop: Spacing.md,
+    padding: Spacing.md,
+    backgroundColor: Colors.surfaceDark,
+    borderRadius: BorderRadius.medium,
+  },
+  datePickerRow: {
+    flexDirection: 'row',
+    gap: Spacing.sm,
+  },
+  datePickerItem: {
+    flex: 1,
+  },
+  dateLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    marginBottom: Spacing.xs,
+    color: Colors.text,
+  },
+  dateButton: {
+    borderColor: Colors.primary,
   },
   switchRow: {
     flexDirection: 'row',
@@ -575,6 +832,21 @@ const styles = StyleSheet.create({
   },
   chipActiveText: {
     color: Colors.textInverse,
+  },
+  checkboxGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: Spacing.sm,
+  },
+  checkboxRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    width: '48%',
+  },
+  checkboxLabel: {
+    fontSize: 14,
+    color: Colors.text,
+    marginLeft: -8,
   },
   statGrid: {
     flexDirection: 'row',

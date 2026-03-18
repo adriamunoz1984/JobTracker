@@ -568,16 +568,17 @@ export default function AddJobScreen() {
         )}
 
         <View style={styles.switchRow}>
-          <Text style={styles.switchLabel}>Paid directly to me</Text>
-          <Button
-            mode={isPaidToMe ? 'contained' : 'outlined'}
-            onPress={() => setIsPaidToMe(!isPaidToMe)}
-            compact
-            buttonColor={isPaidToMe ? Colors.primary : undefined}
-            textColor={isPaidToMe ? Colors.textInverse : Colors.primary}
-          >
-            {isPaidToMe ? '✓ Yes' : 'No'}
-          </Button>
+          <View style={styles.switchContent}>
+            <Text style={styles.switchLabel}>Direct Payment</Text>
+            <Text style={styles.switchSubtext}>
+              Payment received directly (not through company account)
+            </Text>
+          </View>
+          <Switch 
+            value={isPaidToMe} 
+            onValueChange={setIsPaidToMe}
+            color={Colors.primary}
+          />
         </View>
 
         {/* Notes */}
@@ -759,4 +760,31 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.medium,
     ...Shadows.medium,
   },
+
+  switchRow: {
+  flexDirection: 'row',
+  justifyContent: 'space-between',
+  alignItems: 'center',
+  marginVertical: Spacing.sm,
+  padding: Spacing.md,
+  backgroundColor: Colors.infoBg,
+  borderRadius: BorderRadius.medium,
+  borderLeftWidth: 4,
+  borderLeftColor: Colors.info,
+  ...Shadows.small,
+},
+switchContent: {
+  flex: 1,
+  marginRight: Spacing.md,
+},
+switchLabel: {
+  fontSize: 14,
+  fontWeight: '600',
+  color: Colors.text,
+  marginBottom: 4,
+},
+switchSubtext: {
+  fontSize: 12,
+  color: Colors.textSecondary,
+},
 });

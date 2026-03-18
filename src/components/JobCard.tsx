@@ -208,17 +208,17 @@ const JobCard: React.FC<JobCardProps> = ({ job, onDelete, onTogglePaid }) => {
               <Text style={styles.detailValue}>{job.paymentMethod}</Text>
             </View>
             
-            {/* Paid to Me Indicator */}
-            {job.isPaidToMe && (
-              <Chip 
-                icon="account-cash" 
-                compact
-                style={styles.paidToMeChip}
-                textStyle={styles.paidToMeText}
-              >
-                Paid to Me
-              </Chip>
-            )}
+            {/* Direct Payment Indicator */}
+              {job.isPaidToMe && (
+                <Chip 
+                  icon="cash-fast" 
+                  compact
+                  style={styles.directPaymentChip}
+                  textStyle={styles.directPaymentText}
+                >
+                  Direct Payment
+                </Chip>
+              )}
           </View>
           
           {/* Notes */}
@@ -426,6 +426,15 @@ const styles = StyleSheet.create({
     paddingTop: 0,
     paddingBottom: Spacing.sm,
   },
+  directPaymentChip: {
+  height: 28,
+  backgroundColor: Colors.infoBg,
+},
+directPaymentText: {
+  fontSize: 11,
+  color: Colors.info,
+  fontWeight: '600',
+},
 });
 
 export default JobCard;

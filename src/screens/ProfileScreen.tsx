@@ -222,7 +222,7 @@ export default function ProfileScreen() {
         </Card.Content>
       </Card>
             {/* Dashboard */}
-      {/* <Card style={styles.card}>
+      <Card style={styles.card}>
         <Card.Content>
           <Text variant="titleLarge" style={styles.cardTitle}>📈 Dashboard</Text>
           <Divider style={styles.divider} />
@@ -239,7 +239,7 @@ export default function ProfileScreen() {
             View Dashboard
           </Button>
         </Card.Content>
-      </Card> */}
+      </Card>
       {/* Role Toggle Card */}
       <Card style={styles.card}>
         <Card.Content>

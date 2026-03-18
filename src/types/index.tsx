@@ -31,8 +31,6 @@ export interface Employee {
   name: string;
   status: 'invited' | 'active';
   commissionRate: number;
-  keepsCash: boolean;
-  keepsCheck: boolean;
   invitedAt: string;
   acceptedAt?: string;
 }
