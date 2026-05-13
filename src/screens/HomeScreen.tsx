@@ -212,27 +212,7 @@ export default function HomeScreen() {
       <SyncStatus />
       
       {/* Summary Stats Bar */}
-      <LinearGradient
-        colors={[Colors.primary, Colors.primaryDark]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 0 }}
-        style={styles.summaryBar}
-      >
-        <View style={styles.summaryItem}>
-          <Text style={styles.summaryLabel}>Jobs</Text>
-          <Text style={styles.summaryValue}>{totalJobs}</Text>
-        </View>
-        <View style={styles.summaryDivider} />
-        <View style={styles.summaryItem}>
-          <Text style={styles.summaryLabel}>Paid</Text>
-          <Text style={styles.summaryValue}>${paidAmount.toFixed(0)}</Text>
-        </View>
-        <View style={styles.summaryDivider} />
-        <View style={styles.summaryItem}>
-          <Text style={styles.summaryLabel}>Unpaid</Text>
-          <Text style={styles.summaryValue}>${unpaidAmount.toFixed(0)}</Text>
-        </View>
-      </LinearGradient>
+    
 
       {/* Search and Filters */}
       <View style={styles.searchContainer}>
@@ -254,15 +234,7 @@ export default function HomeScreen() {
       </View>
       
       <View style={styles.filterContainer}>
-        <Chip
-          icon={sortNewestFirst ? "arrow-down" : "arrow-up"}
-          onPress={toggleSortOrder}
-          mode="outlined"
-          style={styles.filterChip}
-          textStyle={styles.filterChipText}
-        >
-          {sortNewestFirst ? "Newest first" : "Oldest first"}
-        </Chip>
+        
         
         {user?.role === 'owner' && (
           <Chip

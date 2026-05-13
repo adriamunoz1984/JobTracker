@@ -58,13 +58,18 @@ export default function AddJobScreen() {
   const [setupCharge, setSetupCharge] = useState(editingJob?.setupCharge?.toString() || '');
   const [manualOverride, setManualOverride] = useState(false);
   const [manualAmount, setManualAmount] = useState(editingJob?.amount?.toString() || '');
-  const [paymentMethod, setPaymentMethod] = useState<'Cash' | 'Check' | 'Zelle' | 'Square' | 'Charge'>(
+  const [paymentMethod, setPaymentMethod] = useState<'Cash' | 'Check' | 'Zelle' | 'Square' | 'Charge' | 'Card'>(
     editingJob?.paymentMethod || 'Cash'
   );
   const [isPaidToMe, setIsPaidToMe] = useState(editingJob?.isPaidToMe || false);
   const [checkNumber, setCheckNumber] = useState(editingJob?.checkNumber || '');
   const [notes, setNotes] = useState(editingJob?.notes || '');
   const [isSaving, setIsSaving] = useState(false);
+
+  // Zelle fields
+  const [zelleName, setZelleName] = useState(editingJob?.zelleName || '');
+  const [zellePhone, setZellePhone] = useState(editingJob?.zellePhone || '');
+  const [zelleNumber, setZelleNumber] = useState(editingJob?.zelleNumber || '');
 
   useEffect(() => {
     if (!user?.uid) return;
@@ -293,6 +298,13 @@ export default function AddJobScreen() {
 
       if (paymentMethod === 'Check' && checkNumber.trim()) {
         jobData.checkNumber = checkNumber.trim();
+      }
+
+      // Add Zelle details if payment method is Zelle
+      if (paymentMethod === 'Zelle') {
+        if (zelleName.trim()) jobData.zelleName = zelleName.trim();
+        if (zellePhone.trim()) jobData.zellePhone = zellePhone.trim();
+        if (zelleNumber.trim()) jobData.zelleNumber = zelleNumber.trim();
       }
 
       if (notes.trim()) {
@@ -542,21 +554,29 @@ export default function AddJobScreen() {
         {/* Payment Method */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Payment Method</Text>
-          <SegmentedButtons
-            value={paymentMethod}
-            onValueChange={(value) => setPaymentMethod(value as any)}
-            buttons={[
-              { value: 'Cash', label: '💵 Cash' },
-              { value: 'Check', label: '📝 Check' },
-              { value: 'Charge', label: '📋 Charge' },
-            ]}
-            style={styles.segmentedButtons}
-          />
+          <View style={styles.paymentMethodContainer}>
+            {['Cash', 'Check', 'Charge', 'Zelle', 'Card'].map((method) => (
+              <Chip
+                key={method}
+                selected={paymentMethod === method}
+                onPress={() => setPaymentMethod(method as any)}
+                style={styles.paymentChip}
+                selectedColor={Colors.primary}
+              >
+                {method === 'Cash' && '💵'}
+                {method === 'Check' && '📝'}
+                {method === 'Charge' && '📋'}
+                {method === 'Zelle' && '📱'}
+                {method === 'Card' && '💳'}
+                {' '}{method}
+              </Chip>
+            ))}
+          </View>
         </View>
 
         {paymentMethod === 'Check' && (
           <TextInput
-            label="Check Number"
+            label="Check Number *"
             value={checkNumber}
             onChangeText={setCheckNumber}
             keyboardType="numeric"
@@ -565,6 +585,47 @@ export default function AddJobScreen() {
             outlineColor={Colors.border}
             activeOutlineColor={Colors.primary}
           />
+        )}
+
+        {/* Zelle Details */}
+        {paymentMethod === 'Zelle' && (
+          <View style={styles.zelleContainer}>
+            <Text style={styles.subLabel}>Zelle Payment Details (Optional)</Text>
+            
+            <TextInput
+              label="Recipient Name"
+              value={zelleName}
+              onChangeText={setZelleName}
+              mode="outlined"
+              style={styles.input}
+              placeholder="Name on Zelle account"
+              outlineColor={Colors.border}
+              activeOutlineColor={Colors.primary}
+            />
+            
+            <TextInput
+              label="Phone Number"
+              value={zellePhone}
+              onChangeText={setZellePhone}
+              mode="outlined"
+              keyboardType="phone-pad"
+              style={styles.input}
+              placeholder="Phone used for Zelle"
+              outlineColor={Colors.border}
+              activeOutlineColor={Colors.primary}
+            />
+            
+            <TextInput
+              label="Confirmation Number"
+              value={zelleNumber}
+              onChangeText={setZelleNumber}
+              mode="outlined"
+              style={styles.input}
+              placeholder="Transaction confirmation #"
+              outlineColor={Colors.border}
+              activeOutlineColor={Colors.primary}
+            />
+          </View>
         )}
 
         <View style={styles.switchRow}>
@@ -642,6 +703,12 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: Colors.text,
+    marginBottom: Spacing.sm,
+  },
+  subLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: Colors.textSecondary,
     marginBottom: Spacing.sm,
   },
   dateButton: {
@@ -735,7 +802,21 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: Spacing.md,
   },
-  segmentedButtons: {
+  paymentMethodContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: Spacing.md,
+  },
+  paymentChip: {
+    marginBottom: 4,
+  },
+  zelleContainer: {
+    padding: Spacing.md,
+    backgroundColor: Colors.infoBg,
+    borderRadius: BorderRadius.medium,
+    borderLeftWidth: 4,
+    borderLeftColor: Colors.info,
     marginBottom: Spacing.md,
   },
   switchRow: {
@@ -744,14 +825,25 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginVertical: Spacing.sm,
     padding: Spacing.md,
-    backgroundColor: Colors.surface,
+    backgroundColor: Colors.infoBg,
     borderRadius: BorderRadius.medium,
+    borderLeftWidth: 4,
+    borderLeftColor: Colors.info,
     ...Shadows.small,
+  },
+  switchContent: {
+    flex: 1,
+    marginRight: Spacing.md,
   },
   switchLabel: {
     fontSize: 14,
-    flex: 1,
+    fontWeight: '600',
     color: Colors.text,
+    marginBottom: 4,
+  },
+  switchSubtext: {
+    fontSize: 12,
+    color: Colors.textSecondary,
   },
   saveButton: {
     marginTop: Spacing.lg,
@@ -760,31 +852,4 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.medium,
     ...Shadows.medium,
   },
-
-  switchRow: {
-  flexDirection: 'row',
-  justifyContent: 'space-between',
-  alignItems: 'center',
-  marginVertical: Spacing.sm,
-  padding: Spacing.md,
-  backgroundColor: Colors.infoBg,
-  borderRadius: BorderRadius.medium,
-  borderLeftWidth: 4,
-  borderLeftColor: Colors.info,
-  ...Shadows.small,
-},
-switchContent: {
-  flex: 1,
-  marginRight: Spacing.md,
-},
-switchLabel: {
-  fontSize: 14,
-  fontWeight: '600',
-  color: Colors.text,
-  marginBottom: 4,
-},
-switchSubtext: {
-  fontSize: 12,
-  color: Colors.textSecondary,
-},
 });
