@@ -5,11 +5,12 @@ import {
   TextInput, 
   Button, 
   Text, 
-  SegmentedButtons, 
   Switch, 
   Divider,
   Chip,
-  IconButton
+  IconButton,
+  Card,
+  Checkbox
 } from 'react-native-paper';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import DateTimePicker from '@react-native-community/datetimepicker';
@@ -21,9 +22,11 @@ import { Job, Client, ClientAddress } from '../types';
 import { 
   getFirestore, 
   collection, 
-  onSnapshot
+  onSnapshot,
+  doc,
+  updateDoc
 } from 'firebase/firestore';
-import { Colors, Spacing, BorderRadius, Shadows, Typography } from '../theme/colors';
+import { Colors, Spacing, BorderRadius, Shadows } from '../theme/colors';
 
 const db = getFirestore();
 
@@ -70,6 +73,17 @@ export default function AddJobScreen() {
   const [zelleName, setZelleName] = useState(editingJob?.zelleName || '');
   const [zellePhone, setZellePhone] = useState(editingJob?.zellePhone || '');
   const [zelleNumber, setZelleNumber] = useState(editingJob?.zelleNumber || '');
+
+  // Billing override fields
+  const [useDifferentBilling, setUseDifferentBilling] = useState(editingJob?.useDifferentBilling || false);
+  const [billingName, setBillingName] = useState(editingJob?.billingName || '');
+  const [billingAddress, setBillingAddress] = useState(editingJob?.billingAddress || '');
+  const [billingCity, setBillingCity] = useState(editingJob?.billingCity || '');
+  const [billingState, setBillingState] = useState(editingJob?.billingState || '');
+  const [billingZip, setBillingZip] = useState(editingJob?.billingZip || '');
+  const [billingEmail, setBillingEmail] = useState(editingJob?.billingEmail || '');
+  const [billingPhone, setBillingPhone] = useState(editingJob?.billingPhone || '');
+  const [billingPO, setBillingPO] = useState(editingJob?.billingPO || '');
 
   useEffect(() => {
     if (!user?.uid) return;
@@ -133,6 +147,18 @@ export default function AddJobScreen() {
     }
     if (client.defaultSetupCharge && !setupCharge) {
       setSetupCharge(client.defaultSetupCharge.toString());
+    }
+    
+    // Pre-fill billing from client if available
+    if (!useDifferentBilling && client.billingName) {
+      setBillingName(client.billingName);
+      setBillingAddress(client.billingAddress || '');
+      setBillingCity(client.billingCity || '');
+      setBillingState(client.billingState || '');
+      setBillingZip(client.billingZip || '');
+      setBillingEmail(client.billingEmail || '');
+      setBillingPhone(client.billingPhone || '');
+      setBillingPO(client.billingPO || '');
     }
     
     setFilteredAddresses(client.addresses);
@@ -223,6 +249,57 @@ export default function AddJobScreen() {
     }
   };
 
+  const promptUpdateClientBilling = async () => {
+    if (!selectedClient || !useDifferentBilling) return;
+
+    const hasChanges = 
+      billingName !== (selectedClient.billingName || '') ||
+      billingAddress !== (selectedClient.billingAddress || '') ||
+      billingCity !== (selectedClient.billingCity || '') ||
+      billingState !== (selectedClient.billingState || '') ||
+      billingZip !== (selectedClient.billingZip || '') ||
+      billingEmail !== (selectedClient.billingEmail || '') ||
+      billingPhone !== (selectedClient.billingPhone || '') ||
+      billingPO !== (selectedClient.billingPO || '');
+
+    if (hasChanges) {
+      Alert.alert(
+        'Update Billing Info?',
+        'Would you like to update the billing information on file for this client?',
+        [
+          { text: 'No, Just This Job', style: 'cancel' },
+          {
+            text: 'Yes, Update Client',
+            onPress: async () => {
+              try {
+                let ownerId = user!.uid;
+                if (user!.role === 'employee' && user!.ownerId) {
+                  ownerId = user!.ownerId;
+                }
+
+                const clientRef = doc(db, 'users', ownerId, 'clients', selectedClient.id);
+                await updateDoc(clientRef, {
+                  billingName: billingName.trim() || null,
+                  billingAddress: billingAddress.trim() || null,
+                  billingCity: billingCity.trim() || null,
+                  billingState: billingState.trim() || null,
+                  billingZip: billingZip.trim() || null,
+                  billingEmail: billingEmail.trim() || null,
+                  billingPhone: billingPhone.trim() || null,
+                  billingPO: billingPO.trim() || null,
+                  updatedAt: new Date().toISOString(),
+                });
+                console.log('✅ Client billing info updated');
+              } catch (error) {
+                console.error('Error updating client billing:', error);
+              }
+            }
+          }
+        ]
+      );
+    }
+  };
+
   const handleSave = async () => {
     if (!address.trim()) {
       Alert.alert('Missing Information', 'Please enter an address');
@@ -300,11 +377,22 @@ export default function AddJobScreen() {
         jobData.checkNumber = checkNumber.trim();
       }
 
-      // Add Zelle details if payment method is Zelle
       if (paymentMethod === 'Zelle') {
         if (zelleName.trim()) jobData.zelleName = zelleName.trim();
         if (zellePhone.trim()) jobData.zellePhone = zellePhone.trim();
         if (zelleNumber.trim()) jobData.zelleNumber = zelleNumber.trim();
+      }
+
+      if (paymentMethod === 'Charge' && useDifferentBilling) {
+        jobData.useDifferentBilling = true;
+        if (billingName.trim()) jobData.billingName = billingName.trim();
+        if (billingAddress.trim()) jobData.billingAddress = billingAddress.trim();
+        if (billingCity.trim()) jobData.billingCity = billingCity.trim();
+        if (billingState.trim()) jobData.billingState = billingState.trim();
+        if (billingZip.trim()) jobData.billingZip = billingZip.trim();
+        if (billingEmail.trim()) jobData.billingEmail = billingEmail.trim();
+        if (billingPhone.trim()) jobData.billingPhone = billingPhone.trim();
+        if (billingPO.trim()) jobData.billingPO = billingPO.trim();
       }
 
       if (notes.trim()) {
@@ -319,12 +407,15 @@ export default function AddJobScreen() {
         };
         await updateJob(updatedJob);
         Alert.alert('Success', 'Job updated successfully');
+        navigation.goBack();
       } else {
         await addJob(jobData);
         Alert.alert('Success', 'Job added successfully');
+        
+        await promptUpdateClientBilling();
+        
+        navigation.goBack();
       }
-
-      navigation.goBack();
     } catch (error) {
       console.error('Error saving job:', error);
       Alert.alert('Error', 'Failed to save job');
@@ -346,7 +437,6 @@ export default function AddJobScreen() {
       </LinearGradient>
 
       <View style={styles.content}>
-        {/* Date Picker */}
         <View style={styles.section}>
           <Button
             mode="outlined"
@@ -370,7 +460,6 @@ export default function AddJobScreen() {
 
         <Divider style={styles.divider} />
 
-        {/* Client Autocomplete */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Client Information</Text>
           <TextInput
@@ -407,7 +496,6 @@ export default function AddJobScreen() {
           )}
         </View>
 
-        {/* Address Autocomplete */}
         <View style={styles.section}>
           <TextInput
             label="Address *"
@@ -461,7 +549,6 @@ export default function AddJobScreen() {
 
         <Divider style={styles.divider} />
 
-        {/* Yards & Pricing */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Job Details</Text>
           <TextInput
@@ -534,7 +621,6 @@ export default function AddJobScreen() {
 
         <Divider style={styles.divider} />
 
-        {/* Total */}
         <LinearGradient
           colors={[Colors.success, Colors.successLight]}
           style={styles.totalContainer}
@@ -551,7 +637,6 @@ export default function AddJobScreen() {
 
         <Divider style={styles.divider} />
 
-        {/* Payment Method */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Payment Method</Text>
           <View style={styles.paymentMethodContainer}>
@@ -587,7 +672,6 @@ export default function AddJobScreen() {
           />
         )}
 
-        {/* Zelle Details */}
         {paymentMethod === 'Zelle' && (
           <View style={styles.zelleContainer}>
             <Text style={styles.subLabel}>Zelle Payment Details (Optional)</Text>
@@ -628,6 +712,125 @@ export default function AddJobScreen() {
           </View>
         )}
 
+        {paymentMethod === 'Charge' && (
+          <View style={styles.billingSection}>
+            <TouchableOpacity
+              style={styles.checkboxRow}
+              onPress={() => setUseDifferentBilling(!useDifferentBilling)}
+            >
+              <Checkbox
+                status={useDifferentBilling ? 'checked' : 'unchecked'}
+                onPress={() => setUseDifferentBilling(!useDifferentBilling)}
+                color={Colors.primary}
+              />
+              <Text style={styles.checkboxLabel}>Use different billing info for this job</Text>
+            </TouchableOpacity>
+
+            {useDifferentBilling && (
+              <Card style={styles.billingCard}>
+                <Card.Content>
+                  <Text style={styles.billingCardTitle}>💳 Billing Information</Text>
+                  
+                  <TextInput
+                    label="Billing Name"
+                    value={billingName}
+                    onChangeText={setBillingName}
+                    mode="outlined"
+                    style={styles.input}
+                    placeholder="Company name for invoice"
+                    outlineColor={Colors.border}
+                    activeOutlineColor={Colors.primary}
+                  />
+
+                  <TextInput
+                    label="Billing Address"
+                    value={billingAddress}
+                    onChangeText={setBillingAddress}
+                    mode="outlined"
+                    style={styles.input}
+                    placeholder="Street address"
+                    outlineColor={Colors.border}
+                    activeOutlineColor={Colors.primary}
+                  />
+
+                  <View style={styles.row}>
+                    <TextInput
+                      label="City"
+                      value={billingCity}
+                      onChangeText={setBillingCity}
+                      mode="outlined"
+                      style={[styles.input, styles.flexInput]}
+                      outlineColor={Colors.border}
+                      activeOutlineColor={Colors.primary}
+                    />
+                    
+                    <TextInput
+                      label="State"
+                      value={billingState}
+                      onChangeText={setBillingState}
+                      mode="outlined"
+                      style={[styles.input, styles.shortInput]}
+                      maxLength={2}
+                      autoCapitalize="characters"
+                      placeholder="CA"
+                      outlineColor={Colors.border}
+                      activeOutlineColor={Colors.primary}
+                    />
+                  </View>
+
+                  <TextInput
+                    label="ZIP Code"
+                    value={billingZip}
+                    onChangeText={setBillingZip}
+                    mode="outlined"
+                    keyboardType="numeric"
+                    style={styles.input}
+                    maxLength={10}
+                    outlineColor={Colors.border}
+                    activeOutlineColor={Colors.primary}
+                  />
+
+                  <TextInput
+                    label="Billing Email"
+                    value={billingEmail}
+                    onChangeText={setBillingEmail}
+                    mode="outlined"
+                    keyboardType="email-address"
+                    autoCapitalize="none"
+                    style={styles.input}
+                    left={<TextInput.Icon icon="email" iconColor={Colors.primary} />}
+                    outlineColor={Colors.border}
+                    activeOutlineColor={Colors.primary}
+                  />
+
+                  <TextInput
+                    label="Billing Phone"
+                    value={billingPhone}
+                    onChangeText={setBillingPhone}
+                    mode="outlined"
+                    keyboardType="phone-pad"
+                    style={styles.input}
+                    left={<TextInput.Icon icon="phone" iconColor={Colors.primary} />}
+                    outlineColor={Colors.border}
+                    activeOutlineColor={Colors.primary}
+                  />
+
+                  <TextInput
+                    label="PO Number"
+                    value={billingPO}
+                    onChangeText={setBillingPO}
+                    mode="outlined"
+                    style={styles.input}
+                    placeholder="Purchase order #"
+                    outlineColor={Colors.border}
+                    activeOutlineColor={Colors.primary}
+                  />
+                </Card.Content>
+              </Card>
+            )}
+          </View>
+        )}
+
         <View style={styles.switchRow}>
           <View style={styles.switchContent}>
             <Text style={styles.switchLabel}>Direct Payment</Text>
@@ -642,7 +845,6 @@ export default function AddJobScreen() {
           />
         </View>
 
-        {/* Notes */}
         <TextInput
           label="Notes (Optional)"
           value={notes}
@@ -655,7 +857,6 @@ export default function AddJobScreen() {
           activeOutlineColor={Colors.primary}
         />
 
-        {/* Save Button */}
         <Button
           mode="contained"
           onPress={handleSave}
@@ -717,6 +918,16 @@ const styles = StyleSheet.create({
   input: {
     marginBottom: Spacing.md,
     backgroundColor: Colors.surface,
+  },
+  row: {
+    flexDirection: 'row',
+    gap: Spacing.sm,
+  },
+  flexInput: {
+    flex: 1,
+  },
+  shortInput: {
+    width: 80,
   },
   divider: {
     marginVertical: Spacing.lg,
@@ -817,6 +1028,31 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.medium,
     borderLeftWidth: 4,
     borderLeftColor: Colors.info,
+    marginBottom: Spacing.md,
+  },
+  billingSection: {
+    marginBottom: Spacing.md,
+  },
+  checkboxRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: Spacing.sm,
+  },
+  checkboxLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: Colors.text,
+    marginLeft: Spacing.xs,
+  },
+  billingCard: {
+    backgroundColor: Colors.infoBg,
+    borderLeftWidth: 4,
+    borderLeftColor: Colors.info,
+  },
+  billingCardTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: Colors.text,
     marginBottom: Spacing.md,
   },
   switchRow: {

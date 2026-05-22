@@ -37,45 +37,40 @@ export interface Employee {
 
 export interface Job {
   id: string;
-  date: string;
+  userId: string;
   companyName?: string;
   address: string;
   city: string;
   yards: number;
-  amountPerYard?: number;  // Add this
-  setupCharge?: number;     // Add this
-  amount: number;
   isPaid: boolean;
-  isPaidToMe: boolean;
-  isFlatRate?: boolean;
-  flatRateAmount?: number;
-  paymentMethod: PaymentMethod;
-  checkNumber?: string;
+  isPaidToMe?: boolean;
+  paymentMethod: 'Cash' | 'Check' | 'Charge' | 'Zelle' | 'Card';
+  amount: number;
+  date: string;
   notes?: string;
-  createdAt: string;
-  updatedAt: string;
+  createdAt?: string;
+  updatedAt?: string;
+  sequenceNumber?: number;
+  totalJobsOnDate?: number;
   
-  // Multi-user fields
-  ownerId?: string;
-  assignedTo?: string;
-  jobType: JobType;
-  status?: JobStatus;
+  // Check payment
+  checkNumber?: string;
   
-  // Employee job metadata (for owners viewing employee jobs)
-  isEmployeeJob?: boolean;
-  employeeName?: string;
-  employeeId?: string;
-  isOwnerJob?: boolean;
+  // Zelle payment details
+  zellePhone?: string;
+  zelleName?: string;
+  zelleNumber?: string;
   
-  // Billing details
-  billingDetails?: {
-    invoiceNumber?: string;
-    billingDate?: string;
-    dueDate?: string;
-    contactPerson?: string;
-    contactEmail?: string;
-    contactPhone?: string;
-  };
+  // Billing override (NEW)
+  useDifferentBilling?: boolean;
+  billingName?: string;
+  billingAddress?: string;
+  billingCity?: string;
+  billingState?: string;
+  billingZip?: string;
+  billingEmail?: string;
+  billingPhone?: string;
+  billingPO?: string;
 }
 
 export interface WeeklySummary {
@@ -100,14 +95,20 @@ export interface ClientAddress {
 
 export interface Client {
   id: string;
-  name: string; // Company/Client name
-  phone?: string;
-  email?: string;
-  defaultPricePerYard?: number; // Client-level default
-  defaultSetupCharge?: number;
-  isPrivate?: boolean; // Add this - marks client as private
+  name: string;
   addresses: ClientAddress[];
-  notes?: string;
+  defaultPricePerYard?: number;
+  defaultSetupCharge?: number;
   createdAt: string;
-  updatedAt: string;
+  updatedAt?: string;
+  
+  // Billing Information (NEW)
+  billingName?: string;
+  billingAddress?: string;
+  billingCity?: string;
+  billingState?: string;
+  billingZip?: string;
+  billingEmail?: string;
+  billingPhone?: string;
+  billingPO?: string; // Purchase Order number
 }
