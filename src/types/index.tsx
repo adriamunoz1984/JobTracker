@@ -112,3 +112,37 @@ export interface Client {
   billingPhone?: string;
   billingPO?: string; // Purchase Order number
 }
+
+export interface Invoice {
+  id: string;
+  invoiceNumber: string;
+  date: string;
+  dueDate: string;
+  clientId?: string;
+  clientName: string;
+  clientEmail?: string;
+  clientAddress?: string;
+  clientPhone?: string;
+  jobIds: string[];
+  lineItems: InvoiceLineItem[];
+  subtotal: number;
+  tax?: number;
+  taxRate?: number;
+  total: number;
+  status: 'draft' | 'sent' | 'paid' | 'overdue';
+  sentDate?: string;
+  paidDate?: string;
+  notes?: string;
+  terms?: string;
+  createdBy: string;
+  createdAt: string;
+  updatedAt?: string;
+}
+
+export interface InvoiceLineItem {
+  id: string;
+  description: string;
+  quantity: number;
+  rate: number;
+  amount: number;
+}

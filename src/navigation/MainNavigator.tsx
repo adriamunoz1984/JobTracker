@@ -1,4 +1,5 @@
 // src/navigation/MainNavigator.tsx
+import InvoiceListScreen from '../screens/InvoiceListScreen';
 import NotificationBell from '../components/NotificationBell';
 import React from 'react';
 import { createMaterialTopTabNavigator } from '@react-navigation/material-top-tabs';
@@ -58,7 +59,7 @@ const ProfileButton = () => {
 
 // Define common header options
 const commonScreenOptions = {
-  headerTitleAlign: 'center',
+  headerTitleAlign: 'center' as const,
   headerStyle: {
     backgroundColor: '#2196F3',
   },
@@ -132,6 +133,18 @@ function YearlyStack() {
     </Stack.Navigator>
   );
 }
+// Invoices stack
+function InvoicesStack() {
+  return (
+    <Stack.Navigator screenOptions={commonScreenOptions}>
+      <Stack.Screen 
+        name="InvoicesList" 
+        component={InvoiceListScreen} 
+        options={{ title: 'Invoices' }} 
+      />
+    </Stack.Navigator>
+  );
+}
 
 // Main tab navigation
 export default function MainNavigator() {
@@ -151,6 +164,8 @@ export default function MainNavigator() {
             iconName = focused ? 'bar-chart' : 'bar-chart-outline';
           } else if (route.name === 'Yearly') {
             iconName = focused ? 'stats-chart' : 'stats-chart-outline';
+          } else if (route.name === 'Invoices') {
+            iconName = focused ? 'receipt' : 'receipt-outline';
           }
 
           return <Ionicons name={iconName} size={24} color={color} />;
@@ -172,6 +187,7 @@ export default function MainNavigator() {
       <Tab.Screen name="Weekly" component={WeeklyStack} />
       <Tab.Screen name="Monthly" component={MonthlyStack} />
       <Tab.Screen name="Yearly" component={YearlyStack} />
+      <Tab.Screen name="Invoices" component={InvoicesStack} />
     </Tab.Navigator>
   );
 }
