@@ -69,47 +69,56 @@ export default function InvoiceListScreen() {
   };
 
   const handleCreateInvoice = () => {
-    navigation.navigate('Reports' as never);
+    (navigation as any).navigate('Invoice');
+  };
+
+  const handleInvoicePress = (invoice: Invoice) => {
+    (navigation as any).navigate('InvoiceDetail', { invoice });
   };
 
   const renderInvoice = ({ item }: { item: Invoice }) => (
-    <Card style={styles.invoiceCard}>
-      <Card.Content>
-        <View style={styles.invoiceHeader}>
-          <View>
-            <Text style={styles.invoiceNumber}>{item.invoiceNumber}</Text>
-            <Text style={styles.clientName}>{item.clientName}</Text>
+    <TouchableOpacity 
+      onPress={() => handleInvoicePress(item)}
+      activeOpacity={0.7}
+    >
+      <Card style={styles.invoiceCard}>
+        <Card.Content>
+          <View style={styles.invoiceHeader}>
+            <View>
+              <Text style={styles.invoiceNumber}>{item.invoiceNumber}</Text>
+              <Text style={styles.clientName}>{item.clientName}</Text>
+            </View>
+            <View style={styles.amountContainer}>
+              <Text style={styles.amount}>${item.total.toFixed(2)}</Text>
+              <Chip 
+                mode="flat" 
+                style={[styles.statusChip, { backgroundColor: getStatusColor(item.status) + '20' }]}
+                textStyle={{ color: getStatusColor(item.status) }}
+              >
+                {item.status}
+              </Chip>
+            </View>
           </View>
-          <View style={styles.amountContainer}>
-            <Text style={styles.amount}>${item.total.toFixed(2)}</Text>
-            <Chip 
-              mode="flat" 
-              style={[styles.statusChip, { backgroundColor: getStatusColor(item.status) + '20' }]}
-              textStyle={{ color: getStatusColor(item.status) }}
-            >
-              {item.status}
-            </Chip>
-          </View>
-        </View>
 
-        <Divider style={styles.divider} />
+          <Divider style={styles.divider} />
 
-        <View style={styles.invoiceDetails}>
-          <View style={styles.detailRow}>
-            <Text style={styles.label}>Issued:</Text>
-            <Text style={styles.value}>{format(new Date(item.date), 'MMM d, yyyy')}</Text>
+          <View style={styles.invoiceDetails}>
+            <View style={styles.detailRow}>
+              <Text style={styles.label}>Issued:</Text>
+              <Text style={styles.value}>{format(new Date(item.date), 'MMM d, yyyy')}</Text>
+            </View>
+            <View style={styles.detailRow}>
+              <Text style={styles.label}>Due:</Text>
+              <Text style={styles.value}>{format(new Date(item.dueDate), 'MMM d, yyyy')}</Text>
+            </View>
+            <View style={styles.detailRow}>
+              <Text style={styles.label}>Jobs:</Text>
+              <Text style={styles.value}>{item.jobIds.length}</Text>
+            </View>
           </View>
-          <View style={styles.detailRow}>
-            <Text style={styles.label}>Due:</Text>
-            <Text style={styles.value}>{format(new Date(item.dueDate), 'MMM d, yyyy')}</Text>
-          </View>
-          <View style={styles.detailRow}>
-            <Text style={styles.label}>Jobs:</Text>
-            <Text style={styles.value}>{item.jobIds.length}</Text>
-          </View>
-        </View>
-      </Card.Content>
-    </Card>
+        </Card.Content>
+      </Card>
+    </TouchableOpacity>
   );
 
   return (
@@ -190,7 +199,7 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   statusChip: {
-    height: 24,
+    height: 32,
   },
   divider: {
     marginVertical: Spacing.md,

@@ -9,14 +9,17 @@ import { LinearGradient } from 'expo-linear-gradient';
 
 interface Job {
   id: string;
+  userId: string;
   companyName?: string;
+  clientName: string;
   address: string;
   city: string;
   yards: number;
   isPaid: boolean;
   isPaidToMe?: boolean;
-  paymentMethod: 'Cash' | 'Check' | 'Zelle' | 'Square' | 'Charge';
+  paymentMethod: 'Cash' | 'Check' | 'Zelle' | 'Square' | 'Charge' | 'Card';
   amount: number;
+  isFlatRate: boolean;
   date: string;
   sequenceNumber?: number;
   totalJobsOnDate?: number;
@@ -30,7 +33,7 @@ interface JobCardProps {
 }
 
 const JobCard: React.FC<JobCardProps> = ({ job, onDelete, onTogglePaid }) => {
-  const navigation = useNavigation();
+  const navigation = useNavigation<any>();
   const { updateJob } = useJobs();
   const [expanded, setExpanded] = useState(false);
   const [menuVisible, setMenuVisible] = useState(false);
@@ -105,15 +108,10 @@ const JobCard: React.FC<JobCardProps> = ({ job, onDelete, onTogglePaid }) => {
             {/* Badges */}
             <View style={styles.badgeRow}>
               {showSequenceBadge && (
-                <Chip 
-                  mode="outlined" 
-                  compact 
-                  style={styles.sequenceBadge}
-                  textStyle={styles.sequenceBadgeText}
-                >
-                  #{job.sequenceNumber}
-                </Chip>
-              )}
+            <View style={styles.sequenceBadge}>
+              <Text style={styles.sequenceBadgeText}>#{job.sequenceNumber}</Text>
+            </View>
+          )}
               
               {(job as any).isEmployeeJob && (job as any).employeeName && (
                 <Chip 
@@ -306,15 +304,22 @@ const styles = StyleSheet.create({
     gap: Spacing.xs,
     flexWrap: 'wrap',
   },
-  sequenceBadge: {
-    height: 24,
-    backgroundColor: Colors.surfaceDark,
-    borderColor: Colors.border,
-  },
-  sequenceBadgeText: {
-    fontSize: 11,
-    color: Colors.text,
-  },
+sequenceBadge: {
+  width: 40,
+  height: 40,
+  borderRadius: 20,
+  backgroundColor: Colors.surfaceDark,
+  borderWidth: 1,
+  borderColor: Colors.border,
+  justifyContent: 'center',
+  alignItems: 'center',
+},
+sequenceBadgeText: {
+  fontSize: 16,
+  fontWeight: 'bold',
+  color: Colors.text,
+  textAlign: 'center',
+},
   employeeBadge: {
     height: 24,
     backgroundColor: Colors.infoBg,

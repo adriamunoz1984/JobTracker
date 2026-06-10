@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, FlatList, Text } from 'react-native';
+import { View, StyleSheet, FlatList, Text, TouchableOpacity } from 'react-native';
 import { FAB, Searchbar, IconButton, Button, Divider, Chip } from 'react-native-paper';
 import { useNavigation } from '@react-navigation/native';
 import { format, endOfWeek, startOfWeek, isSameDay, parseISO } from 'date-fns';
 import { LinearGradient } from 'expo-linear-gradient';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import SyncStatus from '../components/SyncStatus';
 import { useJobs } from '../context/JobsContext';
 import { useAuth } from '../context/AuthContext';
@@ -25,6 +26,8 @@ export default function HomeScreen() {
   } = useJobs();
   const [searchQuery, setSearchQuery] = useState('');
   const [sortNewestFirst, setSortNewestFirst] = useState(true);
+  const [collapsedWeeks, setCollapsedWeeks] = useState<Set<string>>(new Set());
+  const [allCollapsed, setAllCollapsed] = useState(false);
   
   // Function to group jobs by date and assign sequence numbers
   const processJobs = (jobsList: Job[]): {jobsWithSequence: Job[], jobsByDate: Record<string, Job[]>} => {
@@ -136,29 +139,61 @@ export default function HomeScreen() {
       };
     });
 
-  const flatListData = weekSections.flatMap(section => [
-    { 
-      type: 'header', 
-      id: `week-${section.weekEnd}`,
-      weekEnd: section.weekEnd
-    },
-    ...section.jobs.map(job => ({ type: 'job', job }))
-  ]);
+  type FlatListItem =
+    | { type: 'header'; id: string; weekEnd: string }
+    | { type: 'job'; job: Job };
+
+  const flatListData: FlatListItem[] = weekSections.flatMap(section => {
+    const isCollapsed = collapsedWeeks.has(section.weekEnd);
+    
+    return [
+      { 
+        type: 'header', 
+        id: `week-${section.weekEnd}`,
+        weekEnd: section.weekEnd
+      },
+      ...(isCollapsed ? [] : section.jobs.map(job => ({ type: 'job', job })))
+    ];
+  });
 
   const handleSearch = (query: string) => {
     setSearchQuery(query);
   };
 
   const handleAddJob = () => {
-    navigation.navigate('AddJob' as never);
+    (navigation as any).navigate('AddJob');
   };
 
   const handleJobPress = (job: Job) => {
-    navigation.navigate('JobDetail' as never, { jobId: job.id } as never);
+    (navigation as any).navigate('JobDetail', { job });
   };
   
   const toggleSortOrder = () => {
     setSortNewestFirst(!sortNewestFirst);
+  };
+  
+  const toggleWeekCollapse = (weekEnd: string) => {
+    setCollapsedWeeks(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(weekEnd)) {
+        newSet.delete(weekEnd);
+      } else {
+        newSet.add(weekEnd);
+      }
+      return newSet;
+    });
+  };
+
+  const toggleAllWeeks = () => {
+    if (allCollapsed) {
+      // Expand all
+      setCollapsedWeeks(new Set());
+      setAllCollapsed(false);
+    } else {
+      // Collapse all
+      setCollapsedWeeks(new Set(weekSections.map(s => s.weekEnd)));
+      setAllCollapsed(true);
+    }
   };
   
   const handleTogglePaid = async (jobId: string, isPaid: boolean) => {
@@ -176,27 +211,62 @@ export default function HomeScreen() {
   const renderItem = ({ item }: { item: any }) => {
     if (item.type === 'header') {
       const weekEndDate = parseISO(item.weekEnd);
+      const weekJobs = weekSections.find(w => w.weekEnd === item.weekEnd)?.jobs || [];
+      const isCollapsed = collapsedWeeks.has(item.weekEnd);
+      
+      const weekTotal = weekJobs.reduce((sum, job) => sum + (job.amount || 0), 0);
+      const isOwner = user?.role === 'owner';
+      
+      let displayAmount = weekTotal;
+      if (!isOwner) {
+        // For employees, calculate their share
+        const commissionRate = user?.commissionRate || 50;
+        displayAmount = (weekTotal * commissionRate) / 100;
+      }
+      
       return (
         <View style={styles.weekHeaderContainer}>
-          <LinearGradient
-            colors={[Colors.primary, Colors.accent]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-            style={styles.weekHeaderGradient}
+          <TouchableOpacity
+            onPress={() => toggleWeekCollapse(item.weekEnd)}
+            activeOpacity={0.7}
           >
-            <Text style={styles.weekEndText}>
-              📅 Week ending {format(weekEndDate, 'MMM d, yyyy')}
-            </Text>
-          </LinearGradient>
+            <LinearGradient
+              colors={[Colors.primary, Colors.accent]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.weekHeaderGradient}
+            >
+              <View style={styles.weekHeaderContent}>
+                <View style={styles.weekHeaderLeft}>
+                  <MaterialCommunityIcons
+                    name={isCollapsed ? 'chevron-right' : 'chevron-down'}
+                    size={28}
+                    color={Colors.textInverse}
+                  />
+                  <Text style={styles.weekEndText}>
+                    Week of {format(weekEndDate, 'MMM dd')}
+                  </Text>
+                </View>
+                <Text style={styles.weekTotalText}>
+                  ${displayAmount.toFixed(0)}
+                </Text>
+              </View>
+            </LinearGradient>
+          </TouchableOpacity>
         </View>
       );
     } else {
       return (
-        <JobCard 
-          job={item.job} 
-          onTogglePaid={handleTogglePaid}
-          onDelete={handleDeleteJob}
-        />
+        <TouchableOpacity 
+          onPress={() => handleJobPress(item.job)}
+          activeOpacity={0.7}
+        >
+          <JobCard 
+            job={item.job} 
+            onTogglePaid={handleTogglePaid}
+            onDelete={handleDeleteJob}
+          />
+        </TouchableOpacity>
       );
     }
   };
@@ -211,8 +281,6 @@ export default function HomeScreen() {
     <View style={styles.container}>
       <SyncStatus />
       
-      {/* Summary Stats Bar */}
-    
 
       {/* Search and Filters */}
       <View style={styles.searchContainer}>
@@ -228,14 +296,19 @@ export default function HomeScreen() {
           icon={sortNewestFirst ? "sort-calendar-descending" : "sort-calendar-ascending"}
           size={24}
           onPress={toggleSortOrder}
-          style={styles.sortButton}
+          style={styles.iconButton}
+          iconColor={Colors.primary}
+        />
+        <IconButton
+          icon={allCollapsed ? "chevron-down" : "chevron-up"}
+          size={20}
+          onPress={toggleAllWeeks}
+          style={styles.iconButton}
           iconColor={Colors.primary}
         />
       </View>
       
       <View style={styles.filterContainer}>
-        
-        
         {user?.role === 'owner' && (
           <Chip
             mode={showEmployeeJobs ? 'flat' : 'outlined'}
@@ -260,6 +333,8 @@ export default function HomeScreen() {
         renderItem={renderItem}
         contentContainerStyle={styles.listContent}
       />
+
+      
     </View>
   );
 }
@@ -312,8 +387,9 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.surface,
     borderRadius: BorderRadius.large,
   },
-  sortButton: {
-    marginLeft: Spacing.sm,
+  iconButton: {
+    marginLeft: 0,
+    marginRight: 4,
   },
   filterContainer: {
     flexDirection: 'row',
@@ -348,10 +424,33 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.md,
     paddingHorizontal: Spacing.lg,
   },
+  weekHeaderContent: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.md,
+    gap: Spacing.lg,
+  },
+  weekHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.md,
+    flex: 1,
+    minWidth: 0,
+  },
   weekEndText: {
-    textAlign: 'center',
-    fontSize: 14,
+    fontSize: 16,
     fontWeight: 'bold',
     color: Colors.textInverse,
+    flex: 1,
+    numberOfLines: 1,
+  },
+  weekTotalText: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: Colors.textInverse,
+    minWidth: 90,
+    textAlign: 'right',
   },
 });

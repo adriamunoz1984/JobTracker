@@ -1,6 +1,6 @@
 // src/screens/DashboardScreen.tsx
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, ScrollView, Dimensions } from 'react-native';
+import { View, StyleSheet, ScrollView, Dimensions, TouchableOpacity } from 'react-native';
 import { 
   Card, 
   Text, 
@@ -12,6 +12,7 @@ import { LineChart, BarChart } from 'react-native-chart-kit';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useJobs } from '../context/JobsContext';
 import { useAuth } from '../context/AuthContext';
+import { useNavigation } from '@react-navigation/native';
 import { Job } from '../types';
 import { 
   format, 
@@ -34,11 +35,22 @@ const screenWidth = Dimensions.get('window').width;
 export default function DashboardScreen() {
   const { jobs } = useJobs();
   const { user } = useAuth();
+  const navigation = useNavigation();
 
   const [timeRange, setTimeRange] = useState<'week' | 'month' | 'year'>('month');
   const [filteredJobs, setFilteredJobs] = useState<Job[]>([]);
 
   const getDateRange = () => {
+    const handleMetricPress = (metricType: any) => {
+        const { start, end } = getDateRange();
+        (navigation as any).navigate('DetailedReport', {
+          metricType,
+          jobs: filteredJobs,
+          timeLabel: `${format(start, 'MMM d')} - ${format(end, 'MMM d, yyyy')}`,
+          isOwner: user?.role === 'owner',
+          commissionRate: user?.commissionRate || 50,
+        });
+      };
     const now = new Date();
     switch (timeRange) {
       case 'week':
@@ -112,7 +124,7 @@ export default function DashboardScreen() {
         ).length;
       });
       
-      return { labels, revenueData, jobsData };
+      return { labels, revenueData, jobsData, details: [] };
     } 
     else if (timeRange === 'month') {
       // Weekly data for the month
@@ -134,7 +146,23 @@ export default function DashboardScreen() {
         }).length;
       });
       
-      return { labels, revenueData, jobsData };
+      // Week details for tappable breakdown
+      const details = weeks.map(weekStart => {
+        const weekEnd = endOfWeek(weekStart);
+        const weekJobs = filteredJobs.filter(job => {
+          const jobDate = parseISO(job.date);
+          return isWithinInterval(jobDate, { start: weekStart, end: weekEnd });
+        });
+        return {
+          label: `${format(weekStart, 'MMM d')} - ${format(weekEnd, 'MMM d')}`,
+          start: format(weekStart, 'yyyy-MM-dd'),
+          end: format(weekEnd, 'yyyy-MM-dd'),
+          jobs: weekJobs.length,
+          revenue: weekJobs.reduce((sum, job) => sum + (job.amount || 0), 0),
+        };
+      });
+      
+      return { labels, revenueData, jobsData, details };
     } 
     else {
       // Monthly data for the year
@@ -156,7 +184,23 @@ export default function DashboardScreen() {
         }).length;
       });
       
-      return { labels, revenueData, jobsData };
+      // Month details for tappable breakdown
+      const details = months.map(monthStart => {
+        const monthEnd = endOfMonth(monthStart);
+        const monthJobs = filteredJobs.filter(job => {
+          const jobDate = parseISO(job.date);
+          return isWithinInterval(jobDate, { start: monthStart, end: monthEnd });
+        });
+        return {
+          label: format(monthStart, 'MMMM'),
+          start: format(monthStart, 'yyyy-MM-dd'),
+          end: format(monthEnd, 'yyyy-MM-dd'),
+          jobs: monthJobs.length,
+          revenue: monthJobs.reduce((sum, job) => sum + (job.amount || 0), 0),
+        };
+      });
+      
+      return { labels, revenueData, jobsData, details };
     }
   };
 
@@ -177,6 +221,16 @@ export default function DashboardScreen() {
       strokeWidth: '2',
       stroke: Colors.primary,
     },
+  };
+
+  const handlePeriodPress = (detail: any) => {
+    if (detail.jobs > 0) {
+      (navigation as any).navigate('Home', {
+        filterWeekStart: detail.start,
+        filterWeekEnd: detail.end,
+        filterWeekLabel: detail.label,
+      });
+    }
   };
 
   return (
@@ -307,6 +361,42 @@ export default function DashboardScreen() {
             )}
           </Card.Content>
         </Card>
+
+        {/* Tappable Period Breakdown */}
+        {chartData.details.length > 0 && (timeRange === 'month' || timeRange === 'year') && (
+          <Card style={styles.card}>
+            <Card.Content>
+              <Text variant="titleMedium" style={styles.sectionTitle}>
+                {timeRange === 'month' ? '📅 Tap Week to View Jobs' : '📅 Tap Month to View Jobs'}
+              </Text>
+              <Divider style={styles.divider} />
+
+              {chartData.details.map((detail, index) => (
+                <TouchableOpacity
+                  key={index}
+                  style={styles.periodRow}
+                  onPress={() => handlePeriodPress(detail)}
+                  disabled={detail.jobs === 0}
+                  activeOpacity={detail.jobs > 0 ? 0.7 : 1}
+                >
+                  <View style={styles.periodInfo}>
+                    <Text style={styles.periodLabel}>{detail.label}</Text>
+                  </View>
+                  <View style={styles.periodStats}>
+                    {detail.jobs > 0 ? (
+                      <>
+                        <Chip compact style={styles.jobsChip}>{detail.jobs} jobs</Chip>
+                        <Text style={styles.periodRevenue}>${detail.revenue.toFixed(0)}</Text>
+                      </>
+                    ) : (
+                      <Text style={styles.noJobsText}>No jobs</Text>
+                    )}
+                  </View>
+                </TouchableOpacity>
+              ))}
+            </Card.Content>
+          </Card>
+        )}
 
         {/* Payment Methods Breakdown */}
         <Card style={styles.card}>
@@ -520,6 +610,43 @@ const styles = StyleSheet.create({
     color: Colors.textLight,
     fontStyle: 'italic',
     paddingVertical: Spacing.xl,
+  },
+  periodRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: Spacing.md,
+    backgroundColor: Colors.surfaceDark,
+    borderRadius: BorderRadius.medium,
+    marginBottom: Spacing.sm,
+  },
+  periodInfo: {
+    flex: 1,
+  },
+  periodLabel: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: Colors.text,
+  },
+  periodStats: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+  },
+  jobsChip: {
+    backgroundColor: Colors.infoBg,
+  },
+  periodRevenue: {
+    fontSize: 15,
+    fontWeight: 'bold',
+    color: Colors.success,
+    minWidth: 60,
+    textAlign: 'right',
+  },
+  noJobsText: {
+    fontSize: 13,
+    color: Colors.textLight,
+    fontStyle: 'italic',
   },
   paymentRow: {
     flexDirection: 'row',

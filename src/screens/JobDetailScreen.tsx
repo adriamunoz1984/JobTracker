@@ -1,356 +1,335 @@
-import React, { useState, useEffect } from 'react';
+// src/screens/JobDetailScreen.tsx
+import { collection, query, where, getDocs,getFirestore,deleteDoc,doc} from 'firebase/firestore';
+import React, { useState } from 'react';
 import { View, StyleSheet, ScrollView, Alert } from 'react-native';
-import { useRoute, useNavigation, RouteProp } from '@react-navigation/native';
-import { Card, Title, Paragraph, Button, Divider, Chip, IconButton, TextInput, List } from 'react-native-paper';
-import { format } from 'date-fns';
-
+import { Card, Text,  Button,  Divider, Chip,IconButton} from 'react-native-paper';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import { useJobs } from '../context/JobsContext';
+import { useAuth } from '../context/AuthContext';
+import { Job } from '../types';
+import { format } from 'date-fns';
+import { LinearGradient } from 'expo-linear-gradient';
+import { Colors, Spacing, BorderRadius, Shadows } from '../theme/colors';
 
-type RouteParams = {
-  jobId: string;
-};
-
-// Extended Job interface with billing details
-interface Job {
-  id: string;
-  companyName?: string;
-  address: string;
-  city: string;
-  yards: number;
-  isPaid: boolean;
-  paymentMethod: 'Cash' | 'Check' | 'Zelle' | 'Square' | 'Charge';
-  amount: number;
-  date: string;
-  sequenceNumber?: number;
-  notes?: string;
-  billingDetails?: {
-    invoiceNumber?: string;
-    billingDate?: string;
-    dueDate?: string;
-    contactPerson?: string;
-    contactEmail?: string;
-    contactPhone?: string;
-  };
-  checkNumber?: string;
-}
+const db = getFirestore();
 
 export default function JobDetailScreen() {
-  const route = useRoute<RouteProp<Record<string, RouteParams>, string>>();
   const navigation = useNavigation();
-  const { getJobById, updateJob, deleteJob } = useJobs();
-  const [job, setJob] = useState<Job | undefined>(undefined);
-  const { jobId } = route.params || {};
-  
-  // State for billing details
-  const [showBillingForm, setShowBillingForm] = useState(false);
-  const [billingDetails, setBillingDetails] = useState({
-    invoiceNumber: '',
-    billingDate: '',
-    dueDate: '',
-    contactPerson: '',
-    contactEmail: '',
-    contactPhone: '',
-  });
-
-  useEffect(() => {
-    if (jobId) {
-      const jobData = getJobById(jobId);
-      setJob(jobData);
-      
-      // Initialize billing details if they exist
-      if (jobData?.billingDetails) {
-        setBillingDetails(jobData.billingDetails);
-      }
-    }
-  }, [jobId, getJobById]);
+  const route = useRoute();
+  const { job } = route.params as { job: Job };
+  const { deleteJob } = useJobs();
+  const { user } = useAuth();
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const handleEdit = () => {
-    if (job) {
-      navigation.navigate('AddJob' as never, { job } as never);
-    }
+    (navigation as any).navigate('AddJob', { job });
   };
+
+ const handleGenerateInvoice = async () => {
+  try {
+    // Check if invoice already exists for this job
+    const invoicesRef = collection(db, 'invoices');
+    const q = query(
+      invoicesRef,
+      where('createdBy', '==', user!.uid),
+      where('jobIds', 'array-contains', job.id)
+    );
+    
+    const snapshot = await getDocs(q);
+    
+    if (snapshot.docs.length > 0) {
+      // Invoice already exists
+      const existingInvoice = snapshot.docs[0].data();
+      
+      Alert.alert(
+        'Invoice Already Exists',
+        'An invoice has already been created for this job.',
+        [
+          {
+            text: 'View Existing',
+            onPress: () => {
+              (navigation as any).navigate('InvoiceDetail', {
+                invoice: { id: snapshot.docs[0].id, ...existingInvoice }
+              });
+            }
+          },
+          {
+            text: 'Create New',
+            onPress: () => {
+              (navigation as any).navigate('Invoice', { jobs: [job] });
+            }
+          },
+          {
+            text: 'Cancel',
+            style: 'cancel'
+          }
+        ]
+      );
+    } else {
+      // No invoice exists, create new
+      (navigation as any).navigate('Invoice', { jobs: [job] });
+    }
+  } catch (error) {
+    console.error('Error checking invoice:', error);
+    // If there's an error checking, just proceed to create
+    (navigation as any).navigate('Invoice', { jobs: [job] });
+  }
+};
 
   const handleDelete = () => {
     Alert.alert(
-      'Delete Job',
-      'Are you sure you want to delete this job? This action cannot be undone.',
+      'Delete Job?',
+      'This action cannot be undone.',
       [
         { text: 'Cancel', style: 'cancel' },
         {
           text: 'Delete',
           style: 'destructive',
           onPress: async () => {
-            if (job) {
+            try {
+              setIsDeleting(true);
               await deleteJob(job.id);
+              Alert.alert('Success', 'Job deleted');
               navigation.goBack();
+            } catch (error) {
+              console.error('Error deleting job:', error);
+              Alert.alert('Error', 'Failed to delete job');
+            } finally {
+              setIsDeleting(false);
             }
-          },
-        },
+          }
+        }
       ]
     );
   };
 
-  const togglePaymentStatus = async () => {
-    if (job) {
-      const updatedJob = { ...job, isPaid: !job.isPaid };
-      await updateJob(updatedJob);
-      setJob(updatedJob);
+  const getPaymentIcon = (method: string) => {
+    switch (method) {
+      case 'Cash': return '💵';
+      case 'Check': return '📝';
+      case 'Charge': return '📋';
+      case 'Zelle': return '📱';
+      case 'Card': return '💳';
+      default: return '💰';
     }
   };
-  
-  // Handle saving billing details
-  const saveBillingDetails = async () => {
-    if (job) {
-      const updatedJob = {
-        ...job,
-        billingDetails: billingDetails
-      };
-      
-      await updateJob(updatedJob);
-      setJob(updatedJob);
-      setShowBillingForm(false);
-      Alert.alert('Success', 'Billing details have been saved');
-    }
-  };
-
-  if (!job) {
-    return (
-      <View style={styles.centered}>
-        <Paragraph>Job not found</Paragraph>
-      </View>
-    );
-  }
-
-  const formattedDate = format(new Date(job.date), 'MMMM dd, yyyy');
-  const formattedAmount = job.amount !== undefined 
-    ? job.amount.toLocaleString('en-US', {
-        style: 'currency',
-        currency: 'USD',
-      })
-    : '$0.00';
 
   return (
     <ScrollView style={styles.container}>
-      <Card style={styles.card}>
-        <Card.Content>
-          <View style={styles.header}>
-            <Title style={styles.title}>{job.companyName || 'Unnamed Job'}</Title>
-            <Chip
-              mode="outlined"
-              textStyle={{ fontWeight: 'bold' }}
-              style={job.isPaid ? styles.paidChip : styles.unpaidChip}
-            >
-              {job.isPaid ? 'PAID' : 'UNPAID'}
-            </Chip>
-          </View>
+      <LinearGradient
+        colors={[Colors.primary, Colors.primaryDark]}
+        style={styles.header}
+      >
+        <Text style={styles.headerTitle}>📋 Job Details</Text>
+        <Text style={styles.headerSubtitle}>
+          {format(new Date(job.date), 'MMMM dd, yyyy')}
+        </Text>
+      </LinearGradient>
 
-          <Divider style={styles.divider} />
+      <View style={styles.content}>
+        {/* Basic Info */}
+       {/* Basic Info */}
+<Card style={styles.card}>
+  <Card.Content>
+    <Text variant="titleMedium" style={styles.sectionTitle}>Job Information</Text>
+    <Divider style={styles.divider} />
 
-          <View style={styles.detailRow}>
-            <Paragraph style={styles.label}>Date:</Paragraph>
-            <Paragraph>{formattedDate}</Paragraph>
-          </View>
+    {job.clientName && (
+      <Text style={{ fontSize: 24, fontWeight: 'bold', color: Colors.text, marginBottom: Spacing.md }}>
+        {job.clientName}
+      </Text>
+    )}
 
-          <View style={styles.detailRow}>
-            <Paragraph style={styles.label}>Address:</Paragraph>
-            <Paragraph>{`${job.address}, ${job.city}`}</Paragraph>
-          </View>
+    <Text style={{ fontSize: 14, color: Colors.text, marginBottom: Spacing.xs }}>
+      {job.address}
+    </Text>
+    
+    <Text style={{ fontSize: 14, color: Colors.text, marginBottom: Spacing.md }}>
+      {job.city}
+    </Text>
+    <View style={styles.row}>
+      <Text style={styles.label}>Yards:</Text>
+      <Text style={styles.value}>{job.yards}</Text>
+    </View>
 
-          <View style={styles.detailRow}>
-            <Paragraph style={styles.label}>Concrete:</Paragraph>
-            <Paragraph>{`${job.yards} yards`}</Paragraph>
-          </View>
+    {job.isFlatRate && (
+      <View style={styles.row}>
+        <Text style={styles.label}>Rate:</Text>
+        <Chip mode="flat" icon="check" style={{ backgroundColor: Colors.warning + '20' }}>
+          Flat Rate
+        </Chip>
+      </View>
+    )}
+  </Card.Content>
+</Card>
 
-          <View style={styles.detailRow}>
-            <Paragraph style={styles.label}>Amount:</Paragraph>
-            <Paragraph style={styles.amount}>{formattedAmount}</Paragraph>
-          </View>
-
-          <View style={styles.detailRow}>
-            <Paragraph style={styles.label}>Payment Method:</Paragraph>
-            <Paragraph>{job.paymentMethod}</Paragraph>
-          </View>
-
-          {job.paymentMethod === 'Check' && job.checkNumber && (
-            <View style={styles.detailRow}>
-              <Paragraph style={styles.label}>Check Number:</Paragraph>
-              <Paragraph>{job.checkNumber}</Paragraph>
-            </View>
-          )}
-
-          {job.notes && (
-            <>
-              <Divider style={styles.divider} />
-              <Paragraph style={styles.label}>Notes:</Paragraph>
-              <Paragraph style={styles.notes}>{job.notes}</Paragraph>
-            </>
-          )}
-        </Card.Content>
-      </Card>
-      
-      {/* Billing Information Section - only for Charge jobs */}
-      {job.paymentMethod === 'Charge' && (
-        <Card style={styles.billingCard}>
+        {/* Pricing */}
+        <Card style={styles.card}>
           <Card.Content>
-            <View style={styles.billingHeader}>
-              <Title>Billing Information</Title>
-              <Button 
-                mode="text" 
-                onPress={() => setShowBillingForm(!showBillingForm)}
-                icon={showBillingForm ? "chevron-up" : "chevron-down"}
-              >
-                {showBillingForm ? 'Hide Form' : 'Edit'}
-              </Button>
-            </View>
-            
+            <Text variant="titleMedium" style={styles.sectionTitle}>Pricing</Text>
             <Divider style={styles.divider} />
-            
-            {/* Display billing details if available */}
-            {!showBillingForm && (
+
+            {!job.isFlatRate && (
               <>
-                {job.billingDetails?.invoiceNumber ? (
-                  <View style={styles.detailRow}>
-                    <Paragraph style={styles.label}>Invoice #:</Paragraph>
-                    <Paragraph>{job.billingDetails.invoiceNumber}</Paragraph>
-                  </View>
-                ) : null}
-                
-                {job.billingDetails?.billingDate ? (
-                  <View style={styles.detailRow}>
-                    <Paragraph style={styles.label}>Billing Date:</Paragraph>
-                    <Paragraph>{job.billingDetails.billingDate}</Paragraph>
-                  </View>
-                ) : null}
-                
-                {job.billingDetails?.dueDate ? (
-                  <View style={styles.detailRow}>
-                    <Paragraph style={styles.label}>Due Date:</Paragraph>
-                    <Paragraph>{job.billingDetails.dueDate}</Paragraph>
-                  </View>
-                ) : null}
-                
-                {job.billingDetails?.contactPerson ? (
-                  <View style={styles.detailRow}>
-                    <Paragraph style={styles.label}>Contact:</Paragraph>
-                    <Paragraph>{job.billingDetails.contactPerson}</Paragraph>
-                  </View>
-                ) : null}
-                
-                {job.billingDetails?.contactEmail ? (
-                  <View style={styles.detailRow}>
-                    <Paragraph style={styles.label}>Email:</Paragraph>
-                    <Paragraph>{job.billingDetails.contactEmail}</Paragraph>
-                  </View>
-                ) : null}
-                
-                {job.billingDetails?.contactPhone ? (
-                  <View style={styles.detailRow}>
-                    <Paragraph style={styles.label}>Phone:</Paragraph>
-                    <Paragraph>{job.billingDetails.contactPhone}</Paragraph>
-                  </View>
-                ) : null}
-                
-                {!job.billingDetails || (
-                  !job.billingDetails.invoiceNumber && 
-                  !job.billingDetails.contactPerson &&
-                  !job.billingDetails.billingDate
-                ) ? (
-                  <Paragraph style={styles.emptyBilling}>No billing details entered yet</Paragraph>
-                ) : null}
+                <View style={styles.row}>
+                  <Text style={styles.label}>Amount per Yard:</Text>
+                  <Text style={styles.value}>${job.amountPerYard?.toFixed(2)}</Text>
+                </View>
+
+                <View style={styles.row}>
+                  <Text style={styles.label}>Setup Charge:</Text>
+                  <Text style={styles.value}>${job.setupCharge?.toFixed(2)}</Text>
+                </View>
               </>
             )}
-            
-            {/* Billing details form */}
-            {showBillingForm && (
-              <View style={styles.billingForm}>
-                <TextInput
-                  label="Invoice Number"
-                  value={billingDetails.invoiceNumber}
-                  onChangeText={(text) => setBillingDetails({...billingDetails, invoiceNumber: text})}
-                  style={styles.input}
-                  mode="outlined"
-                />
-                
-                <TextInput
-                  label="Billing Date (MM/DD/YYYY)"
-                  value={billingDetails.billingDate}
-                  onChangeText={(text) => setBillingDetails({...billingDetails, billingDate: text})}
-                  style={styles.input}
-                  mode="outlined"
-                />
-                
-                <TextInput
-                  label="Due Date (MM/DD/YYYY)"
-                  value={billingDetails.dueDate}
-                  onChangeText={(text) => setBillingDetails({...billingDetails, dueDate: text})}
-                  style={styles.input}
-                  mode="outlined"
-                />
-                
-                <TextInput
-                  label="Contact Person"
-                  value={billingDetails.contactPerson}
-                  onChangeText={(text) => setBillingDetails({...billingDetails, contactPerson: text})}
-                  style={styles.input}
-                  mode="outlined"
-                />
-                
-                <TextInput
-                  label="Contact Email"
-                  value={billingDetails.contactEmail}
-                  onChangeText={(text) => setBillingDetails({...billingDetails, contactEmail: text})}
-                  style={styles.input}
-                  mode="outlined"
-                  keyboardType="email-address"
-                />
-                
-                <TextInput
-                  label="Contact Phone"
-                  value={billingDetails.contactPhone}
-                  onChangeText={(text) => setBillingDetails({...billingDetails, contactPhone: text})}
-                  style={styles.input}
-                  mode="outlined"
-                  keyboardType="phone-pad"
-                />
-                
-                <Button 
-                  mode="contained" 
-                  onPress={saveBillingDetails}
-                  style={styles.saveBillingButton}
-                >
-                  Save Billing Details
-                </Button>
-              </View>
-            )}
+
+            <Divider style={styles.divider} />
+
+            <View style={[styles.row, styles.totalRow]}>
+              <Text style={styles.totalLabel}>Total:</Text>
+              <Text style={styles.totalValue}>${job.amount.toFixed(2)}</Text>
+            </View>
           </Card.Content>
         </Card>
-      )}
 
-      <View style={styles.actions}>
-        <Button
-          mode="contained"
-          onPress={togglePaymentStatus}
-          style={job.isPaid ? styles.markUnpaidButton : styles.markPaidButton}
-        >
-          {job.isPaid ? 'Mark as Unpaid' : 'Mark as Paid'}
-        </Button>
+        {/* Payment */}
+        <Card style={styles.card}>
+          <Card.Content>
+            <Text variant="titleMedium" style={styles.sectionTitle}>Payment</Text>
+            <Divider style={styles.divider} />
 
-        <View style={styles.editDeleteButtons}>
+            <View style={styles.row}>
+              <Text style={styles.label}>Method:</Text>
+              <Chip mode="flat">
+                {getPaymentIcon(job.paymentMethod)} {job.paymentMethod}
+              </Chip>
+            </View>
+
+            {job.checkNumber && (
+              <View style={styles.row}>
+                <Text style={styles.label}>Check #:</Text>
+                <Text style={styles.value}>{job.checkNumber}</Text>
+              </View>
+            )}
+
+            {job.zelleName && (
+              <>
+                <View style={styles.row}>
+                  <Text style={styles.label}>Zelle Name:</Text>
+                  <Text style={styles.value}>{job.zelleName}</Text>
+                </View>
+                {job.zellePhone && (
+                  <View style={styles.row}>
+                    <Text style={styles.label}>Zelle Phone:</Text>
+                    <Text style={styles.value}>{job.zellePhone}</Text>
+                  </View>
+                )}
+              </>
+            )}
+
+            <View style={styles.row}>
+              <Text style={styles.label}>Paid to Me:</Text>
+              <Chip mode="flat" icon={job.isPaidToMe ? 'check' : 'close'}>
+                {job.isPaidToMe ? 'Yes' : 'No'}
+              </Chip>
+            </View>
+          </Card.Content>
+        </Card>
+
+        {/* Billing Info */}
+        {job.useDifferentBilling && (
+          <Card style={styles.card}>
+            <Card.Content>
+              <Text variant="titleMedium" style={styles.sectionTitle}>💳 Billing Information</Text>
+              <Divider style={styles.divider} />
+
+              {job.billingName && (
+                <View style={styles.row}>
+                  <Text style={styles.label}>Name:</Text>
+                  <Text style={styles.value}>{job.billingName}</Text>
+                </View>
+              )}
+
+              {job.billingAddress && (
+                <View style={styles.row}>
+                  <Text style={styles.label}>Address:</Text>
+                  <Text style={styles.value}>{job.billingAddress}</Text>
+                </View>
+              )}
+
+              {job.billingCity && (
+                <View style={styles.row}>
+                  <Text style={styles.label}>City:</Text>
+                  <Text style={styles.value}>{job.billingCity}, {job.billingState} {job.billingZip}</Text>
+                </View>
+              )}
+
+              {job.billingEmail && (
+                <View style={styles.row}>
+                  <Text style={styles.label}>Email:</Text>
+                  <Text style={styles.value}>{job.billingEmail}</Text>
+                </View>
+              )}
+
+              {job.billingPhone && (
+                <View style={styles.row}>
+                  <Text style={styles.label}>Phone:</Text>
+                  <Text style={styles.value}>{job.billingPhone}</Text>
+                </View>
+              )}
+
+              {job.billingPO && (
+                <View style={styles.row}>
+                  <Text style={styles.label}>PO #:</Text>
+                  <Text style={styles.value}>{job.billingPO}</Text>
+                </View>
+              )}
+            </Card.Content>
+          </Card>
+        )}
+
+        {/* Notes */}
+        {job.notes && (
+          <Card style={styles.card}>
+            <Card.Content>
+              <Text variant="titleMedium" style={styles.sectionTitle}>Notes</Text>
+              <Divider style={styles.divider} />
+              <Text style={styles.notesText}>{job.notes}</Text>
+            </Card.Content>
+          </Card>
+        )}
+
+        {/* Action Buttons */}
+        <View style={styles.actions}>
           <Button
-            mode="outlined"
+            mode="contained"
+            onPress={handleGenerateInvoice}
+            style={styles.button}
+            icon="file-document"
+            buttonColor={Colors.success}
+          >
+            Generate Invoice
+          </Button>
+
+          <Button
+            mode="contained"
             onPress={handleEdit}
-            style={styles.editButton}
+            style={styles.button}
             icon="pencil"
           >
-            Edit
+            Edit Job
           </Button>
+
           <Button
-            mode="outlined"
+            mode="contained"
             onPress={handleDelete}
-            style={styles.deleteButton}
+            loading={isDeleting}
+            disabled={isDeleting}
+            style={styles.button}
             icon="delete"
+            buttonColor={Colors.error}
           >
-            Delete
+            Delete Job
           </Button>
         </View>
       </View>
@@ -361,106 +340,89 @@ export default function JobDetailScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: Colors.background,
   },
-  centered: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+   clientName: {
+  fontSize: 24,  // Increase from 18 to 24
+  fontWeight: 'bold',
+  color: Colors.text,
+  marginBottom: Spacing.xs,
+},
+  header: {
+    paddingVertical: Spacing.xl,
+    paddingHorizontal: Spacing.lg,
+    ...Shadows.medium,
+  },
+  headerTitle: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: Colors.textInverse,
+    marginBottom: Spacing.xs,
+  },
+  headerSubtitle: {
+    fontSize: 14,
+    color: Colors.textInverse,
+    opacity: 0.9,
+  },
+  content: {
+    padding: Spacing.md,
   },
   card: {
-    margin: 16,
-    elevation: 4,
+    marginBottom: Spacing.md,
   },
-  billingCard: {
-    marginHorizontal: 16,
-    marginBottom: 16,
-    elevation: 4,
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  billingHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  title: {
-    flex: 1,
-    marginRight: 8,
-  },
-  paidChip: {
-    backgroundColor: 'rgba(76, 175, 80, 0.1)',
-    borderColor: '#4CAF50',
-  },
-  unpaidChip: {
-    backgroundColor: 'rgba(244, 67, 54, 0.1)',
-    borderColor: '#F44336',
+  sectionTitle: {
+    fontWeight: 'bold',
+    marginBottom: Spacing.sm,
   },
   divider: {
-    marginVertical: 12,
+    marginVertical: Spacing.md,
   },
-  detailRow: {
-    flexDirection: 'row',
-    marginBottom: 8,
-  },
-  label: {
-    fontWeight: 'bold',
-    marginRight: 8,
-    minWidth: 100,
-  },
-  amount: {
-    fontWeight: 'bold',
-  },
-  notes: {
-    marginTop: 4,
-    fontStyle: 'italic',
-  },
-  actions: {
-    padding: 16,
-  },
-  markPaidButton: {
-    marginBottom: 16,
-    paddingVertical: 8,
-    backgroundColor: '#4CAF50',
-  },
-  markUnpaidButton: {
-    marginBottom: 16,
-    paddingVertical: 8,
-    backgroundColor: '#F44336',
-  },
-  editDeleteButtons: {
+  row: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: Spacing.sm,
+    paddingVertical: Spacing.xs,
   },
-  editButton: {
+  label: {
+    fontSize: 14,
+    color: Colors.textSecondary,
+    fontWeight: '600',
+  },
+  value: {
+    fontSize: 14,
+    color: Colors.text,
+    fontWeight: '500',
+    textAlign: 'right',
     flex: 1,
-    marginRight: 8,
+    marginLeft: Spacing.md,
   },
-  deleteButton: {
-    flex: 1,
-    marginLeft: 8,
-    borderColor: '#F44336',
-    color: '#F44336',
+  totalRow: {
+    paddingTop: Spacing.md,
+    marginBottom: 0,
   },
-  billingForm: {
-    marginTop: 8,
+  totalLabel: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: Colors.text,
   },
-  input: {
-    marginBottom: 12,
-    backgroundColor: 'white',
+  totalValue: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: Colors.primary,
   },
-  saveBillingButton: {
-    marginTop: 8,
-    backgroundColor: '#2196F3',
+  notesText: {
+    fontSize: 14,
+    color: Colors.text,
+    lineHeight: 20,
   },
-  emptyBilling: {
-    fontStyle: 'italic',
-    textAlign: 'center',
-    marginVertical: 12,
-    color: '#757575',
+  actions: {
+    marginTop: Spacing.lg,
+    marginBottom: Spacing.xl,
+    gap: Spacing.sm,
   },
+  button: {
+    paddingVertical: Spacing.sm,
+  },
+ 
 });

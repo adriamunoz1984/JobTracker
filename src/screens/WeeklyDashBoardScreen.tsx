@@ -1,9 +1,10 @@
 // src/screens/WeeklyDashboardScreen.tsx
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, ScrollView, Dimensions } from 'react-native';
+import { View, StyleSheet, ScrollView, Dimensions, TouchableOpacity } from 'react-native';
 import { Card, Text, Button, Divider, Chip } from 'react-native-paper';
 import { LineChart } from 'react-native-chart-kit';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useNavigation } from '@react-navigation/native';
 import { useJobs } from '../context/JobsContext';
 import { useAuth } from '../context/AuthContext';
 import { Job } from '../types';
@@ -23,13 +24,16 @@ import { Colors, Spacing, BorderRadius, Shadows } from '../theme/colors';
 const screenWidth = Dimensions.get('window').width;
 
 export default function WeeklyDashboardScreen() {
+  const navigation = useNavigation();
   const { jobs } = useJobs();
   const { user } = useAuth();
   const [isExporting, setIsExporting] = useState(false);
+  const [weekOffset, setWeekOffset] = useState(0);
 
   const currentDate = new Date();
-  const weekStart = startOfWeek(currentDate);
-  const weekEnd = endOfWeek(currentDate);
+  const adjustedDate = addDays(currentDate, weekOffset * 7);
+  const weekStart = startOfWeek(adjustedDate);
+  const weekEnd = endOfWeek(adjustedDate);
 
   // Filter jobs for current week
   const weekJobs = jobs.filter(job => {
@@ -103,6 +107,27 @@ export default function WeeklyDashboardScreen() {
       strokeWidth: '2',
       stroke: Colors.primary,
     },
+  };
+
+  const goToPreviousWeek = () => {
+    setWeekOffset(weekOffset - 1);
+  };
+
+  const goToNextWeek = () => {
+    setWeekOffset(weekOffset + 1);
+  };
+
+  const goToCurrentWeek = () => {
+    setWeekOffset(0);
+  };
+
+  const handleWeekPress = () => {
+    // Navigate to Home with week filter params
+    (navigation as any).navigate('Home', {
+      filterWeekStart: format(weekStart, 'yyyy-MM-dd'),
+      filterWeekEnd: format(weekEnd, 'yyyy-MM-dd'),
+      filterWeekLabel: `${format(weekStart, 'MMM d')} - ${format(weekEnd, 'MMM d')}`
+    });
   };
 
   const exportPDF = async () => {
@@ -233,16 +258,43 @@ export default function WeeklyDashboardScreen() {
     }
   };
 
+  const handleDayPress = (index: number, dayData: any) => {
+    if (dayData.jobs > 0) {
+      const dayDate = days[index];
+      (navigation as any).navigate('DailyJobs', {
+        date: format(dayDate, 'yyyy-MM-dd'),
+        dayName: dayData.day,
+        dayDate: dayData.date,
+      });
+    }
+  };
+
   return (
     <ScrollView style={styles.container}>
       <LinearGradient
         colors={[Colors.primary, Colors.primaryDark]}
         style={styles.header}
       >
-        <Text style={styles.headerTitle}>📅 Weekly Dashboard</Text>
-        <Text style={styles.headerSubtitle}>
-          {format(weekStart, 'MMM d')} - {format(weekEnd, 'MMM d, yyyy')}
-        </Text>
+        <View style={styles.headerContent}>
+          <TouchableOpacity onPress={goToPreviousWeek} style={styles.navButton}>
+            <Text style={styles.navButtonText}>‹</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity onPress={handleWeekPress} style={styles.headerTextContainer}>
+            <Text style={styles.headerTitle}>
+              {format(weekStart, 'MMM d')} - {format(weekEnd, 'MMM d')}
+            </Text>
+            {weekOffset !== 0 && (
+              <TouchableOpacity onPress={goToCurrentWeek} style={styles.currentWeekButton}>
+                <Text style={styles.currentWeekButtonText}>Back to Current Week</Text>
+              </TouchableOpacity>
+            )}
+          </TouchableOpacity>
+
+          <TouchableOpacity onPress={goToNextWeek} style={styles.navButton}>
+            <Text style={styles.navButtonText}>›</Text>
+          </TouchableOpacity>
+        </View>
       </LinearGradient>
 
       <View style={styles.content}>
@@ -390,7 +442,13 @@ export default function WeeklyDashboardScreen() {
             <Divider style={styles.divider} />
 
             {dailyData.map((day, index) => (
-              <View key={index} style={styles.dayRow}>
+              <TouchableOpacity
+                key={index}
+                style={styles.dayRow}
+                onPress={() => handleDayPress(index, day)}
+                disabled={day.jobs === 0}
+                activeOpacity={day.jobs > 0 ? 0.7 : 1}
+              >
                 <View style={styles.dayInfo}>
                   <Text style={styles.dayName}>{day.day}</Text>
                   <Text style={styles.dayDate}>{day.date}</Text>
@@ -406,7 +464,7 @@ export default function WeeklyDashboardScreen() {
                     <Text style={styles.noJobsText}>No jobs</Text>
                   )}
                 </View>
-              </View>
+              </TouchableOpacity>
             ))}
           </Card.Content>
         </Card>
@@ -434,20 +492,59 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.background,
   },
   header: {
-    paddingVertical: Spacing.xl,
-    paddingHorizontal: Spacing.lg,
+    paddingVertical: 0,
+    paddingHorizontal: 0,
     ...Shadows.medium,
   },
+  headerContent: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.lg,
+  },
+  navButton: {
+    width: 50,
+    height: 50,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 25,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+  },
+  navButtonText: {
+    fontSize: 32,
+    color: Colors.textInverse,
+    fontWeight: 'bold',
+  },
+  headerTextContainer: {
+    flex: 1,
+    alignItems: 'center',
+  },
   headerTitle: {
-    fontSize: 28,
+    fontSize: 24,
     fontWeight: 'bold',
     color: Colors.textInverse,
     marginBottom: Spacing.xs,
+    textAlign: 'center',
   },
   headerSubtitle: {
-    fontSize: 14,
+    fontSize: 13,
     color: Colors.textInverse,
     opacity: 0.9,
+    textAlign: 'center',
+  },
+  currentWeekButton: {
+    marginTop: Spacing.xs,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 4,
+    backgroundColor: 'rgba(255, 255, 255, 0.3)',
+    borderRadius: BorderRadius.small,
+  },
+  currentWeekButtonText: {
+    fontSize: 13,
+    color: Colors.textInverse,
+    fontWeight: '800',
+    padding: 10
   },
   content: {
     padding: Spacing.md,

@@ -74,6 +74,9 @@ export default function AddJobScreen() {
   const [zellePhone, setZellePhone] = useState(editingJob?.zellePhone || '');
   const [zelleNumber, setZelleNumber] = useState(editingJob?.zelleNumber || '');
 
+  // Auto-invoice
+  const [generateInvoice, setGenerateInvoice] = useState(false);
+
   // Billing override fields
   const [useDifferentBilling, setUseDifferentBilling] = useState(editingJob?.useDifferentBilling || false);
   const [billingName, setBillingName] = useState(editingJob?.billingName || '');
@@ -399,23 +402,43 @@ export default function AddJobScreen() {
         jobData.notes = notes.trim();
       }
 
-      if (isEditing && editingJob) {
-        const updatedJob: Job = {
-          ...editingJob,
-          ...jobData,
-          updatedAt: new Date().toISOString(),
-        };
-        await updateJob(updatedJob);
-        Alert.alert('Success', 'Job updated successfully');
-        navigation.goBack();
-      } else {
-        await addJob(jobData);
+
+    if (isEditing && editingJob) {
+  const updatedJob: Job = {
+    ...editingJob,
+    ...jobData,
+    updatedAt: new Date().toISOString(),
+  };
+  await updateJob(updatedJob);
+  Alert.alert('Success', 'Job updated successfully');
+  navigation.goBack();
+} 
+else 
+  {
+  await addJob(jobData);
+  
+  await promptUpdateClientBilling();
+  
+  // If generate invoice is checked, navigate to invoice creation
+  if (generateInvoice) 
+    {
+      const jobForInvoice = 
+      {
+        id: `job_${Date.now()}`,
+        ...jobData,
+        date: jobData.date || date.toISOString(),
+      };
+    
+      (navigation as any).navigate('Invoice', { 
+        jobs: [jobForInvoice] 
+      });
+    } 
+    else 
+      {
         Alert.alert('Success', 'Job added successfully');
-        
-        await promptUpdateClientBilling();
-        
         navigation.goBack();
       }
+    }
     } catch (error) {
       console.error('Error saving job:', error);
       Alert.alert('Error', 'Failed to save job');
@@ -831,6 +854,7 @@ export default function AddJobScreen() {
           </View>
         )}
 
+      {/* Direct Payment Switch */}
         <View style={styles.switchRow}>
           <View style={styles.switchContent}>
             <Text style={styles.switchLabel}>Direct Payment</Text>
@@ -844,7 +868,22 @@ export default function AddJobScreen() {
             color={Colors.primary}
           />
         </View>
-
+        
+      
+      {/* Auto-Generate Invoice - NEW */}
+      <View style={styles.switchRow}>
+        <View style={styles.switchContent}>
+          <Text style={styles.switchLabel}>📄 Generate Invoice</Text>
+          <Text style={styles.switchSubtext}>
+            Automatically create an invoice for this job
+          </Text>
+        </View>
+        <Switch 
+          value={generateInvoice} 
+          onValueChange={setGenerateInvoice}
+          color={Colors.primary}
+        />
+      </View>
         <TextInput
           label="Notes (Optional)"
           value={notes}

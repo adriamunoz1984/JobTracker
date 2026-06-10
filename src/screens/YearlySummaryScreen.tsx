@@ -1,6 +1,6 @@
 // src/screens/YearlySummaryScreen.tsx
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, ScrollView, Dimensions } from 'react-native';
+import { View, StyleSheet, ScrollView, Dimensions, TouchableOpacity } from 'react-native';
 import { Card, Text, Button, Divider, Chip } from 'react-native-paper';
 import { LineChart } from 'react-native-chart-kit';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -15,7 +15,8 @@ import {
   startOfMonth,
   endOfMonth,
   isWithinInterval,
-  parseISO
+  parseISO,
+  addYears
 } from 'date-fns';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
@@ -27,10 +28,12 @@ export default function YearlySummaryScreen() {
   const { jobs } = useJobs();
   const { user } = useAuth();
   const [isExporting, setIsExporting] = useState(false);
+  const [yearOffset, setYearOffset] = useState(0);
 
   const currentDate = new Date();
-  const yearStart = startOfYear(currentDate);
-  const yearEnd = endOfYear(currentDate);
+  const adjustedDate = addYears(currentDate, yearOffset);
+  const yearStart = startOfYear(adjustedDate);
+  const yearEnd = endOfYear(adjustedDate);
 
   // Filter jobs for current year
   const yearJobs = jobs.filter(job => {
@@ -119,6 +122,18 @@ export default function YearlySummaryScreen() {
       month.revenue < min.revenue ? month : min
     , { month: '', revenue: Infinity, fullMonth: '' });
 
+  const goToPreviousYear = () => {
+    setYearOffset(yearOffset - 1);
+  };
+
+  const goToNextYear = () => {
+    setYearOffset(yearOffset + 1);
+  };
+
+  const goToCurrentYear = () => {
+    setYearOffset(0);
+  };
+
   const exportPDF = async () => {
     try {
       setIsExporting(true);
@@ -196,7 +211,7 @@ export default function YearlySummaryScreen() {
           </style>
         </head>
         <body>
-          <h1>📊 Yearly Summary - ${format(currentDate, 'yyyy')}</h1>
+          <h1>📊 Yearly Summary - ${format(adjustedDate, 'yyyy')}</h1>
           
           <div class="summary">
             <h2>Year Totals</h2>
@@ -265,8 +280,25 @@ export default function YearlySummaryScreen() {
         colors={[Colors.info, Colors.infoLight]}
         style={styles.header}
       >
-        <Text style={styles.headerTitle}>📈 Yearly Summary</Text>
-        <Text style={styles.headerSubtitle}>{format(currentDate, 'yyyy')}</Text>
+        <View style={styles.headerContent}>
+          <TouchableOpacity onPress={goToPreviousYear} style={styles.navButton}>
+            <Text style={styles.navButtonText}>‹</Text>
+          </TouchableOpacity>
+
+          <View style={styles.headerTextContainer}>
+            {/* <Text style={styles.headerTitle}>📈 Yearly Summary</Text> */}
+            <Text style={styles.headerTitle}>{format(adjustedDate, 'yyyy')}</Text>
+            {yearOffset !== 0 && (
+              <TouchableOpacity onPress={goToCurrentYear} style={styles.currentYearButton}>
+                <Text style={styles.currentYearButtonText}>Back to Current Year</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+
+          <TouchableOpacity onPress={goToNextYear} style={styles.navButton}>
+            <Text style={styles.navButtonText}>›</Text>
+          </TouchableOpacity>
+        </View>
       </LinearGradient>
 
       <View style={styles.content}>
@@ -500,20 +532,59 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.background,
   },
   header: {
-    paddingVertical: Spacing.xl,
-    paddingHorizontal: Spacing.lg,
+    paddingVertical: 0,
+    paddingHorizontal: 0,
     ...Shadows.medium,
   },
+  headerContent: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.lg,
+  },
+  navButton: {
+    width: 50,
+    height: 50,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 25,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+  },
+  navButtonText: {
+    fontSize: 32,
+    color: Colors.textInverse,
+    fontWeight: 'bold',
+  },
+  headerTextContainer: {
+    flex: 1,
+    alignItems: 'center',
+  },
   headerTitle: {
-    fontSize: 28,
+    fontSize: 24,
     fontWeight: 'bold',
     color: Colors.textInverse,
     marginBottom: Spacing.xs,
+    textAlign: 'center',
   },
   headerSubtitle: {
-    fontSize: 14,
+    fontSize: 13,
     color: Colors.textInverse,
     opacity: 0.9,
+    textAlign: 'center',
+  },
+  currentYearButton: {
+    marginTop: Spacing.xs,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 4,
+    backgroundColor: 'rgba(255, 255, 255, 0.3)',
+    borderRadius: BorderRadius.small,
+  },
+  currentYearButtonText: {
+    fontSize: 13,
+    color: Colors.textInverse,
+    fontWeight: '800',
+    padding:10
   },
   content: {
     padding: Spacing.md,

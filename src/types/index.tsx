@@ -38,6 +38,9 @@ export interface Employee {
 export interface Job {
   id: string;
   userId: string;
+  clientName: string;
+  isFlatRate: boolean;
+  flatRateAmount?: number;
   companyName?: string;
   address: string;
   city: string;
@@ -46,6 +49,8 @@ export interface Job {
   isPaidToMe?: boolean;
   paymentMethod: 'Cash' | 'Check' | 'Charge' | 'Zelle' | 'Card';
   amount: number;
+  amountPerYard?: number;
+  setupCharge?: number;
   date: string;
   notes?: string;
   createdAt?: string;

@@ -1,6 +1,7 @@
 // App.tsx - Updated with debugging
 // Authentication Screens
 
+import InvoiceDetailScreen from './src/screens/InvoiceDetailScreen';
 import { MD3LightTheme} from 'react-native-paper';
 import { Colors } from './src/theme/colors';
 import ReportsScreen from './src/screens/ReportsScreen';
@@ -18,25 +19,28 @@ import MainNavigator from './src/navigation/MainNavigator';
 import ProfileScreen from './src/screens/ProfileScreen';
 import { Provider as PaperProvider, ActivityIndicator, Text, FAB } from 'react-native-paper';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { StatusBar } from 'expo-status-bar';
+import { StatusBar }              from 'expo-status-bar';
 // Context Providers
 import { AuthProvider, useAuth } from './src/context/AuthContext';
-import { JobsProvider } from './src/context/JobsContext';
-import EmployeeInviteChecker from './src/components/EmployeeInviteChecker';
-import EmployeeManagementScreen from './src/screens/EmployeeManagementScreen';
-import LoginScreen from './src/screens/LoginScreen';
-import RegisterScreen from './src/screens/RegisterScreen';
+import { JobsProvider }          from './src/context/JobsContext';
+import EmployeeInviteChecker     from './src/components/EmployeeInviteChecker';
+import EmployeeManagementScreen  from './src/screens/EmployeeManagementScreen';
+import LoginScreen          from './src/screens/LoginScreen';
+import RegisterScreen       from './src/screens/RegisterScreen';
 import ForgotPasswordScreen from './src/screens/ForgotPasswordScreen';
-import RoleSelectionScreen from './src/screens/RoleSelectionScreen';
+import RoleSelectionScreen  from './src/screens/RoleSelectionScreen';
 // Components
-import DraggableFAB from './src/components/DraggableFAB';
+import DraggableFAB    from './src/components/DraggableFAB';
 
 // Screen imports for individual screens that aren't in MainNavigator
-import AddJobScreen from './src/screens/AddjobScreen';
+import AddJobScreen    from './src/screens/AddjobScreen';
 import JobDetailScreen from './src/screens/JobDetailScreen';
 import DummyDataSeeder from './src/screens/DummyDataSeeder';
 import DashboardScreen from './src/screens/DashboardScreen';
-
+// Invoice Screen
+import InvoiceScreen   from './src/screens/InvoiceScreen';
+import DailyJobsScreen from './src/screens/DailyJobScreen';
+import DetailedReportScreen from './src/screens/DetailedReportScreen';
 const Stack = createStackNavigator();
 
 // Component that handles the authentication flowa
@@ -142,7 +146,11 @@ function AppNavigatorWithFAB({ user }: { user: any }) {
                 presentation: 'modal'
               }}
             />
-            
+             <Stack.Screen 
+              name="DailyJobs" 
+              component={DailyJobsScreen}
+              options={{ title: 'Daily Jobs' }}
+            />
             <Stack.Screen 
               name="JobDetail" 
               component={JobDetailScreen}
@@ -153,6 +161,22 @@ function AppNavigatorWithFAB({ user }: { user: any }) {
                 headerTintColor: '#fff',
                 headerTitleAlign: 'center'
               }}
+            />
+            <Stack.Screen 
+              name="InvoiceDetail" 
+              component={InvoiceDetailScreen}
+              options={{
+                headerShown: true,
+                title: 'Invoice Details',
+                headerStyle: { backgroundColor: '#2196F3' },
+                headerTintColor: '#fff',
+                headerTitleAlign: 'center' as const
+              }}
+            />
+             <Stack.Screen 
+              name="DetailedReport" 
+              component={DetailedReportScreen}
+              options={{ title: 'Report Details' }}
             />
             <Stack.Screen 
               name="PendingJobs" 
@@ -235,6 +259,19 @@ function AppNavigatorWithFAB({ user }: { user: any }) {
                 headerTitleAlign: 'center'
               }}
             />
+
+            <Stack.Screen 
+              name="Invoice" 
+              component={InvoiceScreen}
+              options={{
+                headerShown: true,
+                title: 'Create Invoice',
+                headerStyle: { backgroundColor: '#2196F3' },
+                headerTintColor: '#fff',
+                headerTitleAlign: 'center' as const
+              }}
+            />
+
           </>
         )}
       </Stack.Navigator>
