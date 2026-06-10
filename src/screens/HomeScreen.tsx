@@ -244,7 +244,7 @@ export default function HomeScreen() {
                     color={Colors.textInverse}
                   />
                   <Text style={styles.weekEndText}>
-                    Week of {format(weekEndDate, 'MMM dd')}
+                    Weekend {format(weekEndDate, 'MMM dd')}
                   </Text>
                 </View>
                 <Text style={styles.weekTotalText}>
