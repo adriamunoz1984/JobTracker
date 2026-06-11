@@ -1,8 +1,8 @@
 // src/screens/JobDetailScreen.tsx
-import { collection, query, where, getDocs,getFirestore,deleteDoc,doc} from 'firebase/firestore';
+import { collection, query, where, getDocs, getFirestore, deleteDoc, doc } from 'firebase/firestore';
 import React, { useState } from 'react';
-import { View, StyleSheet, ScrollView, Alert } from 'react-native';
-import { Card, Text,  Button,  Divider, Chip,IconButton} from 'react-native-paper';
+import { View, StyleSheet, ScrollView, Alert, TextInput } from 'react-native';
+import { Card, Text, Button, Divider, Chip, IconButton } from 'react-native-paper';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useJobs } from '../context/JobsContext';
 import { useAuth } from '../context/AuthContext';
@@ -16,65 +16,81 @@ const db = getFirestore();
 export default function JobDetailScreen() {
   const navigation = useNavigation();
   const route = useRoute();
-  const { job } = route.params as { job: Job };
-  const { deleteJob } = useJobs();
+  const { job: initialJob } = route.params as { job: Job };
+  const { deleteJob, updateJob } = useJobs();
   const { user } = useAuth();
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
 
-  const handleEdit = () => {
-    (navigation as any).navigate('AddJob', { job });
+  // Edit mode state
+  const [editedJob, setEditedJob] = useState<Job>(initialJob);
+
+  const handleSaveChanges = async () => {
+    try {
+      setIsSaving(true);
+      await updateJob(editedJob);
+      Alert.alert('Success', 'Job updated successfully');
+      setIsEditMode(false);
+    } catch (error) {
+      console.error('Error updating job:', error);
+      Alert.alert('Error', 'Failed to update job');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
- const handleGenerateInvoice = async () => {
-  try {
-    // Check if invoice already exists for this job
-    const invoicesRef = collection(db, 'invoices');
-    const q = query(
-      invoicesRef,
-      where('createdBy', '==', user!.uid),
-      where('jobIds', 'array-contains', job.id)
-    );
-    
-    const snapshot = await getDocs(q);
-    
-    if (snapshot.docs.length > 0) {
-      // Invoice already exists
-      const existingInvoice = snapshot.docs[0].data();
-      
-      Alert.alert(
-        'Invoice Already Exists',
-        'An invoice has already been created for this job.',
-        [
-          {
-            text: 'View Existing',
-            onPress: () => {
-              (navigation as any).navigate('InvoiceDetail', {
-                invoice: { id: snapshot.docs[0].id, ...existingInvoice }
-              });
-            }
-          },
-          {
-            text: 'Create New',
-            onPress: () => {
-              (navigation as any).navigate('Invoice', { jobs: [job] });
-            }
-          },
-          {
-            text: 'Cancel',
-            style: 'cancel'
-          }
-        ]
+  const handleCancel = () => {
+    setEditedJob(initialJob);
+    setIsEditMode(false);
+  };
+
+  const handleGenerateInvoice = async () => {
+    try {
+      const invoicesRef = collection(db, 'invoices');
+      const q = query(
+        invoicesRef,
+        where('createdBy', '==', user!.uid),
+        where('jobIds', 'array-contains', initialJob.id)
       );
-    } else {
-      // No invoice exists, create new
-      (navigation as any).navigate('Invoice', { jobs: [job] });
+      
+      const snapshot = await getDocs(q);
+      
+      if (snapshot.docs.length > 0) {
+        const existingInvoice = snapshot.docs[0].data();
+        
+        Alert.alert(
+          'Invoice Already Exists',
+          'An invoice has already been created for this job.',
+          [
+            {
+              text: 'View Existing',
+              onPress: () => {
+                (navigation as any).navigate('InvoiceDetail', {
+                  invoice: { id: snapshot.docs[0].id, ...existingInvoice }
+                });
+              }
+            },
+            {
+              text: 'Create New',
+              onPress: () => {
+                (navigation as any).navigate('Invoice', { jobs: [initialJob] });
+              }
+            },
+            {
+              text: 'Cancel',
+              style: 'cancel'
+            }
+          ]
+        );
+      } else {
+        (navigation as any).navigate('Invoice', { jobs: [initialJob] });
+      }
+    } catch (error) {
+      console.error('Error checking invoice:', error);
+      (navigation as any).navigate('Invoice', { jobs: [initialJob] });
     }
-  } catch (error) {
-    console.error('Error checking invoice:', error);
-    // If there's an error checking, just proceed to create
-    (navigation as any).navigate('Invoice', { jobs: [job] });
-  }
-};
+  };
 
   const handleDelete = () => {
     Alert.alert(
@@ -88,7 +104,7 @@ export default function JobDetailScreen() {
           onPress: async () => {
             try {
               setIsDeleting(true);
-              await deleteJob(job.id);
+              await deleteJob(initialJob.id);
               Alert.alert('Success', 'Job deleted');
               navigation.goBack();
             } catch (error) {
@@ -114,54 +130,107 @@ export default function JobDetailScreen() {
     }
   };
 
+  const currentJob = isEditMode ? editedJob : initialJob;
+
   return (
     <ScrollView style={styles.container}>
       <LinearGradient
         colors={[Colors.primary, Colors.primaryDark]}
         style={styles.header}
       >
-        <Text style={styles.headerTitle}>📋 Job Details</Text>
+        <View style={styles.headerTop}>
+          <Text style={styles.headerTitle}>📋 Job Details</Text>
+          <IconButton
+            icon={isEditMode ? 'close' : 'pencil'}
+            size={28}
+            iconColor={Colors.textInverse}
+            onPress={() => isEditMode ? handleCancel() : setIsEditMode(true)}
+          />
+        </View>
         <Text style={styles.headerSubtitle}>
-          {format(new Date(job.date), 'MMMM dd, yyyy')}
+          {format(new Date(initialJob.date), 'MMMM dd, yyyy')}
         </Text>
       </LinearGradient>
 
       <View style={styles.content}>
         {/* Basic Info */}
-       {/* Basic Info */}
-<Card style={styles.card}>
-  <Card.Content>
-    <Text variant="titleMedium" style={styles.sectionTitle}>Job Information</Text>
-    <Divider style={styles.divider} />
+        <Card style={styles.card}>
+          <Card.Content>
+            <Text variant="titleMedium" style={styles.sectionTitle}>Job Information</Text>
+            <Divider style={styles.divider} />
 
-    {job.clientName && (
-      <Text style={{ fontSize: 24, fontWeight: 'bold', color: Colors.text, marginBottom: Spacing.md }}>
-        {job.clientName}
-      </Text>
-    )}
+            {isEditMode ? (
+              <>
+                <Text style={styles.editLabel}>Client Name</Text>
+                <TextInput
+                  style={styles.textInput}
+                  value={editedJob.clientName || ''}
+                  onChangeText={(text) => setEditedJob({...editedJob, clientName: text})}
+                  placeholder="Client name"
+                  placeholderTextColor={Colors.textSecondary}
+                />
 
-    <Text style={{ fontSize: 14, color: Colors.text, marginBottom: Spacing.xs }}>
-      {job.address}
-    </Text>
-    
-    <Text style={{ fontSize: 14, color: Colors.text, marginBottom: Spacing.md }}>
-      {job.city}
-    </Text>
-    <View style={styles.row}>
-      <Text style={styles.label}>Yards:</Text>
-      <Text style={styles.value}>{job.yards}</Text>
-    </View>
+                <Text style={styles.editLabel}>Address</Text>
+                <TextInput
+                  style={styles.textInput}
+                  value={editedJob.address}
+                  onChangeText={(text) => setEditedJob({...editedJob, address: text})}
+                  placeholder="Address"
+                  placeholderTextColor={Colors.textSecondary}
+                />
 
-    {job.isFlatRate && (
-      <View style={styles.row}>
-        <Text style={styles.label}>Rate:</Text>
-        <Chip mode="flat" icon="check" style={{ backgroundColor: Colors.warning + '20' }}>
-          Flat Rate
-        </Chip>
-      </View>
-    )}
-  </Card.Content>
-</Card>
+                <Text style={styles.editLabel}>City</Text>
+                <TextInput
+                  style={styles.textInput}
+                  value={editedJob.city}
+                  onChangeText={(text) => setEditedJob({...editedJob, city: text})}
+                  placeholder="City"
+                  placeholderTextColor={Colors.textSecondary}
+                />
+
+                <Text style={styles.editLabel}>Yards</Text>
+                <TextInput
+                  style={styles.textInput}
+                  value={editedJob.yards.toString()}
+                  onChangeText={(text) => setEditedJob({...editedJob, yards: parseFloat(text) || 0})}
+                  placeholder="Yards"
+                  keyboardType="decimal-pad"
+                  placeholderTextColor={Colors.textSecondary}
+                />
+              </>
+            ) : (
+              <>
+                {currentJob.clientName && (
+                  <Text style={{ fontSize: 24, fontWeight: 'bold', color: Colors.text, marginBottom: Spacing.md }}>
+                    {currentJob.clientName}
+                  </Text>
+                )}
+
+                <Text style={{ fontSize: 14, color: Colors.text, marginBottom: Spacing.xs }}>
+                  {currentJob.address}
+                </Text>
+                
+                <Text style={{ fontSize: 14, color: Colors.text, marginBottom: Spacing.md }}>
+                  {currentJob.city}
+                </Text>
+
+                <View style={styles.row}>
+                  <Text style={styles.label}>Yards:</Text>
+                  <Text style={styles.value}>{currentJob.yards}</Text>
+                </View>
+
+                {currentJob.isFlatRate && (
+                  <View style={styles.row}>
+                    <Text style={styles.label}>Rate:</Text>
+                    <Chip mode="flat" icon="check" style={{ backgroundColor: Colors.warning + '20' }}>
+                      Flat Rate
+                    </Chip>
+                  </View>
+                )}
+              </>
+            )}
+          </Card.Content>
+        </Card>
 
         {/* Pricing */}
         <Card style={styles.card}>
@@ -169,26 +238,66 @@ export default function JobDetailScreen() {
             <Text variant="titleMedium" style={styles.sectionTitle}>Pricing</Text>
             <Divider style={styles.divider} />
 
-            {!job.isFlatRate && (
+            {isEditMode ? (
               <>
-                <View style={styles.row}>
-                  <Text style={styles.label}>Amount per Yard:</Text>
-                  <Text style={styles.value}>${job.amountPerYard?.toFixed(2)}</Text>
-                </View>
+                {!editedJob.isFlatRate && (
+                  <>
+                    <Text style={styles.editLabel}>Amount per Yard</Text>
+                    <TextInput
+                      style={styles.textInput}
+                      value={editedJob.amountPerYard?.toString() || ''}
+                      onChangeText={(text) => setEditedJob({...editedJob, amountPerYard: parseFloat(text) || 0})}
+                      placeholder="0.00"
+                      keyboardType="decimal-pad"
+                      placeholderTextColor={Colors.textSecondary}
+                    />
 
-                <View style={styles.row}>
-                  <Text style={styles.label}>Setup Charge:</Text>
-                  <Text style={styles.value}>${job.setupCharge?.toFixed(2)}</Text>
+                    <Text style={styles.editLabel}>Setup Charge</Text>
+                    <TextInput
+                      style={styles.textInput}
+                      value={editedJob.setupCharge?.toString() || ''}
+                      onChangeText={(text) => setEditedJob({...editedJob, setupCharge: parseFloat(text) || 0})}
+                      placeholder="0.00"
+                      keyboardType="decimal-pad"
+                      placeholderTextColor={Colors.textSecondary}
+                    />
+                  </>
+                )}
+
+                <Text style={styles.editLabel}>Total Amount</Text>
+                <TextInput
+                  style={styles.textInput}
+                  value={editedJob.amount.toString()}
+                  onChangeText={(text) => setEditedJob({...editedJob, amount: parseFloat(text) || 0})}
+                  placeholder="0.00"
+                  keyboardType="decimal-pad"
+                  placeholderTextColor={Colors.textSecondary}
+                />
+              </>
+            ) : (
+              <>
+                {!currentJob.isFlatRate && (
+                  <>
+                    <View style={styles.row}>
+                      <Text style={styles.label}>Amount per Yard:</Text>
+                      <Text style={styles.value}>${currentJob.amountPerYard?.toFixed(2)}</Text>
+                    </View>
+
+                    <View style={styles.row}>
+                      <Text style={styles.label}>Setup Charge:</Text>
+                      <Text style={styles.value}>${currentJob.setupCharge?.toFixed(2)}</Text>
+                    </View>
+                  </>
+                )}
+
+                <Divider style={styles.divider} />
+
+                <View style={[styles.row, styles.totalRow]}>
+                  <Text style={styles.totalLabel}>Total:</Text>
+                  <Text style={styles.totalValue}>${currentJob.amount.toFixed(2)}</Text>
                 </View>
               </>
             )}
-
-            <Divider style={styles.divider} />
-
-            <View style={[styles.row, styles.totalRow]}>
-              <Text style={styles.totalLabel}>Total:</Text>
-              <Text style={styles.totalValue}>${job.amount.toFixed(2)}</Text>
-            </View>
           </Card.Content>
         </Card>
 
@@ -198,139 +307,304 @@ export default function JobDetailScreen() {
             <Text variant="titleMedium" style={styles.sectionTitle}>Payment</Text>
             <Divider style={styles.divider} />
 
-            <View style={styles.row}>
-              <Text style={styles.label}>Method:</Text>
-              <Chip mode="flat">
-                {getPaymentIcon(job.paymentMethod)} {job.paymentMethod}
-              </Chip>
-            </View>
-
-            {job.checkNumber && (
-              <View style={styles.row}>
-                <Text style={styles.label}>Check #:</Text>
-                <Text style={styles.value}>{job.checkNumber}</Text>
-              </View>
-            )}
-
-            {job.zelleName && (
+            {isEditMode ? (
               <>
-                <View style={styles.row}>
-                  <Text style={styles.label}>Zelle Name:</Text>
-                  <Text style={styles.value}>{job.zelleName}</Text>
-                </View>
-                {job.zellePhone && (
-                  <View style={styles.row}>
-                    <Text style={styles.label}>Zelle Phone:</Text>
-                    <Text style={styles.value}>{job.zellePhone}</Text>
-                  </View>
+                <Text style={styles.editLabel}>Payment Method</Text>
+                <TextInput
+                  style={styles.textInput}
+                  value={editedJob.paymentMethod}
+                  onChangeText={(text) => setEditedJob({...editedJob, paymentMethod: text as any})}
+                  placeholder="Payment method"
+                  placeholderTextColor={Colors.textSecondary}
+                />
+
+                {editedJob.paymentMethod === 'Check' && (
+                  <>
+                    <Text style={styles.editLabel}>Check Number</Text>
+                    <TextInput
+                      style={styles.textInput}
+                      value={editedJob.checkNumber || ''}
+                      onChangeText={(text) => setEditedJob({...editedJob, checkNumber: text})}
+                      placeholder="Check #"
+                      placeholderTextColor={Colors.textSecondary}
+                    />
+                  </>
+                )}
+
+                {editedJob.paymentMethod === 'Zelle' && (
+                  <>
+                    <Text style={styles.editLabel}>Zelle Name</Text>
+                    <TextInput
+                      style={styles.textInput}
+                      value={editedJob.zelleName || ''}
+                      onChangeText={(text) => setEditedJob({...editedJob, zelleName: text})}
+                      placeholder="Zelle name"
+                      placeholderTextColor={Colors.textSecondary}
+                    />
+
+                    <Text style={styles.editLabel}>Zelle Phone</Text>
+                    <TextInput
+                      style={styles.textInput}
+                      value={editedJob.zellePhone || ''}
+                      onChangeText={(text) => setEditedJob({...editedJob, zellePhone: text})}
+                      placeholder="Zelle phone"
+                      placeholderTextColor={Colors.textSecondary}
+                    />
+                  </>
                 )}
               </>
-            )}
+            ) : (
+              <>
+                <View style={styles.row}>
+                  <Text style={styles.label}>Method:</Text>
+                  <Chip mode="flat">
+                    {getPaymentIcon(currentJob.paymentMethod)} {currentJob.paymentMethod}
+                  </Chip>
+                </View>
 
-            <View style={styles.row}>
-              <Text style={styles.label}>Paid to Me:</Text>
-              <Chip mode="flat" icon={job.isPaidToMe ? 'check' : 'close'}>
-                {job.isPaidToMe ? 'Yes' : 'No'}
-              </Chip>
-            </View>
+                {currentJob.checkNumber && (
+                  <View style={styles.row}>
+                    <Text style={styles.label}>Check #:</Text>
+                    <Text style={styles.value}>{currentJob.checkNumber}</Text>
+                  </View>
+                )}
+
+                {currentJob.zelleName && (
+                  <>
+                    <View style={styles.row}>
+                      <Text style={styles.label}>Zelle Name:</Text>
+                      <Text style={styles.value}>{currentJob.zelleName}</Text>
+                    </View>
+                    {currentJob.zellePhone && (
+                      <View style={styles.row}>
+                        <Text style={styles.label}>Zelle Phone:</Text>
+                        <Text style={styles.value}>{currentJob.zellePhone}</Text>
+                      </View>
+                    )}
+                  </>
+                )}
+
+                <View style={styles.row}>
+                  <Text style={styles.label}>Paid to Me:</Text>
+                  <Chip mode="flat" icon={currentJob.isPaidToMe ? 'check' : 'close'}>
+                    {currentJob.isPaidToMe ? 'Yes' : 'No'}
+                  </Chip>
+                </View>
+              </>
+            )}
           </Card.Content>
         </Card>
 
         {/* Billing Info */}
-        {job.useDifferentBilling && (
+        {currentJob.useDifferentBilling && (
           <Card style={styles.card}>
             <Card.Content>
               <Text variant="titleMedium" style={styles.sectionTitle}>💳 Billing Information</Text>
               <Divider style={styles.divider} />
 
-              {job.billingName && (
-                <View style={styles.row}>
-                  <Text style={styles.label}>Name:</Text>
-                  <Text style={styles.value}>{job.billingName}</Text>
-                </View>
-              )}
+              {isEditMode ? (
+                <>
+                  {currentJob.billingName && (
+                    <>
+                      <Text style={styles.editLabel}>Billing Name</Text>
+                      <TextInput
+                        style={styles.textInput}
+                        value={currentJob.billingName}
+                        onChangeText={(text) => setEditedJob({...editedJob, billingName: text})}
+                        placeholder="Billing name"
+                        placeholderTextColor={Colors.textSecondary}
+                      />
+                    </>
+                  )}
 
-              {job.billingAddress && (
-                <View style={styles.row}>
-                  <Text style={styles.label}>Address:</Text>
-                  <Text style={styles.value}>{job.billingAddress}</Text>
-                </View>
-              )}
+                  {currentJob.billingAddress && (
+                    <>
+                      <Text style={styles.editLabel}>Billing Address</Text>
+                      <TextInput
+                        style={styles.textInput}
+                        value={currentJob.billingAddress}
+                        onChangeText={(text) => setEditedJob({...editedJob, billingAddress: text})}
+                        placeholder="Billing address"
+                        placeholderTextColor={Colors.textSecondary}
+                      />
+                    </>
+                  )}
 
-              {job.billingCity && (
-                <View style={styles.row}>
-                  <Text style={styles.label}>City:</Text>
-                  <Text style={styles.value}>{job.billingCity}, {job.billingState} {job.billingZip}</Text>
-                </View>
-              )}
+                  {currentJob.billingCity && (
+                    <>
+                      <Text style={styles.editLabel}>Billing City</Text>
+                      <TextInput
+                        style={styles.textInput}
+                        value={currentJob.billingCity}
+                        onChangeText={(text) => setEditedJob({...editedJob, billingCity: text})}
+                        placeholder="City"
+                        placeholderTextColor={Colors.textSecondary}
+                      />
+                    </>
+                  )}
 
-              {job.billingEmail && (
-                <View style={styles.row}>
-                  <Text style={styles.label}>Email:</Text>
-                  <Text style={styles.value}>{job.billingEmail}</Text>
-                </View>
-              )}
+                  {currentJob.billingEmail && (
+                    <>
+                      <Text style={styles.editLabel}>Billing Email</Text>
+                      <TextInput
+                        style={styles.textInput}
+                        value={currentJob.billingEmail}
+                        onChangeText={(text) => setEditedJob({...editedJob, billingEmail: text})}
+                        placeholder="Email"
+                        placeholderTextColor={Colors.textSecondary}
+                      />
+                    </>
+                  )}
 
-              {job.billingPhone && (
-                <View style={styles.row}>
-                  <Text style={styles.label}>Phone:</Text>
-                  <Text style={styles.value}>{job.billingPhone}</Text>
-                </View>
-              )}
+                  {currentJob.billingPO && (
+                    <>
+                      <Text style={styles.editLabel}>PO Number</Text>
+                      <TextInput
+                        style={styles.textInput}
+                        value={currentJob.billingPO}
+                        onChangeText={(text) => setEditedJob({...editedJob, billingPO: text})}
+                        placeholder="PO #"
+                        placeholderTextColor={Colors.textSecondary}
+                      />
+                    </>
+                  )}
+                </>
+              ) : (
+                <>
+                  {currentJob.billingName && (
+                    <View style={styles.row}>
+                      <Text style={styles.label}>Name:</Text>
+                      <Text style={styles.value}>{currentJob.billingName}</Text>
+                    </View>
+                  )}
 
-              {job.billingPO && (
-                <View style={styles.row}>
-                  <Text style={styles.label}>PO #:</Text>
-                  <Text style={styles.value}>{job.billingPO}</Text>
-                </View>
+                  {currentJob.billingAddress && (
+                    <View style={styles.row}>
+                      <Text style={styles.label}>Address:</Text>
+                      <Text style={styles.value}>{currentJob.billingAddress}</Text>
+                    </View>
+                  )}
+
+                  {currentJob.billingCity && (
+                    <View style={styles.row}>
+                      <Text style={styles.label}>City:</Text>
+                      <Text style={styles.value}>{currentJob.billingCity}, {currentJob.billingState} {currentJob.billingZip}</Text>
+                    </View>
+                  )}
+
+                  {currentJob.billingEmail && (
+                    <View style={styles.row}>
+                      <Text style={styles.label}>Email:</Text>
+                      <Text style={styles.value}>{currentJob.billingEmail}</Text>
+                    </View>
+                  )}
+
+                  {currentJob.billingPhone && (
+                    <View style={styles.row}>
+                      <Text style={styles.label}>Phone:</Text>
+                      <Text style={styles.value}>{currentJob.billingPhone}</Text>
+                    </View>
+                  )}
+
+                  {currentJob.billingPO && (
+                    <View style={styles.row}>
+                      <Text style={styles.label}>PO #:</Text>
+                      <Text style={styles.value}>{currentJob.billingPO}</Text>
+                    </View>
+                  )}
+                </>
               )}
             </Card.Content>
           </Card>
         )}
 
         {/* Notes */}
-        {job.notes && (
+        {!isEditMode && currentJob.notes && (
           <Card style={styles.card}>
             <Card.Content>
               <Text variant="titleMedium" style={styles.sectionTitle}>Notes</Text>
               <Divider style={styles.divider} />
-              <Text style={styles.notesText}>{job.notes}</Text>
+              <Text style={styles.notesText}>{currentJob.notes}</Text>
+            </Card.Content>
+          </Card>
+        )}
+
+        {isEditMode && (
+          <Card style={styles.card}>
+            <Card.Content>
+              <Text variant="titleMedium" style={styles.sectionTitle}>Notes</Text>
+              <Divider style={styles.divider} />
+              <TextInput
+                style={[styles.textInput, { minHeight: 100 }]}
+                value={editedJob.notes || ''}
+                onChangeText={(text) => setEditedJob({...editedJob, notes: text})}
+                placeholder="Add notes..."
+                placeholderTextColor={Colors.textSecondary}
+                multiline
+                numberOfLines={4}
+              />
             </Card.Content>
           </Card>
         )}
 
         {/* Action Buttons */}
         <View style={styles.actions}>
-          <Button
-            mode="contained"
-            onPress={handleGenerateInvoice}
-            style={styles.button}
-            icon="file-document"
-            buttonColor={Colors.success}
-          >
-            Generate Invoice
-          </Button>
+          {isEditMode ? (
+            <>
+              <Button
+                mode="contained"
+                onPress={handleSaveChanges}
+                loading={isSaving}
+                disabled={isSaving}
+                style={styles.button}
+                icon="check"
+                buttonColor={Colors.success}
+              >
+                Save Changes
+              </Button>
 
-          <Button
-            mode="contained"
-            onPress={handleEdit}
-            style={styles.button}
-            icon="pencil"
-          >
-            Edit Job
-          </Button>
+              <Button
+                mode="outlined"
+                onPress={handleCancel}
+                style={styles.button}
+              >
+                Cancel
+              </Button>
+            </>
+          ) : (
+            <>
+              <Button
+                mode="contained"
+                onPress={handleGenerateInvoice}
+                style={styles.button}
+                icon="file-document"
+                buttonColor={Colors.success}
+              >
+                Generate Invoice
+              </Button>
 
-          <Button
-            mode="contained"
-            onPress={handleDelete}
-            loading={isDeleting}
-            disabled={isDeleting}
-            style={styles.button}
-            icon="delete"
-            buttonColor={Colors.error}
-          >
-            Delete Job
-          </Button>
+              <Button
+                mode="contained"
+                onPress={() => setIsEditMode(true)}
+                style={styles.button}
+                icon="pencil"
+              >
+                Edit Job
+              </Button>
+
+              <Button
+                mode="contained"
+                onPress={handleDelete}
+                loading={isDeleting}
+                disabled={isDeleting}
+                style={styles.button}
+                icon="delete"
+                buttonColor={Colors.error}
+              >
+                Delete Job
+              </Button>
+            </>
+          )}
         </View>
       </View>
     </ScrollView>
@@ -342,22 +616,21 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: Colors.background,
   },
-   clientName: {
-  fontSize: 24,  // Increase from 18 to 24
-  fontWeight: 'bold',
-  color: Colors.text,
-  marginBottom: Spacing.xs,
-},
   header: {
     paddingVertical: Spacing.xl,
     paddingHorizontal: Spacing.lg,
     ...Shadows.medium,
   },
+  headerTop: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: Spacing.xs,
+  },
   headerTitle: {
     fontSize: 28,
     fontWeight: 'bold',
     color: Colors.textInverse,
-    marginBottom: Spacing.xs,
   },
   headerSubtitle: {
     fontSize: 14,
@@ -416,6 +689,23 @@ const styles = StyleSheet.create({
     color: Colors.text,
     lineHeight: 20,
   },
+  editLabel: {
+    fontSize: 13,
+    color: Colors.textSecondary,
+    fontWeight: '600',
+    marginTop: Spacing.md,
+    marginBottom: Spacing.xs,
+  },
+  textInput: {
+    borderWidth: 1,
+    borderColor: Colors.borderLight,
+    borderRadius: BorderRadius.medium,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    fontSize: 14,
+    color: Colors.text,
+    marginBottom: Spacing.sm,
+  },
   actions: {
     marginTop: Spacing.lg,
     marginBottom: Spacing.xl,
@@ -424,5 +714,4 @@ const styles = StyleSheet.create({
   button: {
     paddingVertical: Spacing.sm,
   },
- 
 });

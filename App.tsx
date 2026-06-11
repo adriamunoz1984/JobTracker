@@ -1,4 +1,4 @@
-// App.tsx - Updated with debugging
+// App.tsx - Updated with Text Scale (Pinch-to-Zoom) Support
 // Authentication Screens
 
 import InvoiceDetailScreen from './src/screens/InvoiceDetailScreen';
@@ -23,6 +23,7 @@ import { StatusBar }              from 'expo-status-bar';
 // Context Providers
 import { AuthProvider, useAuth } from './src/context/AuthContext';
 import { JobsProvider }          from './src/context/JobsContext';
+import { TextScaleProvider }     from './src/context/TextScaleContext';
 import EmployeeInviteChecker     from './src/components/EmployeeInviteChecker';
 import EmployeeManagementScreen  from './src/screens/EmployeeManagementScreen';
 import LoginScreen          from './src/screens/LoginScreen';
@@ -284,7 +285,8 @@ function AppNavigatorWithFAB({ user }: { user: any }) {
     </>
   );
 }
-  const theme = {
+
+const theme = {
   ...MD3LightTheme,
   colors: {
     ...MD3LightTheme.colors,
@@ -303,17 +305,17 @@ function AppNavigatorWithFAB({ user }: { user: any }) {
 // Main App Component
 export default function App() {
   return (
-    <PaperProvider theme={theme}>
-    <GestureHandlerRootView style={{ flex: 1 }}>
-      <PaperProvider>
-        <AuthProvider>
-          <JobsProvider>
-            <StatusBar style="light" />
-            <AuthNavigator />
-          </JobsProvider>
-        </AuthProvider>
+    <TextScaleProvider>
+      <PaperProvider theme={theme}>
+        <GestureHandlerRootView style={{ flex: 1 }}>
+          <AuthProvider>
+            <JobsProvider>
+              <StatusBar style="light" />
+              <AuthNavigator />
+            </JobsProvider>
+          </AuthProvider>
+        </GestureHandlerRootView>
       </PaperProvider>
-    </GestureHandlerRootView>
-    </PaperProvider>
+    </TextScaleProvider>
   );
 }

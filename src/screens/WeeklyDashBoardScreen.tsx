@@ -130,6 +130,16 @@ export default function WeeklyDashboardScreen() {
     });
   };
 
+  const handleMetricPress = (metricType: any) => {
+    (navigation as any).navigate('DetailedReport', {
+      metricType,
+      jobs: weekJobs,
+      timeLabel: `${format(weekStart, 'MMM d')} - ${format(weekEnd, 'MMM d')}`,
+      isOwner: user?.role === 'owner',
+      commissionRate: user?.commissionRate || 50,
+    });
+  };
+
   const exportPDF = async () => {
     try {
       setIsExporting(true);
@@ -305,44 +315,72 @@ export default function WeeklyDashboardScreen() {
             <Divider style={styles.divider} />
 
             <View style={styles.metricsGrid}>
-              <View style={[styles.metricBox, styles.metricBoxPrimary]}>
+              <TouchableOpacity
+                style={[styles.metricBox, styles.metricBoxPrimary]}
+                onPress={() => handleMetricPress('income')}
+                activeOpacity={0.7}
+              >
                 <Text style={styles.metricLabelInverse}>Total Income</Text>
                 <Text style={styles.metricValueInverse}>${totals.income.toLocaleString()}</Text>
-              </View>
+              </TouchableOpacity>
 
-              <View style={[styles.metricBox, styles.metricBoxSuccess]}>
+              <TouchableOpacity
+                style={[styles.metricBox, styles.metricBoxSuccess]}
+                onPress={() => handleMetricPress('takeHome')}
+                activeOpacity={0.7}
+              >
                 <Text style={styles.metricLabelInverse}>Take Home</Text>
                 <Text style={styles.metricValueInverse}>${totals.finalTakeHome.toLocaleString()}</Text>
-              </View>
+              </TouchableOpacity>
             </View>
 
             <View style={styles.metricsGrid}>
-              <View style={styles.metricBox}>
+              <TouchableOpacity
+                style={styles.metricBox}
+                onPress={() => handleMetricPress('paid')}
+                activeOpacity={0.7}
+              >
                 <Text style={styles.metricLabel}>Jobs</Text>
                 <Text style={styles.metricValue}>{totals.totalJobs}</Text>
-              </View>
+              </TouchableOpacity>
 
-              <View style={styles.metricBox}>
+              <TouchableOpacity
+                style={styles.metricBox}
+                onPress={() => handleMetricPress('yards')}
+                activeOpacity={0.7}
+              >
                 <Text style={styles.metricLabel}>Yards</Text>
                 <Text style={styles.metricValue}>{totals.totalYards.toFixed(0)}</Text>
-              </View>
+              </TouchableOpacity>
 
-              <View style={styles.metricBox}>
+              <TouchableOpacity
+                style={styles.metricBox}
+                onPress={() => handleMetricPress('avgJob')}
+                activeOpacity={0.7}
+              >
                 <Text style={styles.metricLabel}>Avg Job</Text>
                 <Text style={styles.metricValue}>${totals.avgJobSize.toFixed(0)}</Text>
-              </View>
+              </TouchableOpacity>
             </View>
 
             <View style={styles.metricsGrid}>
-              <View style={[styles.metricBox, styles.metricBoxSuccess]}>
+              <TouchableOpacity
+                style={[styles.metricBox, styles.metricBoxSuccess]}
+                onPress={() => handleMetricPress('paid')}
+                activeOpacity={0.7}
+              >
                 <Text style={styles.metricLabelInverse}>Paid</Text>
                 <Text style={styles.metricValueInverse}>{totals.paidJobs}</Text>
-              </View>
+              </TouchableOpacity>
 
-              <View style={[styles.metricBox, styles.metricBoxError]}>
+              <TouchableOpacity
+                style={[styles.metricBox, styles.metricBoxError]}
+                onPress={() => handleMetricPress('unpaid')}
+                activeOpacity={0.7}
+              >
                 <Text style={styles.metricLabelInverse}>Unpaid</Text>
                 <Text style={styles.metricValueInverse}>{totals.unpaidJobs}</Text>
-              </View>
+              </TouchableOpacity>
             </View>
           </Card.Content>
         </Card>

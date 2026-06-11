@@ -4,6 +4,7 @@ import { View, StyleSheet, ScrollView, Dimensions, TouchableOpacity } from 'reac
 import { Card, Text, Button, Divider, ActivityIndicator } from 'react-native-paper';
 import { BarChart } from 'react-native-chart-kit';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useNavigation } from '@react-navigation/native';
 import { useJobs } from '../context/JobsContext';
 import { useAuth } from '../context/AuthContext';
 import { Job } from '../types';
@@ -25,6 +26,7 @@ import { Colors, Spacing, BorderRadius, Shadows } from '../theme/colors';
 const screenWidth = Dimensions.get('window').width;
 
 export default function MonthlySummaryScreen() {
+  const navigation = useNavigation();
   const { jobs } = useJobs();
   const { user } = useAuth();
   const [isExporting, setIsExporting] = useState(false);
@@ -54,6 +56,7 @@ export default function MonthlySummaryScreen() {
     totalYards: monthJobs.reduce((sum, job) => sum + (job.yards || 0), 0),
     paidJobs: monthJobs.filter(j => j.isPaid).length,
     unpaidJobs: monthJobs.filter(j => !j.isPaid).length,
+    avgJobSize: monthJobs.length > 0 ? monthJobs.reduce((sum, job) => sum + (job.amount || 0), 0) / monthJobs.length : 0,
   };
 
   const isOwner = user?.role === 'owner';
@@ -118,6 +121,16 @@ export default function MonthlySummaryScreen() {
 
   const goToCurrentMonth = () => {
     setMonthOffset(0);
+  };
+
+  const handleMetricPress = (metricType: any) => {
+    (navigation as any).navigate('DetailedReport', {
+      metricType,
+      jobs: monthJobs,
+      timeLabel: format(adjustedDate, 'MMMM yyyy'),
+      isOwner: user?.role === 'owner',
+      commissionRate: user?.commissionRate || 50,
+    });
   };
 
   const exportPDF = async () => {
@@ -256,7 +269,6 @@ export default function MonthlySummaryScreen() {
           </TouchableOpacity>
 
           <View style={styles.headerTextContainer}>
-            {/* <Text style={styles.headerTitle}>Monthly Summary</Text> */}
             <Text style={styles.headerTitle}>{format(adjustedDate, 'MMMM yyyy')}</Text>
             {monthOffset !== 0 && (
               <TouchableOpacity onPress={goToCurrentMonth} style={styles.currentMonthButton}>
@@ -279,39 +291,63 @@ export default function MonthlySummaryScreen() {
             <Divider style={styles.divider} />
 
             <View style={styles.metricsGrid}>
-              <View style={[styles.metricBox, styles.metricBoxPrimary]}>
+              <TouchableOpacity
+                style={[styles.metricBox, styles.metricBoxPrimary]}
+                onPress={() => handleMetricPress('income')}
+                activeOpacity={0.7}
+              >
                 <Text style={styles.metricLabelInverse}>Total Income</Text>
                 <Text style={styles.metricValueInverse}>${totals.income.toLocaleString()}</Text>
-              </View>
+              </TouchableOpacity>
 
-              <View style={[styles.metricBox, styles.metricBoxSuccess]}>
+              <TouchableOpacity
+                style={[styles.metricBox, styles.metricBoxSuccess]}
+                onPress={() => handleMetricPress('takeHome')}
+                activeOpacity={0.7}
+              >
                 <Text style={styles.metricLabelInverse}>Take Home</Text>
                 <Text style={styles.metricValueInverse}>${totals.finalTakeHome.toLocaleString()}</Text>
-              </View>
+              </TouchableOpacity>
             </View>
 
             <View style={styles.metricsGrid}>
-              <View style={styles.metricBox}>
+              <TouchableOpacity
+                style={styles.metricBox}
+                onPress={() => handleMetricPress('paid')}
+                activeOpacity={0.7}
+              >
                 <Text style={styles.metricLabel}>Total Jobs</Text>
                 <Text style={styles.metricValue}>{totals.totalJobs}</Text>
-              </View>
+              </TouchableOpacity>
 
-              <View style={styles.metricBox}>
+              <TouchableOpacity
+                style={styles.metricBox}
+                onPress={() => handleMetricPress('yards')}
+                activeOpacity={0.7}
+              >
                 <Text style={styles.metricLabel}>Total Yards</Text>
                 <Text style={styles.metricValue}>{totals.totalYards.toFixed(0)}</Text>
-              </View>
+              </TouchableOpacity>
             </View>
 
             <View style={styles.metricsGrid}>
-              <View style={[styles.metricBox, styles.metricBoxSuccess]}>
-                <Text style={styles.metricLabelInverse}>Paid</Text>
-                <Text style={styles.metricValueInverse}>{totals.paidJobs}</Text>
-              </View>
+              <TouchableOpacity
+                style={styles.metricBox}
+                onPress={() => handleMetricPress('avgJob')}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.metricLabel}>Avg Job</Text>
+                <Text style={styles.metricValue}>${totals.avgJobSize.toFixed(0)}</Text>
+              </TouchableOpacity>
 
-              <View style={[styles.metricBox, styles.metricBoxError]}>
+              <TouchableOpacity
+                style={[styles.metricBox, styles.metricBoxError]}
+                onPress={() => handleMetricPress('unpaid')}
+                activeOpacity={0.7}
+              >
                 <Text style={styles.metricLabelInverse}>Unpaid</Text>
-                <Text style={styles.metricValueInverse}>{totals.unpaidJobs}</Text>
-              </View>
+                <Text style={styles.metricValueInverse}>${totals.totalUnpaid.toFixed(0)}</Text>
+              </TouchableOpacity>
             </View>
           </Card.Content>
         </Card>
@@ -498,7 +534,7 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: Colors.textInverse,
     fontWeight: '800',
-    padding:10
+    padding: 10
   },
   content: {
     padding: Spacing.md,
