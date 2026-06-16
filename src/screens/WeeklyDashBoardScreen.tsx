@@ -23,6 +23,14 @@ import { Colors, Spacing, BorderRadius, Shadows } from '../theme/colors';
 
 const screenWidth = Dimensions.get('window').width;
 
+// Format amount: under 10k shows full amount, 10k+ shows with k suffix
+const formatAmount = (amount: number): string => {
+  if (amount >= 10000) {
+    return `$${(amount / 1000).toFixed(0)}k`;
+  }
+  return `$${amount.toFixed(0)}`;
+};
+
 export default function WeeklyDashboardScreen() {
   const navigation = useNavigation();
   const { jobs } = useJobs();
@@ -144,14 +152,58 @@ export default function WeeklyDashboardScreen() {
     try {
       setIsExporting(true);
 
-      const dailyRows = dailyData.map(day => `
-        <tr>
-          <td>${day.day} ${day.date}</td>
-          <td>${day.jobs}</td>
-          <td>${day.yards.toFixed(1)}</td>
-          <td>$${day.revenue.toFixed(2)}</td>
-        </tr>
-      `).join('');
+      // Build job rows for each day (Mon-Sat)
+      const jobRows = dailyData.slice(0, 6).map(day => {
+        const dayJobs = weekJobs.filter(job => {
+          const jobDate = parseISO(job.date);
+          return format(jobDate, 'yyyy-MM-dd') === format(days[dailyData.indexOf(day)], 'yyyy-MM-dd');
+        });
+
+        if (dayJobs.length === 0) {
+          // No work day
+          return `
+            <div class="job-row" style="border-top: 2px solid #333;">
+              <div class="day-section">
+                <div class="day-name">${day.day}</div>
+                <div class="day-date">${day.date}</div>
+              </div>
+              
+              <div class="job-section">
+                <div class="no-work">No Work</div>
+              </div>
+              
+              <div class="payment-section">
+              </div>
+            </div>
+          `;
+        }
+
+        return dayJobs.map((job, idx) => `
+          <div class="job-row" ${idx === 0 ? `style="border-top: 2px solid #333;"` : ''}>
+            ${idx === 0 ? `
+              <div class="day-section">
+                <div class="day-name">${day.day}</div>
+                <div class="day-date">${day.date}</div>
+              </div>
+            ` : `
+              <div class="day-section"></div>
+            `}
+            
+            <div class="job-section">
+              <div class="client-name">${job.companyName || job.clientName || 'Job'}</div>
+              <div class="address">${job.address}</div>
+              <div class="city">${job.city}</div>
+              <div class="yards">${job.yards} yards</div>
+            </div>
+            
+            <div class="payment-section">
+              <div class="payment-method">${job.paymentMethod}</div>
+              <div class="divider-line">________________</div>
+              <div class="amount">$${job.amount.toFixed(0)}</div>
+            </div>
+          </div>
+        `).join('');
+      }).join('');
 
       const htmlContent = `
         <!DOCTYPE html>
@@ -159,97 +211,165 @@ export default function WeeklyDashboardScreen() {
         <head>
           <meta charset="UTF-8">
           <style>
+            * { margin: 0; padding: 0; }
             body { 
               font-family: Arial, sans-serif; 
-              padding: 20px;
-              line-height: 1.6;
+              padding: 40px 30px;
+              line-height: 1.4;
+              font-size: 16px;
             }
-            h1 { 
-              color: ${Colors.primary}; 
-              border-bottom: 3px solid ${Colors.primary}; 
-              padding-bottom: 10px;
+            .title {
+              text-align: center;
+              font-size: 24px;
+              font-weight: bold;
+              margin-bottom: 40px;
+              border-bottom: 2px solid #333;
+              padding-bottom: 15px;
             }
-            h2 { 
-              color: ${Colors.secondary}; 
-              margin-top: 30px;
-              border-left: 4px solid ${Colors.primary};
-              padding-left: 10px;
+            .jobs-container {
+              margin-bottom: 50px;
             }
-            table { 
-              width: 100%; 
-              border-collapse: collapse; 
-              margin: 20px 0;
-              box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            .job-row {
+              display: flex;
+              gap: 30px;
+              padding: 20px 0;
+              align-items: flex-start;
+              border-bottom: 1px solid #ddd;
             }
-            th, td { 
-              border: 1px solid #ddd; 
-              padding: 12px; 
+            .day-section {
+              min-width: 90px;
               text-align: left;
             }
-            th { 
-              background-color: ${Colors.primary}; 
-              color: white;
+            .day-name {
+              font-weight: bold;
+              font-size: 18px;
+              margin-bottom: 5px;
+              text-transform: uppercase;
             }
-            tr:nth-child(even) { background-color: #f9f9f9; }
-            .summary { 
-              background: linear-gradient(135deg, #f5f5f5 0%, #e8e8e8 100%);
-              padding: 20px; 
-              border-radius: 8px; 
-              margin: 20px 0;
+            .day-date {
+              font-size: 16px;
+              color: #555;
             }
-            .summary p { margin: 10px 0; font-size: 16px; }
-            .total { 
-              font-size: 24px; 
-              font-weight: bold; 
-              color: ${Colors.success}; 
-              margin-top: 20px;
-              padding: 15px;
-              background-color: ${Colors.successBg};
-              border-radius: 5px;
+            .job-section {
+              flex: 2;
+            }
+            .client-name {
+              font-weight: bold;
+              font-size: 18px;
+              margin-bottom: 5px;
+            }
+            .address {
+              font-size: 16px;
+              margin-bottom: 3px;
+              color: #333;
+            }
+            .city {
+              font-size: 16px;
+              margin-bottom: 8px;
+              color: #333;
+            }
+            .yards {
+              font-size: 16px;
+              font-weight: bold;
+              color: #555;
+            }
+            .no-work {
+              font-size: 16px;
+              color: #999;
+              font-style: italic;
+            }
+            .payment-section {
+              min-width: 150px;
+              text-align: right;
+            }
+            .payment-method {
+              font-size: 16px;
+              font-weight: bold;
+              margin-bottom: 5px;
+            }
+            .divider-line {
+              font-size: 14px;
+              letter-spacing: 2px;
+              margin-bottom: 8px;
+            }
+            .amount {
+              font-size: 20px;
+              font-weight: bold;
+              color: #2d5016;
+            }
+            .footer {
+              margin-top: 60px;
+              padding-top: 30px;
+              border-top: 2px solid #333;
+            }
+            .footer-row {
+              display: flex;
+              justify-content: flex-end;
+              font-size: 18px;
+              font-weight: bold;
+              margin-bottom: 15px;
+              gap: 50px;
+            }
+            .footer-label {
+              text-align: right;
+              min-width: 200px;
+            }
+            .footer-value {
+              min-width: 120px;
+              text-align: right;
+            }
+            .footer-total {
+              font-size: 22px;
+              color: #2d5016;
+              padding-top: 15px;
+              border-top: 2px solid #333;
+            }
+            .timestamp {
+              margin-top: 40px;
               text-align: center;
+              font-size: 12px;
+              color: #999;
             }
           </style>
         </head>
         <body>
-          <h1>📊 Weekly Dashboard</h1>
-          <p style="color: #666; font-size: 14px;">
-            ${format(weekStart, 'MMMM d')} - ${format(weekEnd, 'MMMM d, yyyy')}
-          </p>
+          <div class="title">Week ending in ${format(weekEnd, 'MMMM d, yyyy')}</div>
           
-          <div class="summary">
-            <h2>Week Totals</h2>
-            <p><strong>Total Jobs:</strong> ${totals.totalJobs}</p>
-            <p><strong>Total Yards:</strong> ${totals.totalYards.toFixed(1)}</p>
-            <p><strong>Total Income:</strong> $${totals.income.toFixed(2)}</p>
-            <p><strong>Average Job Size:</strong> $${totals.avgJobSize.toFixed(2)}</p>
-            <p><strong>Paid Jobs:</strong> ${totals.paidJobs}</p>
-            <p><strong>Unpaid Jobs:</strong> ${totals.unpaidJobs}</p>
-            <p><strong>Total Unpaid:</strong> $${totals.totalUnpaid.toFixed(2)}</p>
-            ${!isOwner ? `
-              <p><strong>Commission (${commissionRate}%):</strong> $${totals.commission.toFixed(2)}</p>
-              <p><strong>Cash Payments:</strong> $${totals.cashPayments.toFixed(2)}</p>
-            ` : `
-              <p><strong>Paid to Me:</strong> $${totals.paidToMeAmount.toFixed(2)}</p>
-            `}
-            <div class="total">Final Take Home: $${totals.finalTakeHome.toFixed(2)}</div>
+          <div class="jobs-container">
+            ${jobRows}
           </div>
           
-          <h2>Daily Breakdown</h2>
-          <table>
-            <thead>
-              <tr>
-                <th>Day</th>
-                <th>Jobs</th>
-                <th>Yards</th>
-                <th>Revenue</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${dailyRows}
-            </tbody>
-          </table>
+          <div class="footer">
+            <div class="footer-row">
+              <div class="footer-label">Total Revenue</div>
+              <div class="footer-value">$${totals.income.toFixed(0)}</div>
+            </div>
+            ${!isOwner ? `
+              <div class="footer-row">
+                <div class="footer-label">× Commission (${commissionRate}%)</div>
+                <div class="footer-value">$${totals.commission.toFixed(0)}</div>
+              </div>
+              <div class="footer-row">
+                <div class="footer-label">- Direct Payments</div>
+                <div class="footer-value">-$${totals.cashPayments.toFixed(0)}</div>
+              </div>
+              <div class="footer-row footer-total">
+                <div class="footer-label">Amount Owed</div>
+                <div class="footer-value">$${totals.yourPay.toFixed(0)}</div>
+              </div>
+            ` : `
+              <div class="footer-row">
+                <div class="footer-label">- Paid to Me</div>
+                <div class="footer-value">-$${totals.paidToMeAmount.toFixed(0)}</div>
+              </div>
+              <div class="footer-row footer-total">
+                <div class="footer-label">Final Take Home</div>
+                <div class="footer-value">$${totals.finalTakeHome.toFixed(0)}</div>
+              </div>
+            `}
+          </div>
           
-          <div style="margin-top: 50px; padding-top: 20px; border-top: 1px solid #ddd; color: #999; font-size: 12px; text-align: center;">
+          <div class="timestamp">
             Generated on ${format(new Date(), 'MMMM d, yyyy h:mm a')}
           </div>
         </body>
@@ -496,7 +616,7 @@ export default function WeeklyDashboardScreen() {
                     <>
                       <Chip compact style={styles.jobsChip}>{day.jobs} jobs</Chip>
                       <Chip compact style={styles.yardsChip}>{day.yards.toFixed(0)} yds</Chip>
-                      <Text style={styles.dayRevenue}>${day.revenue.toFixed(0)}</Text>
+                      <Text style={styles.dayRevenue}>{formatAmount(day.revenue)}</Text>
                     </>
                   ) : (
                     <Text style={styles.noJobsText}>No jobs</Text>
@@ -715,6 +835,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.sm,
+    flex: 1,
+    justifyContent: 'flex-end',
   },
   jobsChip: {
     backgroundColor: Colors.infoBg,
@@ -723,10 +845,10 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.warningBg,
   },
   dayRevenue: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: 'bold',
     color: Colors.success,
-    minWidth: 60,
+    minWidth: 65,
     textAlign: 'right',
   },
   noJobsText: {

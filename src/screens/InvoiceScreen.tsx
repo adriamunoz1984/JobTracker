@@ -31,7 +31,7 @@ export default function InvoiceScreen() {
   const navigation = useNavigation();
   const route = useRoute();
   const { user } = useAuth();
-  const { jobs } = route.params as { jobs: Job[] };
+  const { jobs = [] } = (route.params as { jobs: Job[] }) || {};
 
   const [clientName, setClientName] = useState('');
   const [clientEmail, setClientEmail] = useState('');
@@ -51,18 +51,18 @@ export default function InvoiceScreen() {
       const firstJob = jobs[0];
       setClientName(firstJob.companyName || '');
       setClientAddress(`${firstJob.address}, ${firstJob.city}`);
-    }
 
-    // Create line items from jobs
-    const items: InvoiceLineItem[] = jobs.map((job, index) => ({
-      id: `item-${index}`,
-      description: `${format(new Date(job.date), 'MMM d, yyyy')} - ${job.address}, ${job.city} (${job.yards} yards)`,
-      quantity: 1,
-      rate: job.amount,
-      amount: job.amount,
-    }));
-    setLineItems(items);
-  }, [jobs]);
+      // Create line items from jobs
+      const items: InvoiceLineItem[] = jobs.map((job, index) => ({
+        id: `item-${index}`,
+        description: `${format(new Date(job.date), 'MMM d, yyyy')} - ${job.address}, ${job.city} (${job.yards} yards)`,
+        quantity: 1,
+        rate: job.amount,
+        amount: job.amount,
+      }));
+      setLineItems(items);
+    }
+  }, []);
 
   const calculateSubtotal = () => {
     return lineItems.reduce((sum, item) => sum + item.amount, 0);
@@ -458,12 +458,16 @@ export default function InvoiceScreen() {
               </Text>
               <Divider style={styles.divider} />
 
-              {lineItems.map((item, index) => (
-                <View key={item.id} style={styles.lineItem}>
-                  <Text style={styles.lineItemDescription}>{item.description}</Text>
-                  <Text style={styles.lineItemAmount}>${item.amount.toFixed(2)}</Text>
-                </View>
-              ))}
+              {lineItems.length > 0 ? (
+                lineItems.map((item, index) => (
+                  <View key={item.id} style={styles.lineItem}>
+                    <Text style={styles.lineItemDescription}>{item.description}</Text>
+                    <Text style={styles.lineItemAmount}>${item.amount.toFixed(2)}</Text>
+                  </View>
+                ))
+              ) : (
+                <Text style={styles.noItemsText}>No line items. Add jobs to create an invoice.</Text>
+              )}
             </Card.Content>
           </Card>
 
@@ -515,7 +519,7 @@ export default function InvoiceScreen() {
               mode="contained"
               onPress={handleGenerateInvoice}
               loading={isGenerating}
-              disabled={isGenerating}
+              disabled={isGenerating || lineItems.length === 0}
               style={styles.generateButton}
               icon="file-document"
             >
@@ -584,6 +588,13 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: 'bold',
     marginLeft: 12,
+  },
+  noItemsText: {
+    fontSize: 14,
+    color: '#999',
+    fontStyle: 'italic',
+    textAlign: 'center',
+    paddingVertical: 12,
   },
   totalRow: {
     flexDirection: 'row',

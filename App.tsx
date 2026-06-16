@@ -174,11 +174,7 @@ function AppNavigatorWithFAB({ user }: { user: any }) {
                 headerTitleAlign: 'center' as const
               }}
             />
-             <Stack.Screen 
-              name="DetailedReport" 
-              component={DetailedReportScreen}
-              options={{ title: 'Report Details' }}
-            />
+    
             <Stack.Screen 
               name="PendingJobs" 
               component={PendingJobsScreen}
@@ -259,6 +255,11 @@ function AppNavigatorWithFAB({ user }: { user: any }) {
                 headerTintColor: '#fff',
                 headerTitleAlign: 'center'
               }}
+            />
+            <Stack.Screen 
+              name="DetailedReport" 
+              component={DetailedReportScreen}
+              options={{ title: 'Report Details' }}
             />
 
             <Stack.Screen 

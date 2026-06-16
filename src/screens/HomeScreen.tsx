@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, FlatList, Text, TouchableOpacity } from 'react-native';
+import { View, StyleSheet, FlatList, TouchableOpacity } from 'react-native';
+import ScaledText from '../components/ScaledText';
 import { FAB, Searchbar, IconButton, Button, Divider, Chip } from 'react-native-paper';
 import { useNavigation } from '@react-navigation/native';
 import { format, endOfWeek, startOfWeek, isSameDay, parseISO } from 'date-fns';
@@ -243,13 +244,13 @@ export default function HomeScreen() {
                     size={28}
                     color={Colors.textInverse}
                   />
-                  <Text style={styles.weekEndText}>
+                  <ScaledText style={styles.weekEndText}>
                     Weekend {format(weekEndDate, 'MMM dd')}
-                  </Text>
+                  </ScaledText>
                 </View>
-                <Text style={styles.weekTotalText}>
+                <ScaledText style={styles.weekTotalText}>
                   ${displayAmount.toFixed(0)}
-                </Text>
+                </ScaledText>
               </View>
             </LinearGradient>
           </TouchableOpacity>
