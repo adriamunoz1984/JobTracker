@@ -3,28 +3,23 @@ import React, { useState } from 'react';
 import { View, StyleSheet, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
 import { TextInput, Button, Text, Divider, Card } from 'react-native-paper';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useNavigation } from '@react-navigation/native';
 import { useAuth } from '../context/AuthContext';
 import { Colors, Spacing, BorderRadius, Shadows } from '../theme/colors';
 
 export default function LoginScreen() {
-  const { login, signup } = useAuth();
-  const [isSignUp, setIsSignUp] = useState(false);
+  const navigation = useNavigation();
+  const { login } = useAuth();
+  
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [displayName, setDisplayName] = useState('');
-  const [businessName, setBusinessName] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [showPassword, setShowPassword] = useState(false);
 
-  const handleSubmit = async () => {
+  const handleLogin = async () => {
     if (!email.trim() || !password.trim()) {
       setError('Please enter email and password');
-      return;
-    }
-
-    if (isSignUp && !displayName.trim()) {
-      setError('Please enter your name');
       return;
     }
 
@@ -32,11 +27,7 @@ export default function LoginScreen() {
     setError('');
 
     try {
-      if (isSignUp) {
-        await signup(email.trim(), password, displayName.trim(), businessName.trim());
-      } else {
-        await login(email.trim(), password);
-      }
+      await login(email.trim(), password);
     } catch (err: any) {
       setError(err.message || 'Authentication failed');
     } finally {
@@ -44,9 +35,8 @@ export default function LoginScreen() {
     }
   };
 
-  const toggleMode = () => {
-    setIsSignUp(!isSignUp);
-    setError('');
+  const handleSignUpRedirect = () => {
+    navigation.navigate('RoleSelection' as never);
   };
 
   return (
@@ -72,44 +62,15 @@ export default function LoginScreen() {
         <Card style={styles.card}>
           <Card.Content>
             <Text variant="headlineSmall" style={styles.cardTitle}>
-              {isSignUp ? 'Create Account' : 'Welcome Back'}
+              Welcome Back
             </Text>
             <Text style={styles.cardSubtitle}>
-              {isSignUp 
-                ? 'Sign up to start tracking your jobs' 
-                : 'Sign in to continue'}
+              Sign in to continue managing your jobs
             </Text>
 
             <Divider style={styles.divider} />
 
-            {/* Sign Up Fields */}
-            {isSignUp && (
-              <>
-                <TextInput
-                  label="Your Name *"
-                  value={displayName}
-                  onChangeText={setDisplayName}
-                  mode="outlined"
-                  style={styles.input}
-                  left={<TextInput.Icon icon="account" iconColor={Colors.primary} />}
-                  outlineColor={Colors.border}
-                  activeOutlineColor={Colors.primary}
-                />
-
-                <TextInput
-                  label="Business Name (Optional)"
-                  value={businessName}
-                  onChangeText={setBusinessName}
-                  mode="outlined"
-                  style={styles.input}
-                  left={<TextInput.Icon icon="domain" iconColor={Colors.primary} />}
-                  outlineColor={Colors.border}
-                  activeOutlineColor={Colors.primary}
-                />
-              </>
-            )}
-
-            {/* Email & Password */}
+            {/* Email Input */}
             <TextInput
               label="Email *"
               value={email}
@@ -121,8 +82,10 @@ export default function LoginScreen() {
               left={<TextInput.Icon icon="email" iconColor={Colors.primary} />}
               outlineColor={Colors.border}
               activeOutlineColor={Colors.primary}
+              editable={!loading}
             />
 
+            {/* Password Input */}
             <TextInput
               label="Password *"
               value={password}
@@ -140,6 +103,7 @@ export default function LoginScreen() {
               }
               outlineColor={Colors.border}
               activeOutlineColor={Colors.primary}
+              editable={!loading}
             />
 
             {/* Error Message */}
@@ -149,35 +113,48 @@ export default function LoginScreen() {
               </View>
             ) : null}
 
-            {/* Submit Button */}
+            {/* Login Button */}
             <Button
               mode="contained"
-              onPress={handleSubmit}
+              onPress={handleLogin}
               loading={loading}
               disabled={loading}
               style={styles.submitButton}
               buttonColor={Colors.primary}
-              icon={isSignUp ? "account-plus" : "login"}
+              icon="login"
             >
-              {isSignUp ? 'Sign Up' : 'Sign In'}
+              Sign In
             </Button>
 
-            {/* Toggle Mode */}
+            {/* Divider */}
             <Divider style={styles.divider} />
 
-            <View style={styles.toggleContainer}>
-              <Text style={styles.toggleText}>
-                {isSignUp ? 'Already have an account?' : "Don't have an account?"}
+            {/* Sign Up Section */}
+            <View style={styles.signUpContainer}>
+              <Text style={styles.signUpText}>
+                Don't have an account?
               </Text>
               <Button 
-                mode="text" 
-                onPress={toggleMode}
-                textColor={Colors.primary}
-                compact
+                mode="contained"
+                onPress={handleSignUpRedirect}
+                style={styles.signUpButton}
+                buttonColor={Colors.secondary}
+                icon="account-plus"
               >
-                {isSignUp ? 'Sign In' : 'Sign Up'}
+                Create Account
               </Button>
             </View>
+
+            {/* Forgot Password */}
+            <Button 
+              mode="text" 
+              onPress={() => navigation.navigate('ForgotPassword' as never)}
+              textColor={Colors.primary}
+              compact
+              style={styles.forgotButton}
+            >
+              Forgot Password?
+            </Button>
           </Card.Content>
         </Card>
 
@@ -263,14 +240,24 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.medium,
     ...Shadows.medium,
   },
-  toggleContainer: {
-    flexDirection: 'row',
+  signUpContainer: {
     alignItems: 'center',
-    justifyContent: 'center',
+    marginVertical: Spacing.md,
   },
-  toggleText: {
+  signUpText: {
     color: Colors.textSecondary,
     fontSize: 14,
+    marginBottom: Spacing.sm,
+    textAlign: 'center',
+  },
+  signUpButton: {
+    width: '100%',
+    borderRadius: BorderRadius.medium,
+    ...Shadows.small,
+  },
+  forgotButton: {
+    marginTop: Spacing.sm,
+    alignSelf: 'center',
   },
   footer: {
     padding: Spacing.xl,

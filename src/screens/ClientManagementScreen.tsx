@@ -29,7 +29,7 @@ import { Colors, Spacing, BorderRadius, Shadows } from '../theme/colors';
 const db = getFirestore();
 
 export default function ClientManagementScreen() {
-  const navigation = useNavigation();
+  const navigation = useNavigation<any>();
   const { user } = useAuth();
   const [clients, setClients] = useState<Client[]>([]);
   const [isLoading, setIsLoading] = useState(true);

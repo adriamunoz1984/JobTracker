@@ -531,8 +531,8 @@ export default function YearlySummaryScreen() {
                   <Text style={styles.monthName}>{month.fullMonth}</Text>
                   {month.jobs > 0 && (
                     <View style={styles.monthChips}>
-                      <Chip compact style={styles.jobsChip}>{month.jobs} jobs</Chip>
-                      <Chip compact style={styles.yardsChip}>{month.yards.toFixed(0)} yds</Chip>
+                      <Chip compact style={styles.jobsChip} labelStyle={styles.jobsChipLabel}>{month.jobs} jobs</Chip>
+                      <Chip compact style={styles.yardsChip} labelStyle={styles.yardsChipLabel}>{month.yards.toFixed(0)} yds</Chip>
                     </View>
                   )}
                 </View>
@@ -660,10 +660,13 @@ const styles = StyleSheet.create({
   },
   metricBox: {
     flex: 1,
-    padding: Spacing.md,
+    padding: Spacing.lg,
     backgroundColor: Colors.surfaceDark,
     borderRadius: BorderRadius.medium,
     alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 110,
+    overflow: 'visible',
   },
   metricBoxPrimary: {
     backgroundColor: Colors.primary,
@@ -681,10 +684,11 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   metricValue: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: 'bold',
     color: Colors.text,
     textAlign: 'center',
+    lineHeight: 20,
   },
   metricLabelInverse: {
     fontSize: 11,
@@ -802,18 +806,31 @@ const styles = StyleSheet.create({
   monthChips: {
     flexDirection: 'row',
     gap: Spacing.xs,
+    paddingTop: Spacing.xs,
   },
   jobsChip: {
     backgroundColor: Colors.infoBg,
-    height: 24,
+    height:34,
+  },
+  jobsChipLabel: {
+    fontSize: 11,
+    lineHeight: 14,
+    marginTop: -4,
   },
   yardsChip: {
     backgroundColor: Colors.warningBg,
-    height: 24,
+    height: 34
+  },
+  yardsChipLabel: {
+    fontSize: 11,
+    lineHeight: 14,
+    marginTop: -4,
   },
   monthRevenue: {
     minWidth: 100,
     alignItems: 'flex-end',
+    justifyContent: 'center',
+    minHeight: 90,
   },
   revenueValue: {
     fontSize: 18,

@@ -1,4 +1,6 @@
-// src/screens/WeeklyDashboardScreen.tsx
+// src/screens/WeeklyDashboardScreen.tsx - FIXED CASH/CHECK TOGGLE
+// Only subtract cash/checks if employee doesn't keep them
+
 import React, { useState, useEffect } from 'react';
 import { View, StyleSheet, ScrollView, Dimensions, TouchableOpacity } from 'react-native';
 import { Card, Text, Button, Divider, Chip } from 'react-native-paper';
@@ -54,6 +56,7 @@ export default function WeeklyDashboardScreen() {
     income: weekJobs.reduce((sum, job) => sum + (job.amount || 0), 0),
     commission: 0,
     cashPayments: weekJobs.filter(j => j.paymentMethod === 'Cash').reduce((sum, job) => sum + (job.amount || 0), 0),
+    checkPayments: weekJobs.filter(j => j.paymentMethod === 'Check').reduce((sum, job) => sum + (job.amount || 0), 0),
     paidToMeAmount: weekJobs.filter(j => j.isPaidToMe).reduce((sum, job) => sum + (job.amount || 0), 0),
     yourPay: 0,
     totalUnpaid: weekJobs.filter(j => !j.isPaid).reduce((sum, job) => sum + (job.amount || 0), 0),
@@ -70,7 +73,14 @@ export default function WeeklyDashboardScreen() {
 
   if (!isOwner) {
     totals.commission = (totals.income * commissionRate) / 100;
-    totals.yourPay = totals.commission - totals.cashPayments;
+    
+    // FIXED: Only subtract cash if employee DOESN'T keep cash (keepsCash === false)
+    const cashToSubtract = user?.keepsCash === false ? totals.cashPayments : 0;
+    
+    // FIXED: Only subtract checks if employee DOESN'T keep checks (keepsCheck === false)
+    const checkToSubtract = user?.keepsCheck === false ? totals.checkPayments : 0;
+    
+    totals.yourPay = totals.commission - cashToSubtract - checkToSubtract;
     totals.finalTakeHome = totals.yourPay;
   } else {
     totals.finalTakeHome = totals.income - totals.paidToMeAmount;
@@ -351,7 +361,7 @@ export default function WeeklyDashboardScreen() {
               </div>
               <div class="footer-row">
                 <div class="footer-label">- Direct Payments</div>
-                <div class="footer-value">-$${totals.cashPayments.toFixed(0)}</div>
+                <div class="footer-value">-$${(totals.cashPayments + totals.checkPayments).toFixed(0)}</div>
               </div>
               <div class="footer-row footer-total">
                 <div class="footer-label">Amount Owed</div>
@@ -522,10 +532,19 @@ export default function WeeklyDashboardScreen() {
                 <Text style={styles.earningsValue}>${totals.commission.toFixed(2)}</Text>
               </View>
 
-              <View style={styles.earningsRow}>
-                <Text style={styles.earningsLabel}>- Cash Payments:</Text>
-                <Text style={styles.earningsValue}>-${totals.cashPayments.toFixed(2)}</Text>
-              </View>
+              {user?.keepsCash === false && (
+                <View style={styles.earningsRow}>
+                  <Text style={styles.earningsLabel}>- Cash Payments (kept):</Text>
+                  <Text style={styles.earningsValue}>-${totals.cashPayments.toFixed(2)}</Text>
+                </View>
+              )}
+
+              {user?.keepsCheck === false && (
+                <View style={styles.earningsRow}>
+                  <Text style={styles.earningsLabel}>- Check Payments (kept):</Text>
+                  <Text style={styles.earningsValue}>-${totals.checkPayments.toFixed(2)}</Text>
+                </View>
+              )}
 
               <Divider style={styles.divider} />
 
@@ -732,6 +751,9 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.surfaceDark,
     borderRadius: BorderRadius.medium,
     alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 110,
+    overflow: 'visible',
   },
   metricBoxPrimary: {
     backgroundColor: Colors.primary,
@@ -749,10 +771,11 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   metricValue: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: 'bold',
     color: Colors.text,
     textAlign: 'center',
+    lineHeight: 20,
   },
   metricLabelInverse: {
     fontSize: 11,
@@ -840,9 +863,11 @@ const styles = StyleSheet.create({
   },
   jobsChip: {
     backgroundColor: Colors.infoBg,
+    height: 34,
   },
   yardsChip: {
     backgroundColor: Colors.warningBg,
+    height: 34,
   },
   dayRevenue: {
     fontSize: 14,

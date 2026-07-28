@@ -111,6 +111,19 @@ export default function RegisterScreen() {
     } catch (e) {
       // Error is handled by auth context
     }
+    console.log('🔐 Starting registration...');
+    console.log('📧 Email:', email);
+    console.log('👤 Name:', name);
+    console.log('🚀 Calling register...');
+
+    try {
+      await register(email, password, name, roleData);
+      console.log('✅ Registration successful!');
+    } catch (e: any) {
+      console.error('❌ Error:', e.message);
+      console.error('📋 Error code:', e.code);
+      console.error('Full error:', e);
+    }
   };
   
   // Navigate back to login screen

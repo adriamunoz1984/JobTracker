@@ -25,7 +25,10 @@
     ],
     "scheme": "job-tracker",
     "extra": {
-      "googleClientId": "905748016378-iq8m7q2fochaeu3o07cbqojud8rt1nu2.apps.googleusercontent.com"
+      "googleClientId": "905748016378-iq8m7q2fochaeu3o07cbqojud8rt1nu2.apps.googleusercontent.com",
+      "eas": {
+        "projectId": "2b91a239-ba57-4172-893c-fc972642abf4"
+      }
     }
   }
 }
