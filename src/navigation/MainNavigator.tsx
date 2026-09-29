@@ -17,6 +17,7 @@ import YearlySummaryScreen from '../screens/YearlySummaryScreen';
 import AddJobScreen from '../screens/AddjobScreen';
 import JobDetailScreen from '../screens/JobDetailScreen';
 import PumpFinderScreen from '../screens/PumpFinderScreen';
+import PostFinderJobScreen from '../screens/PostFinderJobScreen';
 import FinderPlaceholderScreen from '../screens/FinderPlaceholderScreen';
 
 const Tab = createMaterialTopTabNavigator();
@@ -65,7 +66,7 @@ function FinderStack() {
   return (
     <Stack.Navigator screenOptions={commonScreenOptions}>
       <Stack.Screen name="FinderHome" component={PumpFinderScreen} options={{ title: 'Pump Finder' }} />
-      <Stack.Screen name="PostJob" component={FinderPlaceholderScreen} initialParams={{ title: 'Post a Job', description: 'Create a Finder job request for available pumping businesses.' }} />
+      <Stack.Screen name="PostJob" component={PostFinderJobScreen} options={{ title: 'Post a Job' }} />
       <Stack.Screen name="AvailableJobs" component={FinderPlaceholderScreen} initialParams={{ title: 'Available Jobs', description: 'Matching jobs in the business service area will appear here.' }} />
       <Stack.Screen name="FinderJobDetail" component={FinderPlaceholderScreen} initialParams={{ title: 'Job Details', description: 'Review Finder job requirements, location, yards, hose, PSI, and timing.' }} />
       <Stack.Screen name="ReviewJob" component={FinderPlaceholderScreen} initialParams={{ title: 'Review Job', description: 'Review all job details before posting to matching pumpers.' }} />
