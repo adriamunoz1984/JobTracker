@@ -10,164 +10,106 @@ import { Avatar, IconButton } from 'react-native-paper';
 import { useNavigation } from '@react-navigation/native';
 import { useAuth } from '../context/AuthContext';
 
-// Import screens
 import HomeScreen from '../screens/HomeScreen';
 import WeeklyDashboardScreen from '../screens/WeeklyDashBoardScreen';
 import MonthlySummaryScreen from '../screens/MonthlySummaryScreen';
 import YearlySummaryScreen from '../screens/YearlySummaryScreen';
 import AddJobScreen from '../screens/AddjobScreen';
 import JobDetailScreen from '../screens/JobDetailScreen';
+import PumpFinderScreen from '../screens/PumpFinderScreen';
+import FinderPlaceholderScreen from '../screens/FinderPlaceholderScreen';
 
 const Tab = createMaterialTopTabNavigator();
 const Stack = createStackNavigator();
 
-// Profile Button Component
 const ProfileButton = () => {
-  const navigation = useNavigation();
+  const navigation = useNavigation<any>();
   const { user } = useAuth();
-  
-  const goToProfile = () => {
-    navigation.navigate('Profile');
-  };
-  
+
   return (
-    <TouchableOpacity onPress={goToProfile} style={{ marginRight: 10 }}>
+    <TouchableOpacity onPress={() => navigation.navigate('Profile')} style={{ marginRight: 10 }}>
       {user?.photoURL ? (
-        <Avatar.Image 
-          source={{ uri: user.photoURL }} 
-          size={34} 
-          style={{ backgroundColor: '#2196F3' }} 
-        />
+        <Avatar.Image source={{ uri: user.photoURL }} size={34} style={{ backgroundColor: '#2196F3' }} />
+      ) : user?.displayName ? (
+        <Avatar.Text size={34} label={user.displayName.substring(0, 2).toUpperCase()} style={{ backgroundColor: '#2196F3' }} />
       ) : (
-        user?.displayName ? (
-          <Avatar.Text 
-            size={34} 
-            label={user.displayName.substring(0, 2).toUpperCase()} 
-            style={{ backgroundColor: '#2196F3' }} 
-          />
-        ) : (
-          <IconButton 
-            icon="account-circle" 
-            size={28} 
-            color="#fff" 
-          />
-        )
+        <IconButton icon="account-circle" size={28} color="#fff" />
       )}
     </TouchableOpacity>
   );
 };
 
-// Define common header options
 const commonScreenOptions = {
   headerTitleAlign: 'center' as const,
-  headerStyle: {
-    backgroundColor: '#2196F3',
-  },
+  headerStyle: { backgroundColor: '#2196F3' },
   headerTintColor: '#fff',
   headerRight: () => (
     <View style={{ flexDirection: 'row', alignItems: 'center' }}>
       <NotificationBell />
       <ProfileButton />
     </View>
-  )
+  ),
 };
 
-// Home stack includes the job list and related screens
 function HomeStack() {
   return (
     <Stack.Navigator screenOptions={commonScreenOptions}>
-      <Stack.Screen 
-        name="JobsList" 
-        component={HomeScreen} 
-        options={{ title: 'My Jobs' }} 
-      />
-      <Stack.Screen 
-        name="JobDetail" 
-        component={JobDetailScreen} 
-        options={{ title: 'Job Details' }} 
-      />
-      <Stack.Screen 
-        name="AddJob" 
-        component={AddJobScreen} 
-        options={{ title: 'Add New Job' }} 
-      />
+      <Stack.Screen name="JobsList" component={HomeScreen} options={{ title: 'My Jobs' }} />
+      <Stack.Screen name="JobDetail" component={JobDetailScreen} options={{ title: 'Job Details' }} />
+      <Stack.Screen name="AddJob" component={AddJobScreen} options={{ title: 'Add New Job' }} />
     </Stack.Navigator>
   );
 }
 
-// Weekly stack
+function FinderStack() {
+  return (
+    <Stack.Navigator screenOptions={commonScreenOptions}>
+      <Stack.Screen name="FinderHome" component={PumpFinderScreen} options={{ title: 'Pump Finder' }} />
+      <Stack.Screen name="PostJob" component={FinderPlaceholderScreen} initialParams={{ title: 'Post a Job', description: 'Create a Finder job request for available pumping businesses.' }} />
+      <Stack.Screen name="AvailableJobs" component={FinderPlaceholderScreen} initialParams={{ title: 'Available Jobs', description: 'Matching jobs in the business service area will appear here.' }} />
+      <Stack.Screen name="FinderJobDetail" component={FinderPlaceholderScreen} initialParams={{ title: 'Job Details', description: 'Review Finder job requirements, location, yards, hose, PSI, and timing.' }} />
+      <Stack.Screen name="ReviewJob" component={FinderPlaceholderScreen} initialParams={{ title: 'Review Job', description: 'Review all job details before posting to matching pumpers.' }} />
+      <Stack.Screen name="InterestedPumpers" component={FinderPlaceholderScreen} initialParams={{ title: 'Interested Pumpers', description: 'Compare interested pumping businesses before selecting one.' }} />
+      <Stack.Screen name="BusinessProfile" component={FinderPlaceholderScreen} initialParams={{ title: 'Business Profile', description: 'Equipment, service area, availability, photos, verification, and reputation.' }} />
+      <Stack.Screen name="SelectPumper" component={FinderPlaceholderScreen} initialParams={{ title: 'Select Pumper', description: 'Choose the business you spoke with and send the confirmation request.' }} />
+      <Stack.Screen name="ConfirmJob" component={FinderPlaceholderScreen} initialParams={{ title: 'Confirm Job', description: 'The selected pumper confirms the agreed job before it becomes assigned.' }} />
+      <Stack.Screen name="ActiveJobs" component={FinderPlaceholderScreen} initialParams={{ title: 'Active Jobs', description: 'Confirmed, arrived, in-progress, and completion statuses will live here.' }} />
+      <Stack.Screen name="CompleteFinderJob" component={FinderPlaceholderScreen} initialParams={{ title: 'Complete Job', description: 'Fast closeout for actual yards, final price, payment status, and notes.' }} />
+      <Stack.Screen name="Reviews" component={FinderPlaceholderScreen} initialParams={{ title: 'Reviews', description: 'Completed-job participants can leave ratings and optional comments.' }} />
+    </Stack.Navigator>
+  );
+}
+
 function WeeklyStack() {
-  return (
-    <Stack.Navigator screenOptions={commonScreenOptions}>
-      <Stack.Screen 
-        name="WeeklyDashboard" 
-        component={WeeklyDashboardScreen} 
-        options={{ title: 'Weekly Dashboard' }} 
-      />
-    </Stack.Navigator>
-  );
+  return <Stack.Navigator screenOptions={commonScreenOptions}><Stack.Screen name="WeeklyDashboard" component={WeeklyDashboardScreen} options={{ title: 'Weekly Dashboard' }} /></Stack.Navigator>;
 }
 
-// Monthly screen
 function MonthlyStack() {
-  return (
-    <Stack.Navigator screenOptions={commonScreenOptions}>
-      <Stack.Screen 
-        name="MonthlySummary" 
-        component={MonthlySummaryScreen} 
-        options={{ title: 'Monthly Summary' }} 
-      />
-    </Stack.Navigator>
-  );
+  return <Stack.Navigator screenOptions={commonScreenOptions}><Stack.Screen name="MonthlySummary" component={MonthlySummaryScreen} options={{ title: 'Monthly Summary' }} /></Stack.Navigator>;
 }
 
-// Yearly screen
 function YearlyStack() {
-  return (
-    <Stack.Navigator screenOptions={commonScreenOptions}>
-      <Stack.Screen 
-        name="YearlySummary" 
-        component={YearlySummaryScreen} 
-        options={{ title: 'Yearly Summary' }} 
-      />
-    </Stack.Navigator>
-  );
-}
-// Invoices stack
-function InvoicesStack() {
-  return (
-    <Stack.Navigator screenOptions={commonScreenOptions}>
-      <Stack.Screen 
-        name="InvoicesList" 
-        component={InvoiceListScreen} 
-        options={{ title: 'Invoices' }} 
-      />
-    </Stack.Navigator>
-  );
+  return <Stack.Navigator screenOptions={commonScreenOptions}><Stack.Screen name="YearlySummary" component={YearlySummaryScreen} options={{ title: 'Yearly Summary' }} /></Stack.Navigator>;
 }
 
-// Main tab navigation
+function InvoicesStack() {
+  return <Stack.Navigator screenOptions={commonScreenOptions}><Stack.Screen name="InvoicesList" component={InvoiceListScreen} options={{ title: 'Invoices' }} /></Stack.Navigator>;
+}
+
 export default function MainNavigator() {
   const dimensions = useWindowDimensions();
-  
+
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
         tabBarIcon: ({ focused, color }) => {
-          let iconName;
-
-          if (route.name === 'Home') {
-            iconName = focused ? 'home' : 'home-outline';
-          } else if (route.name === 'Weekly') {
-            iconName = focused ? 'calendar' : 'calendar-outline';
-          } else if (route.name === 'Monthly') {
-            iconName = focused ? 'bar-chart' : 'bar-chart-outline';
-          } else if (route.name === 'Yearly') {
-            iconName = focused ? 'stats-chart' : 'stats-chart-outline';
-          } else if (route.name === 'Invoices') {
-            iconName = focused ? 'receipt' : 'receipt-outline';
-          }
-
+          let iconName: any = 'ellipse-outline';
+          if (route.name === 'Home') iconName = focused ? 'home' : 'home-outline';
+          else if (route.name === 'Finder') iconName = focused ? 'locate' : 'locate-outline';
+          else if (route.name === 'Weekly') iconName = focused ? 'calendar' : 'calendar-outline';
+          else if (route.name === 'Monthly') iconName = focused ? 'bar-chart' : 'bar-chart-outline';
+          else if (route.name === 'Yearly') iconName = focused ? 'stats-chart' : 'stats-chart-outline';
+          else if (route.name === 'Invoices') iconName = focused ? 'receipt' : 'receipt-outline';
           return <Ionicons name={iconName} size={24} color={color} />;
         },
         tabBarShowLabel: false,
@@ -184,6 +126,7 @@ export default function MainNavigator() {
       initialLayout={{ width: dimensions.width }}
     >
       <Tab.Screen name="Home" component={HomeStack} />
+      <Tab.Screen name="Finder" component={FinderStack} />
       <Tab.Screen name="Weekly" component={WeeklyStack} />
       <Tab.Screen name="Monthly" component={MonthlyStack} />
       <Tab.Screen name="Yearly" component={YearlyStack} />
@@ -193,9 +136,7 @@ export default function MainNavigator() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    backgroundColor: 'white',
-  },
+  container: { backgroundColor: 'white' },
   tabBar: {
     height: 60,
     backgroundColor: 'white',
