@@ -65,7 +65,7 @@ export default function PostFinderJobScreen({ navigation }: any) {
       return;
     }
 
-    if (extraHoseRequired && (!Number.isFinite(hoseValue) || (hoseValue || 0) <= 0)) {
+    if (extraHoseRequired && (hoseValue === undefined || !Number.isFinite(hoseValue) || hoseValue <= 0)) {
       Alert.alert('Check hose length', 'Enter the estimated total hose length needed for this job.');
       return;
     }
