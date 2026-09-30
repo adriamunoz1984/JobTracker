@@ -19,6 +19,8 @@ import JobDetailScreen from '../screens/JobDetailScreen';
 import PumpFinderScreen from '../screens/PumpFinderScreen';
 import PostFinderJobScreen from '../screens/PostFinderJobScreen';
 import FinderPlaceholderScreen from '../screens/FinderPlaceholderScreen';
+import ReviewFinderJobScreen from '../screens/ReviewFinderJobScreen';
+import FinderBusinessProfileScreen from '../screens/FinderBusinessProfileScreen';
 
 const Tab = createMaterialTopTabNavigator();
 const Stack = createStackNavigator();
@@ -67,14 +69,14 @@ function FinderStack() {
     <Stack.Navigator screenOptions={commonScreenOptions}>
       <Stack.Screen name="FinderHome" component={PumpFinderScreen} options={{ title: 'Pump Finder' }} />
       <Stack.Screen name="PostJob" component={PostFinderJobScreen} options={{ title: 'Post a Job' }} />
-      <Stack.Screen name="AvailableJobs" component={FinderPlaceholderScreen} initialParams={{ title: 'Available Jobs', description: 'Matching jobs in the business service area will appear here.' }} />
+      <Stack.Screen name="AvailableJobs" component={FinderPlaceholderScreen} initialParams={{ title: 'Available Jobs', description: 'Matching jobs will appear here. Pumpers request work; they do not instantly claim it.' }} />
       <Stack.Screen name="FinderJobDetail" component={FinderPlaceholderScreen} initialParams={{ title: 'Job Details', description: 'Review Finder job requirements, location, yards, hose, PSI, and timing.' }} />
-      <Stack.Screen name="ReviewJob" component={FinderPlaceholderScreen} initialParams={{ title: 'Review Job', description: 'Review all job details before posting to matching pumpers.' }} />
-      <Stack.Screen name="InterestedPumpers" component={FinderPlaceholderScreen} initialParams={{ title: 'Interested Pumpers', description: 'Compare interested pumping businesses before selecting one.' }} />
-      <Stack.Screen name="BusinessProfile" component={FinderPlaceholderScreen} initialParams={{ title: 'Business Profile', description: 'Equipment, service area, availability, photos, verification, and reputation.' }} />
-      <Stack.Screen name="SelectPumper" component={FinderPlaceholderScreen} initialParams={{ title: 'Select Pumper', description: 'Choose the business you spoke with and send the confirmation request.' }} />
-      <Stack.Screen name="ConfirmJob" component={FinderPlaceholderScreen} initialParams={{ title: 'Confirm Job', description: 'The selected pumper confirms the agreed job before it becomes assigned.' }} />
-      <Stack.Screen name="ActiveJobs" component={FinderPlaceholderScreen} initialParams={{ title: 'Active Jobs', description: 'Confirmed, arrived, in-progress, and completion statuses will live here.' }} />
+      <Stack.Screen name="ReviewJob" component={ReviewFinderJobScreen} options={{ title: 'Review Job' }} />
+      <Stack.Screen name="InterestedPumpers" component={FinderPlaceholderScreen} initialParams={{ title: 'Interested Pumpers', description: 'Compare pumpers who requested this job. The original poster chooses who receives it.' }} />
+      <Stack.Screen name="BusinessProfile" component={FinderBusinessProfileScreen} options={{ title: 'Business Profile' }} />
+      <Stack.Screen name="SelectPumper" component={FinderPlaceholderScreen} initialParams={{ title: 'Select Pumper', description: 'Award the job to one requester. Conflicting awarded jobs will be blocked before confirmation.' }} />
+      <Stack.Screen name="ConfirmJob" component={FinderPlaceholderScreen} initialParams={{ title: 'Confirm Job', description: 'The selected pumper confirms the awarded job. A pumper cannot transfer it without poster approval.' }} />
+      <Stack.Screen name="ActiveJobs" component={FinderPlaceholderScreen} initialParams={{ title: 'Active Jobs', description: 'Confirmed, arrived, in-progress, completion, cancellation, and replacement-request statuses will live here.' }} />
       <Stack.Screen name="CompleteFinderJob" component={FinderPlaceholderScreen} initialParams={{ title: 'Complete Job', description: 'Fast closeout for actual yards, final price, payment status, and notes.' }} />
       <Stack.Screen name="Reviews" component={FinderPlaceholderScreen} initialParams={{ title: 'Reviews', description: 'Completed-job participants can leave ratings and optional comments.' }} />
     </Stack.Navigator>
