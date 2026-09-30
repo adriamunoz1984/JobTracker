@@ -1,4 +1,6 @@
 // src/types/index.ts
+import type { PumpFinderBusinessProfile } from './pumpFinder';
+
 export type PaymentMethod = 'Cash' | 'Check' | 'Zelle' | 'Square' | 'Charge';
 
 export type UserRole = 'owner' | 'employee';
@@ -23,6 +25,9 @@ export interface User {
   commissionRate?: number;
   keepsCash?: boolean;
   keepsCheck?: boolean;
+
+  // Pump Finder marketplace profile
+  pumpFinderProfile?: PumpFinderBusinessProfile;
 }
 
 export interface Employee {
