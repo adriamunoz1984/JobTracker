@@ -73,6 +73,8 @@ function FinderStack() {
       <Stack.Screen name="FinderJobDetail" component={FinderPlaceholderScreen} initialParams={{ title: 'Job Details', description: 'Review Finder job requirements, location, yards, hose, PSI, and timing.' }} />
       <Stack.Screen name="ReviewJob" component={ReviewFinderJobScreen} options={{ title: 'Review Job' }} />
       <Stack.Screen name="InterestedPumpers" component={FinderPlaceholderScreen} initialParams={{ title: 'Interested Pumpers', description: 'Compare pumpers who requested this job. The original poster chooses who receives it.' }} />
+      <Stack.Screen name="Messages" component={FinderPlaceholderScreen} initialParams={{ title: 'Messages', description: 'V1 keeps conversations tied to jobs, with private pumper-to-pumper messaging available for recommendations and coverage.' }} />
+      <Stack.Screen name="RecommendPumper" component={FinderPlaceholderScreen} initialParams={{ title: 'Recommend a Pumper', description: 'A pumper can recommend another qualified pumper, but the original poster must approve any replacement.' }} />
       <Stack.Screen name="BusinessProfile" component={FinderBusinessProfileScreen} options={{ title: 'Business Profile' }} />
       <Stack.Screen name="SelectPumper" component={FinderPlaceholderScreen} initialParams={{ title: 'Select Pumper', description: 'Award the job to one requester. Conflicting awarded jobs will be blocked before confirmation.' }} />
       <Stack.Screen name="ConfirmJob" component={FinderPlaceholderScreen} initialParams={{ title: 'Confirm Job', description: 'The selected pumper confirms the awarded job. A pumper cannot transfer it without poster approval.' }} />
