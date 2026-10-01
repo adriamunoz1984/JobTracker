@@ -4,7 +4,7 @@ import { View, StyleSheet, ScrollView, Alert, Platform } from 'react-native';
 import { TextInput, Button, Text, SegmentedButtons, Title, Divider } from 'react-native-paper';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import { format } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 import { useAuth } from '../context/AuthContext';
 import { 
   getFirestore, 
@@ -155,7 +155,7 @@ export default function CompleteJobScreen() {
         {/* Job Info (Read-only) */}
         <View style={styles.infoSection}>
           <Text style={styles.label}>Date:</Text>
-          <Text style={styles.value}>{format(new Date(job.date), 'MMMM dd, yyyy')}</Text>
+          <Text style={styles.value}>{format(parseISO(job.date), 'MMMM dd, yyyy')}</Text>
 
           {job.companyName && (
             <>
