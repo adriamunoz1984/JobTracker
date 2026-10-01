@@ -415,7 +415,8 @@ export const JobsProvider: React.FC<{ children: React.ReactNode }> = ({ children
       .filter(job => job.isPaid && job.isPaidToMe)
       .reduce((sum, job) => sum + job.amount, 0);
       
-    const netEarnings = (totalEarnings / 2) - cashPayments - paidToMeAmount;
+    const commissionRate = user?.role === 'owner' ? 100 : (user?.commissionRate || 50);
+    const netEarnings = (totalEarnings * commissionRate / 100) - paidToMeAmount;
     
     return {
       startDate,
