@@ -43,7 +43,10 @@ export default function DetailedReportScreen() {
   const cashPayments = jobs
     .filter(j => j.paymentMethod === 'Cash')
     .reduce((sum, job) => sum + (job.amount || 0), 0);
-  const takeHome = commission - cashPayments;
+  const directPayments = jobs
+    .filter(j => j.isPaidToMe)
+    .reduce((sum, job) => sum + (job.amount || 0), 0);
+  const takeHome = commission - directPayments;
   const paidAmount = jobs.filter(j => j.isPaid).reduce((sum, job) => sum + (job.amount || 0), 0);
   const unpaidAmount = jobs.filter(j => !j.isPaid).reduce((sum, job) => sum + (job.amount || 0), 0);
   const totalYards = jobs.reduce((sum, job) => sum + (job.yards || 0), 0);
