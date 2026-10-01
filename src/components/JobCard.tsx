@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { Card, Title, Paragraph, Text, Button, IconButton, Menu, Divider, Badge, Chip } from 'react-native-paper';
-import { format } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 import { useNavigation } from '@react-navigation/native';
 import { useJobs } from '../context/JobsContext';
 import { Colors, Spacing, BorderRadius, Shadows, Typography } from '../theme/colors';
@@ -38,7 +38,7 @@ const JobCard: React.FC<JobCardProps> = ({ job, onDelete, onTogglePaid }) => {
   const [expanded, setExpanded] = useState(false);
   const [menuVisible, setMenuVisible] = useState(false);
 
-  const formattedDate = format(new Date(job.date), 'EEE, MMM d, yyyy');
+  const formattedDate = format(parseISO(job.date), 'EEE, MMM d, yyyy');
   
   const statusColor = job.isPaid ? Colors.success : Colors.error;
   const statusBgColor = job.isPaid ? Colors.successBg : Colors.errorBg;
