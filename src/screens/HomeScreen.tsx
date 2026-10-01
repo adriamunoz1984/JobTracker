@@ -35,7 +35,7 @@ export default function HomeScreen() {
     const jobsByDate: Record<string, Job[]> = {};
     
     jobsList.forEach(job => {
-      const dateKey = job.date.split('T')[0];
+      const dateKey = format(parseISO(job.date), 'yyyy-MM-dd');
       
       if (!jobsByDate[dateKey]) {
         jobsByDate[dateKey] = [];
@@ -113,7 +113,7 @@ export default function HomeScreen() {
       
       const jobsByDateInWeek: Record<string, Job[]> = {};
       jobs.forEach(job => {
-        const dateKey = job.date.split('T')[0];
+        const dateKey = format(parseISO(job.date), 'yyyy-MM-dd');
         if (!jobsByDateInWeek[dateKey]) {
           jobsByDateInWeek[dateKey] = [];
         }
@@ -121,8 +121,8 @@ export default function HomeScreen() {
       });
       
       const sortedDates = Object.keys(jobsByDateInWeek).sort((a, b) => {
-        const dateA = new Date(a).getTime();
-        const dateB = new Date(b).getTime();
+        const dateA = parseISO(a).getTime();
+        const dateB = parseISO(b).getTime();
         return sortNewestFirst ? dateB - dateA : dateA - dateB;
       });
       
