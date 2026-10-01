@@ -1,5 +1,5 @@
 // src/types/index.ts
-export type PaymentMethod = 'Cash' | 'Check' | 'Zelle' | 'Square' | 'Charge';
+export type PaymentMethod = 'Cash' | 'Check' | 'Zelle' | 'Square' | 'Charge' | 'Card';
 
 export type UserRole = 'owner' | 'employee';
 
@@ -47,7 +47,7 @@ export interface Job {
   yards: number;
   isPaid: boolean;
   isPaidToMe?: boolean;
-  paymentMethod: 'Cash' | 'Check' | 'Charge' | 'Zelle' | 'Card';
+  paymentMethod: PaymentMethod;
   amount: number;
   amountPerYard?: number;
   setupCharge?: number;
