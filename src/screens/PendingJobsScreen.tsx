@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { View, StyleSheet, ScrollView, Alert } from 'react-native';
 import { Card, Title, Paragraph, Button, Text, Chip, ActivityIndicator, Divider } from 'react-native-paper';
 import { useNavigation } from '@react-navigation/native';
-import { format } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 import { useAuth } from '../context/AuthContext';
 import { 
   getFirestore, 
@@ -139,7 +139,7 @@ export default function PendingJobsScreen() {
       <Card.Content>
         <View style={styles.cardHeader}>
           <View style={styles.jobInfo}>
-            <Text style={styles.date}>{format(new Date(job.date), 'EEE, MMM d, yyyy')}</Text>
+            <Text style={styles.date}>{format(parseISO(job.date), 'EEE, MMM d, yyyy')}</Text>
             <Chip 
               mode="outlined" 
               style={isAccepted ? styles.acceptedChip : styles.statusChip}
