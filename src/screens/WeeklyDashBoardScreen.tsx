@@ -73,14 +73,10 @@ export default function WeeklyDashboardScreen() {
 
   if (!isOwner) {
     totals.commission = (totals.income * commissionRate) / 100;
-    
-    // FIXED: Only subtract cash if employee DOESN'T keep cash (keepsCash === false)
-    const cashToSubtract = user?.keepsCash === false ? totals.cashPayments : 0;
-    
-    // FIXED: Only subtract checks if employee DOESN'T keep checks (keepsCheck === false)
-    const checkToSubtract = user?.keepsCheck === false ? totals.checkPayments : 0;
-    
-    totals.yourPay = totals.commission - cashToSubtract - checkToSubtract;
+
+    // Only money explicitly marked as a Direct Payment reduces the end-of-week check.
+    // Payment method (Cash, Check, Zelle, etc.) is informational and must not deduct by itself.
+    totals.yourPay = totals.commission - totals.paidToMeAmount;
     totals.finalTakeHome = totals.yourPay;
   } else {
     totals.finalTakeHome = totals.income - totals.paidToMeAmount;
@@ -361,7 +357,7 @@ export default function WeeklyDashboardScreen() {
               </div>
               <div class="footer-row">
                 <div class="footer-label">- Direct Payments</div>
-                <div class="footer-value">-$${(totals.cashPayments + totals.checkPayments).toFixed(0)}</div>
+                <div class="footer-value">-${totals.paidToMeAmount.toFixed(0)}</div>
               </div>
               <div class="footer-row footer-total">
                 <div class="footer-label">Amount Owed</div>
@@ -532,17 +528,10 @@ export default function WeeklyDashboardScreen() {
                 <Text style={styles.earningsValue}>${totals.commission.toFixed(2)}</Text>
               </View>
 
-              {user?.keepsCash === false && (
+              {totals.paidToMeAmount > 0 && (
                 <View style={styles.earningsRow}>
-                  <Text style={styles.earningsLabel}>- Cash Payments (kept):</Text>
-                  <Text style={styles.earningsValue}>-${totals.cashPayments.toFixed(2)}</Text>
-                </View>
-              )}
-
-              {user?.keepsCheck === false && (
-                <View style={styles.earningsRow}>
-                  <Text style={styles.earningsLabel}>- Check Payments (kept):</Text>
-                  <Text style={styles.earningsValue}>-${totals.checkPayments.toFixed(2)}</Text>
+                  <Text style={styles.earningsLabel}>- Direct Payments:</Text>
+                  <Text style={styles.earningsValue}>-${totals.paidToMeAmount.toFixed(2)}</Text>
                 </View>
               )}
 
