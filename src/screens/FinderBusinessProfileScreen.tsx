@@ -9,6 +9,7 @@ import {
   View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useNavigation } from '@react-navigation/native';
 import { useAuth } from '../context/AuthContext';
 import {
   FINDER_PPE_OPTIONS,
@@ -21,8 +22,13 @@ import ThemedHero from '../components/ThemedHero';
 export default function FinderBusinessProfileScreen() {
   const { colors: Colors } = useAppTheme();
   const styles = useStyles();
+  const navigation = useNavigation<any>();
   const { user, updateProfile } = useAuth();
   const saved = user?.pumpFinderProfile;
+
+  // Public identity shown on your Pumper Profile
+  const [displayName, setDisplayName] = useState(user?.displayName || '');
+  const [businessName, setBusinessName] = useState(user?.businessName || '');
 
   const [pumpType, setPumpType] = useState(saved?.pumpType || '');
   const [serviceArea, setServiceArea] = useState(saved?.serviceArea || '');
@@ -84,10 +90,20 @@ export default function FinderBusinessProfileScreen() {
       ppeAvailable,
     };
 
+    if (!displayName.trim()) {
+      Alert.alert('Add your name', 'Enter the name posters should see.');
+      return;
+    }
+
     try {
       setSaving(true);
-      await updateProfile({ pumpFinderProfile });
-      Alert.alert('Saved', 'Your Pump Finder business settings were saved.');
+      await updateProfile({
+        displayName: displayName.trim(),
+        businessName: businessName.trim() || undefined,
+        pumpFinderProfile,
+      });
+      Alert.alert('Saved', 'Your pumper profile was updated.');
+      navigation.goBack();
     } catch (error) {
       Alert.alert('Could not save', 'Please try again.');
     } finally {
@@ -98,10 +114,18 @@ export default function FinderBusinessProfileScreen() {
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
       <ThemedHero
-        icon="business-outline"
-        title="Business Profile"
-        subtitle="These settings help posters understand what your pump can handle and how your common surcharges work."
+        icon="person-circle-outline"
+        title="Edit Pumper Profile"
+        subtitle="This is your public profile. Pump Finder posters see it when you request a job."
       />
+
+      <Section title="About you">
+        <Field label="Your name" value={displayName} onChangeText={setDisplayName} placeholder="First and last name" autoCapitalize="words" />
+        <Field label="Business name" value={businessName} onChangeText={setBusinessName} placeholder="Optional, like Munoz Pumping" autoCapitalize="words" />
+        <Text style={styles.helperText}>
+          Your phone and email are never shown here. They're shared only after a poster awards you a job.
+        </Text>
+      </Section>
 
       <Section title="Equipment & service area">
         <Field label="Pump type" value={pumpType} onChangeText={setPumpType} placeholder="Trailer, boom, line pump, etc." />
@@ -167,7 +191,7 @@ export default function FinderBusinessProfileScreen() {
         activeOpacity={0.8}
       >
         <Ionicons name="save-outline" size={20} color={Colors.onPrimary} />
-        <Text style={styles.saveButtonText}>{saving ? 'Saving…' : 'Save Business Profile'}</Text>
+        <Text style={styles.saveButtonText}>{saving ? 'Saving…' : 'Save Profile'}</Text>
       </TouchableOpacity>
     </ScrollView>
   );

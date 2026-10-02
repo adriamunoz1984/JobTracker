@@ -25,6 +25,9 @@ import { createStackNavigator } from '@react-navigation/stack';
 // Main App Screensa
 import MainNavigator from './src/navigation/MainNavigator';
 import ProfileScreen from './src/screens/ProfileScreen';
+import SettingsScreen from './src/screens/SettingsScreen';
+import AppearanceSettingsScreen from './src/screens/AppearanceSettingsScreen';
+import PaymentSettingsScreen from './src/screens/PaymentSettingsScreen';
 import { Provider as PaperProvider, ActivityIndicator, Text, FAB } from 'react-native-paper';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { StatusBar }              from 'expo-status-bar';
@@ -98,8 +101,13 @@ function AuthNavigator() {
     console.log('  - User ID:', user?.uid);
   }, [user, isLoading]);
 
-  // Show loading screen while checking auth status
-  if (isLoading) {
+  // Show the full-screen loader only for the first auth check at startup.
+  // Later saves (profile, settings) also flip isLoading; swapping the whole
+  // navigator out for them would reset you back to the Home tab mid-edit.
+  const finishedFirstCheck = React.useRef(false);
+  if (!isLoading) finishedFirstCheck.current = true;
+
+  if (isLoading && !finishedFirstCheck.current) {
     console.log('📱 Showing loading screen');
     return (
       <View style={{ 
@@ -161,11 +169,23 @@ function AppNavigatorWithFAB({ user }: { user: any }) {
             <Stack.Screen 
               name="Profile" 
               component={ProfileScreen}
-              options={{
-                headerShown: true,
-                title: 'Profile',
-                headerTitleAlign: 'center'
-              }}
+              options={{ headerShown: true, title: 'My Pumper Profile' }}
+            />
+            {/* Settings (private) and its sub-pages */}
+            <Stack.Screen
+              name="Settings"
+              component={SettingsScreen}
+              options={{ headerShown: true, title: 'Settings' }}
+            />
+            <Stack.Screen
+              name="AppearanceSettings"
+              component={AppearanceSettingsScreen}
+              options={{ headerShown: true, title: 'Theme and appearance' }}
+            />
+            <Stack.Screen
+              name="PaymentSettings"
+              component={PaymentSettingsScreen}
+              options={{ headerShown: true, title: 'Payment settings' }}
             />
             <Stack.Screen 
               name="Dashboard" 
@@ -303,7 +323,7 @@ function AppNavigatorWithFAB({ user }: { user: any }) {
             <Stack.Screen
               name="BusinessProfile"
               component={FinderBusinessProfileScreen}
-              options={{ headerShown: true, title: 'Business Profile' }}
+              options={{ headerShown: true, title: 'Edit Pumper Profile' }}
             />
             {FINDER_PLACEHOLDERS.map(p => (
               <Stack.Screen

@@ -1,6 +1,19 @@
 // src/context/AuthContext.tsx - CORRECTED FOR YOUR ERRORS
 
-import { getFirestore, doc, setDoc, getDoc } from 'firebase/firestore';
+import { getFirestore, doc, setDoc, getDoc, deleteField } from 'firebase/firestore';
+
+// Firestore rejects `undefined`. A blank optional field means "clear it",
+// so turn undefined into deleteField() (works with setDoc merge, also nested).
+function toFirestoreMerge(value: any): any {
+  if (value === undefined) return deleteField();
+  if (Array.isArray(value)) return value.filter(v => v !== undefined);
+  if (value && typeof value === 'object' && Object.getPrototypeOf(value) === Object.prototype) {
+    const out: Record<string, any> = {};
+    for (const [k, v] of Object.entries(value)) out[k] = toFirestoreMerge(v);
+    return out;
+  }
+  return value;
+}
 import { User as CustomUser, User } from '../types';
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { 
@@ -379,7 +392,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const db = getFirestore();
     await setDoc(
       doc(db, 'users', currentUser.uid, 'profile', 'data'),
-      data,
+      toFirestoreMerge(data),
       { merge: true } // Merge with existing data instead of overwriting
     );
     

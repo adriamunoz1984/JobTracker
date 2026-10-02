@@ -1,705 +1,228 @@
 // src/screens/ProfileScreen.tsx
-import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, ScrollView, Alert, TouchableOpacity } from 'react-native';
-import { Card, Paragraph, Button, Divider, Text, TextInput, Switch, SegmentedButtons } from 'react-native-paper';
-import { useNavigation } from '@react-navigation/native';
+// "My Pumper Profile" — the PUBLIC profile. This is the same information Pump Finder
+// posters will see when you request a job. Contact info (phone/email) and pay settings
+// are NOT shown here; those stay private in Settings.
+import React from 'react';
+import { View, ScrollView, TouchableOpacity } from 'react-native';
+import { Text } from 'react-native-paper';
+import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useNavigation } from '@react-navigation/native';
 import { useAuth } from '../context/AuthContext';
-import { 
-  getFirestore, 
-  collection, 
-  query, 
-  where, 
-  getDocs 
-} from 'firebase/firestore';
-import { Spacing, BorderRadius, Shadows, Typography } from '../theme/colors';
-import { useAppTheme, makeStyles, themes, themeOrder, getHeaderTitleStyle } from '../theme';
+import { Spacing, BorderRadius } from '../theme/colors';
+import { useAppTheme, makeStyles, withOpacity } from '../theme';
 
 export default function ProfileScreen() {
-  const { colors: Colors, gradients, preference, setPreference, themeId, setThemeId, mode } = useAppTheme();
+  const { colors: Colors, gradients, headerTitleStyle, theme } = useAppTheme();
   const styles = useStyles();
-  const navigation = useNavigation();
-  const { user, updateProfile, logout } = useAuth();
-  const [isCheckingInvites, setIsCheckingInvites] = useState(false);
-  const [isEditing, setIsEditing] = useState(false);
-  const [displayName, setDisplayName] = useState(user?.displayName || '');
-  
-  const [isEditingPayment, setIsEditingPayment] = useState(false);
-  const [commissionRate, setCommissionRate] = useState(user?.commissionRate?.toString() || '50');
-  const [keepsCash, setKeepsCash] = useState(user?.keepsCash !== false);
-  const [keepsCheck, setKeepsCheck] = useState(user?.keepsCheck !== false);
-  
-  useEffect(() => {
-    if (user) {
-      setDisplayName(user.displayName || '');
-      setCommissionRate(user.commissionRate?.toString() || '50');
-      setKeepsCash(user.keepsCash !== false);
-      setKeepsCheck(user.keepsCheck !== false);
-    }
-  }, [user]);
-  
-  const handleSaveProfile = async () => {
-    try {
-      await updateProfile({ displayName });
-      setIsEditing(false);
-    } catch (e) {
-      Alert.alert('Error', 'Failed to update profile');
-    }
-  };
-  
-  const handleSavePaymentSettings = async () => {
-    try {
-      const commissionRateNum = parseInt(commissionRate, 10);
-      if (isNaN(commissionRateNum) || commissionRateNum < 1 || commissionRateNum > 100) {
-        Alert.alert('Invalid Rate', 'Commission rate must be between 1 and 100');
-        return;
-      }
-      
-      await updateProfile({
-        commissionRate: commissionRateNum,
-        keepsCash,
-        keepsCheck
-      });
-      
-      setIsEditingPayment(false);
-    } catch (e) {
-      Alert.alert('Error', 'Failed to update payment settings');
-    }
-  };
-  
-  const handleToggleRole = async () => {
-    const newRole = user?.role === 'owner' ? 'employee' : 'owner';
-    
-    Alert.alert(
-      'Change Role',
-      `Switch to ${newRole} mode? This will change how your earnings are calculated.`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Confirm',
-          onPress: async () => {
-            try {
-              await updateProfile({ 
-                role: newRole,
-                ...(newRole === 'employee' ? {
-                  commissionRate: user?.commissionRate || 50,
-                  keepsCash: user?.keepsCash !== undefined ? user.keepsCash : false,
-                  keepsCheck: user?.keepsCheck !== undefined ? user.keepsCheck : false,
-                } : {
-                  commissionRate: 100,
-                  keepsCash: true,
-                  keepsCheck: true,
-                })
-              });
-            } catch (e) {
-              Alert.alert('Error', 'Failed to change role');
-            }
-          }
-        }
-      ]
-    );
-  };
-  
-  const handleLogout = () => {
-    Alert.alert(
-      'Logout',
-      'Are you sure you want to logout?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { 
-          text: 'Logout', 
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await logout();
-            } catch (e) {
-              console.error('Logout error:', e);
-            }
-          }
-        }
-      ]
-    );
-  };
+  const navigation = useNavigation<any>();
+  const { user } = useAuth();
+  const p = user?.pumpFinderProfile;
 
-  const handleCheckInvites = async () => {
-    if (!user?.email) return;
-    
-    try {
-      setIsCheckingInvites(true);
-      
-      const db = getFirestore();
-      const invitesRef = collection(db, 'employeeInvites');
-      const q = query(
-        invitesRef,
-        where('employeeEmail', '==', user.email.toLowerCase()),
-        where('status', '==', 'pending')
-      );
-      
-      const snapshot = await getDocs(q);
-      
-      if (snapshot.empty) {
-        Alert.alert('No Invitations', 'You don\'t have any pending invitations at this time.');
-      } else {
-        Alert.alert(
-          'Invitations Found!',
-          `You have ${snapshot.size} pending invitation(s). Log out and back in to view them.`,
-          [
-            { text: 'Later', style: 'cancel' },
-            { text: 'Log Out Now', onPress: () => logout() }
-          ]
-        );
-      }
-    } catch (error) {
-      console.error('Error checking invites:', error);
-      Alert.alert('Error', 'Failed to check for invitations');
-    } finally {
-      setIsCheckingInvites(false);
-    }
-  };
-  
+  const displayName = user?.displayName || 'Your name';
+  const businessName = user?.businessName?.trim() || displayName;
+  const initials = (user?.businessName || user?.displayName || '?')
+    .split(' ')
+    .filter(Boolean)
+    .slice(0, 2)
+    .map(w => w[0]!.toUpperCase())
+    .join('');
+
+  const hasPumpDetails = !!(p?.pumpType || p?.serviceArea);
+  const money = (n?: number) => (n === undefined || n === null ? undefined : `$${n}`);
+
+  const rows: { icon: keyof typeof Ionicons.glyphMap; label: string; value?: string }[] = [
+    { icon: 'construct-outline', label: 'Pump', value: p?.pumpType },
+    { icon: 'location-outline', label: 'Service area', value: p?.serviceArea },
+    {
+      icon: 'git-commit-outline',
+      label: 'Hose',
+      value:
+        p?.hoseIncludedFt !== undefined
+          ? `${p.hoseIncludedFt} ft included${p.extraHoseRatePerFt !== undefined ? ` · ${money(p.extraHoseRatePerFt)}/ft extra` : ''}`
+          : undefined,
+    },
+    {
+      icon: 'speedometer-outline',
+      label: 'PSI',
+      value:
+        p?.standardPsiMax !== undefined
+          ? `Up to ${p.standardPsiMax}${p.highPsiSurcharge ? ` · high-PSI +${money(p.highPsiSurcharge)}` : ''}`
+          : undefined,
+    },
+  ];
+
   return (
-    <ScrollView style={styles.container}>
-      {/* Header */}
-      <LinearGradient
-        colors={gradients.primary}
-        style={styles.header}
-      >
-        <Text style={styles.headerTitle}>👤 Profile</Text>
-        <Text style={styles.headerSubtitle}>
-          {user?.role === 'owner' ? '👔 Business Owner' : '👷 Employee'}
+    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+      {/* Identity card */}
+      <LinearGradient colors={gradients.primary} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.hero}>
+        <View style={[styles.avatar, { backgroundColor: withOpacity(Colors.onPrimary, 0.18) }]}>
+          <Text style={styles.avatarText}>{initials}</Text>
+        </View>
+        <Text
+          style={[headerTitleStyle, { fontSize: theme.headerFont ? theme.headerFontSize + 4 : 22 }, styles.heroTitle]}
+          accessibilityRole="header"
+        >
+          {businessName}
         </Text>
+        {businessName !== displayName && <Text style={styles.heroLine}>{displayName}</Text>}
+        <View style={[styles.pill, { backgroundColor: withOpacity(Colors.onPrimary, 0.18) }]}>
+          <Ionicons name="sparkles-outline" size={14} color={Colors.onPrimary} />
+          <Text style={styles.pillText}>New pumper · reviews start after your first Pump Finder job</Text>
+        </View>
       </LinearGradient>
 
-      {/* Profile Info Card */}
-      <Card style={styles.card}>
-        <Card.Content>
-          <View style={styles.cardHeader}>
-            <Text variant="titleLarge" style={styles.cardTitle}>Personal Information</Text>
-            <Button 
-              mode="text" 
-              onPress={() => setIsEditing(!isEditing)} 
-              icon={isEditing ? "check" : "pencil"}
-              textColor={Colors.primary}
-              compact
-            >
-              {isEditing ? "Done" : "Edit"}
-            </Button>
+      {/* Business details (what posters see) */}
+      <View style={styles.card}>
+        <Text style={styles.sectionTitle}>Pumping details</Text>
+        {hasPumpDetails ? (
+          rows.map(r => (
+            <View key={r.label} style={styles.row}>
+              <Ionicons name={r.icon} size={20} color={Colors.primary} style={styles.rowIcon} />
+              <Text style={styles.rowLabel}>{r.label}</Text>
+              <Text style={[styles.rowValue, !r.value && styles.rowEmpty]}>{r.value || 'Not set'}</Text>
+            </View>
+          ))
+        ) : (
+          <Text style={styles.emptyText}>
+            Add your pump, service area, hose, and PSI so posters know what jobs you can handle.
+          </Text>
+        )}
+
+        <Text style={[styles.sectionTitle, { marginTop: Spacing.md }]}>PPE on the truck</Text>
+        {p?.ppeAvailable?.length ? (
+          <View style={styles.chips}>
+            {p.ppeAvailable.map(item => (
+              <View key={item} style={styles.chip}>
+                <Ionicons name="checkmark-circle" size={16} color={Colors.success} />
+                <Text style={styles.chipText}>{item}</Text>
+              </View>
+            ))}
           </View>
-          <Divider style={styles.divider} />
-          
-          {isEditing ? (
-            <View>
-              <TextInput
-                label="Display Name"
-                value={displayName}
-                onChangeText={setDisplayName}
-                mode="outlined"
-                style={styles.input}
-                outlineColor={Colors.border}
-                activeOutlineColor={Colors.primary}
-              />
-              
-              <Button 
-                mode="contained" 
-                onPress={handleSaveProfile}
-                style={styles.saveButton}
-                buttonColor={Colors.primary}
-                icon="check"
-              >
-                Save Changes
-              </Button>
-            </View>
-          ) : (
-            <View>
-              <View style={styles.infoRow}>
-                <Text style={styles.label}>Name:</Text>
-                <Text style={styles.value}>{user?.displayName || 'Not set'}</Text>
-              </View>
-              
-              <View style={styles.infoRow}>
-                <Text style={styles.label}>Email:</Text>
-                <Text style={styles.value}>{user?.email || 'Not available'}</Text>
-              </View>
-            </View>
-          )}
-        </Card.Content>
-      </Card>
-      {/* Theme Card — pick the look; each theme has its own light + dark version */}
-      <Card style={styles.card}>
-        <Card.Content>
-          <Text variant="titleLarge" style={styles.cardTitle}>Theme</Text>
-          <Divider style={styles.divider} />
-          {themeOrder.map((id) => {
-            const t = themes[id];
-            const p = mode === 'dark' ? t.dark : t.light;
-            const selected = id === themeId;
-            return (
-              <TouchableOpacity
-                key={id}
-                onPress={() => setThemeId(id)}
-                accessibilityRole="radio"
-                accessibilityState={{ selected }}
-                accessibilityLabel={`${t.name} theme`}
-                style={[
-                  styles.themeRow,
-                  { backgroundColor: p.header, borderColor: selected ? Colors.primary : 'transparent' },
-                ]}
-              >
-                <View style={{ flex: 1 }}>
-                  <Text
-                    numberOfLines={1}
-                    style={[getHeaderTitleStyle(t), { color: p.onHeader, fontSize: Math.min(t.headerFontSize, 22) }]}
-                  >
-                    {t.name}
-                  </Text>
-                  <View style={styles.swatchRow}>
-                    {[p.background, p.surface, p.primary, p.accent, p.success].map((c, i) => (
-                      <View key={i} style={[styles.swatch, { backgroundColor: c }]} />
-                    ))}
-                  </View>
-                </View>
-                {selected && (
-                  <View style={[styles.themeCheck, { backgroundColor: Colors.primary }]}>
-                    <Text style={{ color: Colors.onPrimary, fontSize: 16, fontWeight: 'bold' }}>✓</Text>
-                  </View>
-                )}
-              </TouchableOpacity>
-            );
-          })}
-          <Paragraph style={[styles.subtitle, { marginTop: Spacing.sm }]}>
-            {themes[themeId].description}
-          </Paragraph>
-        </Card.Content>
-      </Card>
-      {/* Appearance Card — light (cabin canvas) / dark (midnight pines) */}
-      <Card style={styles.card}>
-        <Card.Content>
-          <Text variant="titleLarge" style={styles.cardTitle}>Appearance</Text>
-          <Divider style={styles.divider} />
-          <Paragraph style={styles.subtitle}>
-            Auto follows your phone's light or dark setting.
-          </Paragraph>
-          <SegmentedButtons
-            value={preference}
-            onValueChange={(v) => setPreference(v as 'system' | 'light' | 'dark')}
-            style={{ marginTop: Spacing.sm }}
-            buttons={[
-              { value: 'system', label: 'Auto', icon: 'theme-light-dark' },
-              { value: 'light', label: 'Light', icon: 'white-balance-sunny' },
-              { value: 'dark', label: 'Dark', icon: 'weather-night' },
-            ]}
-          />
-        </Card.Content>
-      </Card>
-            {/* Dashboard */}
-      <Card style={styles.card}>
-        <Card.Content>
-          <Text variant="titleLarge" style={styles.cardTitle}>📈 Dashboard</Text>
-          <Divider style={styles.divider} />
-          <Paragraph style={styles.subtitle}>
-            View trends, analytics, and performance metrics
-          </Paragraph>
-          <Button
-            mode="contained"
-            icon="view-dashboard"
-            onPress={() => navigation.navigate('Dashboard' as never)}
-            style={styles.actionButton}
-            buttonColor={Colors.secondary}
-          >
-            View Dashboard
-          </Button>
-        </Card.Content>
-      </Card>
-      {/* Role Toggle Card */}
-      <Card style={styles.card}>
-        <Card.Content>
-          <Text variant="titleLarge" style={styles.cardTitle}>Account Role</Text>
-          <Divider style={styles.divider} />
-          
-          <View style={styles.roleContainer}>
-            <Text style={styles.roleDescription}>
-              {user?.role === 'owner' 
-                ? 'Owners receive 100% of job earnings and can manage employees.'
-                : 'Employees earn based on commission rate with custom payment rules.'}
-            </Text>
-          </View>
-          
-          <Button
-            mode="outlined"
-            icon="swap-horizontal"
-            onPress={handleToggleRole}
-            style={styles.roleButton}
-            textColor={Colors.primary}
-          >
-            Switch to {user?.role === 'owner' ? 'Employee' : 'Owner'} Mode
-          </Button>
-        </Card.Content>
-      </Card>
+        ) : (
+          <Text style={styles.emptyText}>None listed yet.</Text>
+        )}
+      </View>
 
-      {/* Employee: Check Invites */}
-      {user?.role === 'employee' && (
-        <Card style={styles.card}>
-          <Card.Content>
-            <Text variant="titleLarge" style={styles.cardTitle}>📨 Pending Invitations</Text>
-            <Divider style={styles.divider} />
-            <Paragraph style={styles.subtitle}>
-              Check if you have any pending job invitations from employers
-            </Paragraph>
-            <Button
-              mode="contained"
-              icon="email-check"
-              onPress={handleCheckInvites}
-              loading={isCheckingInvites}
-              disabled={isCheckingInvites}
-              style={styles.actionButton}
-              buttonColor={Colors.info}
-            >
-              Check for Invitations
-            </Button>
-          </Card.Content>
-        </Card>
-      )}
+      <View style={styles.note}>
+        <Ionicons name="eye-outline" size={18} color={Colors.textSecondary} />
+        <Text style={styles.noteText}>
+          This is what Pump Finder posters see. Your phone, email, and pay settings stay private.
+        </Text>
+      </View>
 
-      {/* Owner: Employee Management */}
-      {user?.role === 'owner' && (
-        <Card style={styles.card}>
-          <Card.Content>
-            <Text variant="titleLarge" style={styles.cardTitle}>👥 Employee Management</Text>
-            <Divider style={styles.divider} />
-            <Paragraph style={styles.subtitle}>
-              Invite and manage employees who work for you
-            </Paragraph>
-            <Button
-              mode="contained"
-              icon="account-group"
-              onPress={() => navigation.navigate('EmployeeManagement' as never)}
-              style={styles.actionButton}
-              buttonColor={Colors.secondary}
-            >
-              Manage Employees
-            </Button>
-          </Card.Content>
-        </Card>
-      )}
-
-      {/* Employee: Pending Jobs */}
-      {user?.role === 'employee' && user?.ownerStatus === 'active' && (
-        <Card style={styles.card}>
-          <Card.Content>
-            <Text variant="titleLarge" style={styles.cardTitle}>📋 Assigned Jobs</Text>
-            <Divider style={styles.divider} />
-            <Paragraph style={styles.subtitle}>
-              View and accept jobs assigned by your employer
-            </Paragraph>
-            <Button
-              mode="contained"
-              icon="briefcase-clock"
-              onPress={() => navigation.navigate('PendingJobs' as never)}
-              style={styles.actionButton}
-              buttonColor={Colors.warning}
-            >
-              View Pending Jobs
-            </Button>
-          </Card.Content>
-        </Card>
-      )}
-      
-      {/* Employee: Payment Settings */}
-      {user?.role === 'employee' && (
-        <Card style={styles.card}>
-          <Card.Content>
-            <View style={styles.cardHeader}>
-              <Text variant="titleLarge" style={styles.cardTitle}>💰 Payment Settings</Text>
-              <Button 
-                mode="text" 
-                onPress={() => setIsEditingPayment(!isEditingPayment)} 
-                icon={isEditingPayment ? "check" : "pencil"}
-                textColor={Colors.primary}
-                compact
-              >
-                {isEditingPayment ? "Done" : "Edit"}
-              </Button>
-            </View>
-            <Divider style={styles.divider} />
-            
-            {isEditingPayment ? (
-              <View>
-                <Text style={styles.sectionLabel}>My commission rate:</Text>
-                <View style={styles.commissionContainer}>
-                  <TextInput
-                    label="Commission %"
-                    value={commissionRate}
-                    onChangeText={setCommissionRate}
-                    mode="outlined"
-                    keyboardType="numeric"
-                    style={styles.commissionInput}
-                    outlineColor={Colors.border}
-                    activeOutlineColor={Colors.primary}
-                  />
-                  <Text style={styles.percentSign}>%</Text>
-                </View>
-                
-                <Text style={styles.sectionLabel}>Payment handling:</Text>
-                
-                <View style={styles.switchRow}>
-                  <Text style={styles.switchLabel}>I keep the cash payments</Text>
-                  <Switch 
-                    value={keepsCash} 
-                    onValueChange={setKeepsCash}
-                    color={Colors.primary}
-                  />
-                </View>
-                
-                <View style={styles.switchRow}>
-                  <Text style={styles.switchLabel}>I keep the check payments</Text>
-                  <Switch 
-                    value={keepsCheck} 
-                    onValueChange={setKeepsCheck}
-                    color={Colors.primary}
-                  />
-                </View>
-                
-                <Button 
-                  mode="contained" 
-                  onPress={handleSavePaymentSettings}
-                  style={styles.saveButton}
-                  buttonColor={Colors.primary}
-                  icon="check"
-                >
-                  Save Payment Settings
-                </Button>
-              </View>
-            ) : (
-              <View>
-                <View style={styles.infoRow}>
-                  <Text style={styles.label}>Commission Rate:</Text>
-                  <Text style={styles.value}>{user?.commissionRate || 50}%</Text>
-                </View>
-                
-                <View style={styles.infoRow}>
-                  <Text style={styles.label}>Cash Handling:</Text>
-                  <Text style={styles.value}>
-                    {user?.keepsCash !== false ? 'I keep cash' : 'I remit cash'}
-                  </Text>
-                </View>
-                
-                <View style={styles.infoRow}>
-                  <Text style={styles.label}>Check Handling:</Text>
-                  <Text style={styles.value}>
-                    {user?.keepsCheck !== false ? 'I keep checks' : 'I remit checks'}
-                  </Text>
-                </View>
-              </View>
-            )}
-          </Card.Content>
-        </Card>
-      )}
-
-      {/* Client Management */}
-      <Card style={styles.card}>
-        <Card.Content>
-          <Text variant="titleLarge" style={styles.cardTitle}>🏢 Client Management</Text>
-          <Divider style={styles.divider} />
-          <Paragraph style={styles.subtitle}>
-            Manage your clients and save their addresses for quick job entry
-          </Paragraph>
-          <Button
-            mode="contained"
-            icon="office-building"
-            onPress={() => navigation.navigate('ClientManagement' as never)}
-            style={styles.actionButton}
-            buttonColor={Colors.accent}
-          >
-            Manage Clients
-          </Button>
-        </Card.Content>
-      </Card>
-
-      {/* Reports & Analytics */}
-      <Card style={styles.card}>
-        <Card.Content>
-          <Text variant="titleLarge" style={styles.cardTitle}>📊 Reports & Analytics</Text>
-          <Divider style={styles.divider} />
-          <Paragraph style={styles.subtitle}>
-            View summaries, export PDFs, and analyze your job data
-          </Paragraph>
-          <Button
-            mode="contained"
-            icon="chart-box"
-            onPress={() => navigation.navigate('Reports' as never)}
-            style={styles.actionButton}
-            buttonColor={Colors.info}
-          >
-            View Reports
-          </Button>
-        </Card.Content>
-      </Card>
-      
-      {/* Logout Button */}
-      <Button 
-        mode="outlined" 
-        onPress={handleLogout}
-        style={styles.logoutButton}
-        icon="logout"
-        textColor={Colors.error}
+      <TouchableOpacity
+        style={styles.primaryButton}
+        onPress={() => navigation.navigate('BusinessProfile')}
+        accessibilityRole="button"
       >
-        Logout
-      </Button>
+        <Ionicons name="create-outline" size={20} color={Colors.onPrimary} />
+        <Text style={styles.primaryButtonText}>{hasPumpDetails ? 'Edit profile' : 'Set up my profile'}</Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        style={styles.secondaryButton}
+        onPress={() => navigation.navigate('Settings')}
+        accessibilityRole="button"
+      >
+        <Ionicons name="settings-outline" size={20} color={Colors.primary} />
+        <Text style={styles.secondaryButtonText}>Settings</Text>
+      </TouchableOpacity>
     </ScrollView>
   );
 }
 
 const useStyles = makeStyles((Colors) => ({
-  themeRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: Spacing.md,
-    borderRadius: BorderRadius.large,
-    borderWidth: 3,
-    marginBottom: Spacing.sm,
-    minHeight: 64,
-  },
-  swatchRow: {
-    flexDirection: 'row',
-    marginTop: Spacing.xs,
-  },
-  swatch: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    marginRight: 6,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.35)',
-  },
-  themeCheck: {
-    width: 32,
-    height: 32,
+  container: { flex: 1, backgroundColor: Colors.background },
+  content: { padding: Spacing.md, paddingBottom: Spacing.xl },
+  hero: {
     borderRadius: 16,
+    paddingVertical: 22,
+    paddingHorizontal: 18,
+    alignItems: 'center',
+    marginBottom: Spacing.md,
+  },
+  avatar: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
     alignItems: 'center',
     justifyContent: 'center',
-    marginLeft: Spacing.sm,
+    marginBottom: 10,
   },
-  container: {
-    flex: 1,
-    backgroundColor: Colors.background,
+  avatarText: { color: Colors.onPrimary, fontSize: 26, fontWeight: 'bold' },
+  heroTitle: { color: Colors.onPrimary, textAlign: 'center' },
+  heroLine: { color: Colors.onPrimary, fontSize: 15, marginTop: 4 },
+  pill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: BorderRadius.round,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    marginTop: 12,
   },
-  header: {
-    paddingVertical: Spacing.xl,
-    paddingHorizontal: Spacing.lg,
-    ...Shadows.medium,
-  },
-  headerTitle: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: Colors.textInverse,
-    marginBottom: Spacing.xs,
-  },
-  headerSubtitle: {
-    fontSize: 14,
-    color: Colors.textInverse,
-    opacity: 0.9,
-  },
+  pillText: { color: Colors.onPrimary, fontSize: 12, marginLeft: 6, flexShrink: 1 },
   card: {
-    marginHorizontal: Spacing.md,
-    marginVertical: Spacing.sm,
-    borderRadius: BorderRadius.large,
-    ...Shadows.medium,
-  },
-  cardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  cardTitle: {
-    color: Colors.text,
-    fontWeight: 'bold',
-  },
-  divider: {
-    marginVertical: Spacing.md,
-    backgroundColor: Colors.borderLight,
-  },
-  infoRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginVertical: Spacing.sm,
-  },
-  label: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: Colors.textSecondary,
-  },
-  value: {
-    fontSize: 16,
-    color: Colors.text,
-  },
-  subtitle: {
-    color: Colors.textSecondary,
-    marginBottom: Spacing.md,
-  },
-  input: {
-    marginBottom: Spacing.md,
     backgroundColor: Colors.surface,
-  },
-  saveButton: {
-    marginTop: Spacing.sm,
-    borderRadius: BorderRadius.medium,
-  },
-  actionButton: {
-    marginTop: Spacing.sm,
-    borderRadius: BorderRadius.medium,
-  },
-  roleContainer: {
-    backgroundColor: Colors.infoBg,
-    padding: Spacing.md,
-    borderRadius: BorderRadius.medium,
-    marginBottom: Spacing.md,
-  },
-  roleDescription: {
-    fontSize: 14,
-    color: Colors.info,
-    lineHeight: 20,
-  },
-  roleButton: {
-    borderColor: Colors.primary,
-  },
-  sectionLabel: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginTop: Spacing.md,
-    marginBottom: Spacing.sm,
-    color: Colors.text,
-  },
-  commissionContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: Spacing.md,
-  },
-  commissionInput: {
-    flex: 1,
-    marginRight: Spacing.sm,
-    backgroundColor: Colors.surface,
-  },
-  percentSign: {
-    fontSize: 18,
-    color: Colors.text,
-  },
-  switchRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginVertical: Spacing.sm,
-    padding: Spacing.md,
-    backgroundColor: Colors.surfaceDark,
-    borderRadius: BorderRadius.medium,
-  },
-  switchLabel: {
-    fontSize: 14,
-    color: Colors.text,
-  },
-  logoutButton: {
-    marginHorizontal: Spacing.md,
-    marginVertical: Spacing.xl,
-    borderColor: Colors.error,
+    borderRadius: 14,
     borderWidth: 1,
+    borderColor: Colors.border,
+    padding: Spacing.md,
+    marginBottom: Spacing.md,
   },
+  sectionTitle: {
+    fontSize: 17,
+    fontWeight: 'bold',
+    color: Colors.text,
+    marginBottom: Spacing.sm,
+    borderLeftWidth: 4,
+    borderLeftColor: Colors.primary,
+    paddingLeft: 10,
+  },
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.borderLight,
+  },
+  rowIcon: { marginRight: 10 },
+  rowLabel: { fontSize: 15, color: Colors.textSecondary, width: 104 },
+  rowValue: { flex: 1, fontSize: 16, color: Colors.text, fontWeight: '600', textAlign: 'right' },
+  rowEmpty: { color: Colors.textLight, fontWeight: 'normal' },
+  emptyText: { fontSize: 15, color: Colors.textSecondary, lineHeight: 21 },
+  chips: { flexDirection: 'row', flexWrap: 'wrap' },
+  chip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.successBg,
+    borderRadius: BorderRadius.round,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    marginRight: 8,
+    marginBottom: 8,
+  },
+  chipText: { color: Colors.text, fontSize: 13, marginLeft: 5 },
+  note: { flexDirection: 'row', alignItems: 'center', marginBottom: Spacing.md, paddingHorizontal: 4 },
+  noteText: { flex: 1, fontSize: 13, color: Colors.textSecondary, marginLeft: 8, lineHeight: 18 },
+  primaryButton: {
+    minHeight: 54,
+    borderRadius: 12,
+    backgroundColor: Colors.primary,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: Spacing.sm,
+  },
+  primaryButtonText: { color: Colors.onPrimary, fontSize: 17, fontWeight: 'bold', marginLeft: 8 },
+  secondaryButton: {
+    minHeight: 52,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: Colors.primary,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  secondaryButtonText: { color: Colors.primary, fontSize: 16, fontWeight: 'bold', marginLeft: 8 },
 }));

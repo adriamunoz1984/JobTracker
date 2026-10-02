@@ -5,7 +5,7 @@ import React, { useState } from 'react';
 import { createMaterialTopTabNavigator } from '@react-navigation/material-top-tabs';
 import { Header } from '@react-navigation/elements';
 import { Ionicons } from '@expo/vector-icons';
-import { useWindowDimensions, TouchableOpacity, View } from 'react-native';
+import { useWindowDimensions, TouchableOpacity, View, Text } from 'react-native';
 import { Avatar, IconButton } from 'react-native-paper';
 import { useNavigation } from '@react-navigation/native';
 import { useAuth } from '../context/AuthContext';
@@ -42,6 +42,22 @@ const ProfileButton = () => {
   );
 };
 
+// Gear icon: opens private Settings (business tools, pay, theme, log out)
+const SettingsButton = () => {
+  const { colors } = useAppTheme();
+  const navigation = useNavigation<any>();
+  return (
+    <IconButton
+      icon="cog-outline"
+      size={24}
+      iconColor={colors.onHeader}
+      onPress={() => navigation.navigate('Settings')}
+      accessibilityLabel="Settings"
+      style={{ margin: 0 }}
+    />
+  );
+};
+
 // Title shown in the fixed top bar for each tab
 const TAB_TITLES: Record<string, string> = {
   Home: 'My Jobs',
@@ -60,13 +76,25 @@ function FixedTopBar({ title }: { title: string }) {
   return (
     <Header
       title={title}
-      headerTitleAlign="center"
+      // Left-aligned so the title has room next to the bell, gear, and avatar
+      headerTitleAlign="left"
       headerStyle={{ backgroundColor: colors.header }}
       headerTintColor={colors.onHeader}
-      headerTitleStyle={headerTitleStyle}
+      headerTitle={() => (
+        <Text
+          numberOfLines={1}
+          adjustsFontSizeToFit
+          minimumFontScale={0.7}
+          style={[headerTitleStyle, { color: colors.onHeader }]}
+          accessibilityRole="header"
+        >
+          {title}
+        </Text>
+      )}
       headerRight={() => (
         <View style={{ flexDirection: 'row', alignItems: 'center' }}>
           <NotificationBell />
+          <SettingsButton />
           <ProfileButton />
         </View>
       )}
