@@ -7,7 +7,7 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import { useJobs } from '../context/JobsContext';
 import { useAuth } from '../context/AuthContext';
 import { Job } from '../types';
-import { format } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Spacing, BorderRadius, Shadows } from '../theme/colors';
 import { useAppTheme, makeStyles } from '../theme';
@@ -151,7 +151,7 @@ export default function JobDetailScreen() {
           />
         </View>
         <Text style={styles.headerSubtitle}>
-          {format(new Date(initialJob.date), 'MMMM dd, yyyy')}
+          {format(parseISO(initialJob.date), 'MMMM dd, yyyy')}
         </Text>
       </LinearGradient>
 

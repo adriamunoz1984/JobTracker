@@ -14,7 +14,7 @@ import {
 } from 'react-native-paper';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import { format } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useJobs } from '../context/JobsContext';
 import { useAuth } from '../context/AuthContext';
@@ -54,7 +54,7 @@ export default function AddJobScreen() {
   const [filteredClients, setFilteredClients] = useState<Client[]>([]);
   const [filteredAddresses, setFilteredAddresses] = useState<ClientAddress[]>([]);
 
-  const [date, setDate] = useState(editingJob ? new Date(editingJob.date) : new Date());
+  const [date, setDate] = useState(editingJob ? parseISO(editingJob.date) : new Date());
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [companyName, setCompanyName] = useState(editingJob?.companyName || '');
   const [address, setAddress] = useState(editingJob?.address || '');
@@ -348,7 +348,9 @@ export default function AddJobScreen() {
       setIsSaving(true);
 
       const jobData: any = {
-        date: date.toISOString(),
+        // Jobs are scheduled by calendar day, so store a local date-only value.
+        // This avoids UTC conversion shifting backfilled jobs onto an adjacent day.
+        date: format(date, 'yyyy-MM-dd'),
         address: address.trim(),
         city: city.trim(),
         yards: parseFloat(yards),

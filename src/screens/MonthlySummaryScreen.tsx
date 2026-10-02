@@ -67,7 +67,7 @@ export default function MonthlySummaryScreen() {
 
   if (!isOwner) {
     totals.commission = (totals.income * commissionRate) / 100;
-    totals.yourPay = totals.commission - totals.cashPayments;
+    totals.yourPay = totals.commission - totals.paidToMeAmount;
     totals.finalTakeHome = totals.yourPay;
   } else {
     totals.finalTakeHome = totals.income - totals.paidToMeAmount;

@@ -77,8 +77,8 @@ export default function WeeklyDashboardScreen() {
   if (!isOwner) {
     totals.commission = (totals.income * commissionRate) / 100;
 
-    // Payment method is informational. Only a job explicitly marked as
-    // Direct Payment reduces the amount owed at the end of the week.
+    // Only money explicitly marked as a Direct Payment reduces the end-of-week check.
+    // Payment method (Cash, Check, Zelle, etc.) is informational and must not deduct by itself.
     totals.yourPay = totals.commission - totals.paidToMeAmount;
     totals.finalTakeHome = totals.yourPay;
   } else {
@@ -521,17 +521,10 @@ export default function WeeklyDashboardScreen() {
                 <Text style={styles.earningsValue}>${totals.commission.toFixed(2)}</Text>
               </View>
 
-              {user?.keepsCash === false && (
+              {totals.paidToMeAmount > 0 && (
                 <View style={styles.earningsRow}>
-                  <Text style={styles.earningsLabel}>- Cash Payments (kept):</Text>
-                  <Text style={styles.earningsValue}>-${totals.cashPayments.toFixed(2)}</Text>
-                </View>
-              )}
-
-              {user?.keepsCheck === false && (
-                <View style={styles.earningsRow}>
-                  <Text style={styles.earningsLabel}>- Check Payments (kept):</Text>
-                  <Text style={styles.earningsValue}>-${totals.checkPayments.toFixed(2)}</Text>
+                  <Text style={styles.earningsLabel}>- Direct Payments:</Text>
+                  <Text style={styles.earningsValue}>-${totals.paidToMeAmount.toFixed(2)}</Text>
                 </View>
               )}
 

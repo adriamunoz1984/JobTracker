@@ -1,7 +1,7 @@
 // src/context/JobsContext.tsx - Enhanced with Employee Jobs for Owners
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { format } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 import { Job, PaymentMethod, WeeklySummary } from '../types';
 import { useAuth } from './AuthContext';
 
@@ -379,12 +379,12 @@ export const JobsProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const getJobsByDateRange = (startDate: string, endDate: string): Job[] => {
     try {
-      const startDateStr = startDate.split('T')[0];
-      const endDateStr = endDate.split('T')[0];
+      const startDateStr = format(parseISO(startDate), 'yyyy-MM-dd');
+      const endDateStr = format(parseISO(endDate), 'yyyy-MM-dd');
       
       const jobsInRange = jobs.filter((job) => {
         try {
-          const jobDateStr = job.date.split('T')[0];
+          const jobDateStr = format(parseISO(job.date), 'yyyy-MM-dd');
           return jobDateStr >= startDateStr && jobDateStr <= endDateStr;
         } catch (error) {
           console.error(`Error filtering job ${job.id}:`, error);
@@ -415,7 +415,8 @@ export const JobsProvider: React.FC<{ children: React.ReactNode }> = ({ children
       .filter(job => job.isPaid && job.isPaidToMe)
       .reduce((sum, job) => sum + job.amount, 0);
       
-    const netEarnings = (totalEarnings / 2) - cashPayments - paidToMeAmount;
+    const commissionRate = user?.role === 'owner' ? 100 : (user?.commissionRate || 50);
+    const netEarnings = (totalEarnings * commissionRate / 100) - paidToMeAmount;
     
     return {
       startDate,

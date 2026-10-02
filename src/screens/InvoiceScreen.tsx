@@ -14,7 +14,7 @@ import {
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useAuth } from '../context/AuthContext';
 import { Job, Invoice, InvoiceLineItem } from '../types';
-import { format, addDays } from 'date-fns';
+import { format, addDays, parseISO } from 'date-fns';
 import { 
   collection, 
   addDoc, 
@@ -57,7 +57,7 @@ export default function InvoiceScreen() {
       // Create line items from jobs
       const items: InvoiceLineItem[] = jobs.map((job, index) => ({
         id: `item-${index}`,
-        description: `${format(new Date(job.date), 'MMM d, yyyy')} - ${job.address}, ${job.city} (${job.yards} yards)`,
+        description: `${format(parseISO(job.date), 'MMM d, yyyy')} - ${job.address}, ${job.city} (${job.yards} yards)`,
         quantity: 1,
         rate: job.amount,
         amount: job.amount,
