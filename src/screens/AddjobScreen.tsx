@@ -32,7 +32,7 @@ import { useAppTheme, makeStyles } from '../theme';
 const db = getFirestore();
 
 export default function AddJobScreen() {
-  const { colors: Colors } = useAppTheme();
+  const { colors: Colors, gradients } = useAppTheme();
   const styles = useStyles();
   const navigation = useNavigation();
   const route = useRoute();
@@ -453,7 +453,7 @@ else
   return (
     <ScrollView style={styles.container} keyboardShouldPersistTaps="handled">
       <LinearGradient
-        colors={[Colors.primary, Colors.primaryDark]}
+        colors={gradients.primary}
         style={styles.header}
       >
         <Text style={styles.headerTitle}>
@@ -648,7 +648,7 @@ else
         <Divider style={styles.divider} />
 
         <LinearGradient
-          colors={[Colors.success, Colors.successLight]}
+          colors={gradients.success}
           style={styles.totalContainer}
         >
           <Text style={styles.totalLabel}>Total Amount:</Text>

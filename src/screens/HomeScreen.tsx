@@ -15,7 +15,7 @@ import { Spacing, BorderRadius, Shadows, Typography } from '../theme/colors';
 import { useAppTheme, makeStyles } from '../theme';
 
 export default function HomeScreen() {
-  const { colors: Colors } = useAppTheme();
+  const { colors: Colors, gradients } = useAppTheme();
   const styles = useStyles();
   const navigation = useNavigation();
   const { user } = useAuth();
@@ -235,7 +235,7 @@ export default function HomeScreen() {
             activeOpacity={0.7}
           >
             <LinearGradient
-              colors={[Colors.primary, Colors.accent]}
+              colors={gradients.primaryAccent}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
               style={styles.weekHeaderGradient}

@@ -1,6 +1,6 @@
 // src/screens/ProfileScreen.tsx
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, ScrollView, Alert } from 'react-native';
+import { View, StyleSheet, ScrollView, Alert, TouchableOpacity } from 'react-native';
 import { Card, Paragraph, Button, Divider, Text, TextInput, Switch, SegmentedButtons } from 'react-native-paper';
 import { useNavigation } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -13,10 +13,10 @@ import {
   getDocs 
 } from 'firebase/firestore';
 import { Spacing, BorderRadius, Shadows, Typography } from '../theme/colors';
-import { useAppTheme, makeStyles } from '../theme';
+import { useAppTheme, makeStyles, themes, themeOrder, getHeaderTitleStyle } from '../theme';
 
 export default function ProfileScreen() {
-  const { colors: Colors, preference, setPreference } = useAppTheme();
+  const { colors: Colors, gradients, preference, setPreference, themeId, setThemeId, mode } = useAppTheme();
   const styles = useStyles();
   const navigation = useNavigation();
   const { user, updateProfile, logout } = useAuth();
@@ -161,7 +161,7 @@ export default function ProfileScreen() {
     <ScrollView style={styles.container}>
       {/* Header */}
       <LinearGradient
-        colors={[Colors.primary, Colors.primaryDark]}
+        colors={gradients.primary}
         style={styles.header}
       >
         <Text style={styles.headerTitle}>👤 Profile</Text>
@@ -222,6 +222,53 @@ export default function ProfileScreen() {
               </View>
             </View>
           )}
+        </Card.Content>
+      </Card>
+      {/* Theme Card — pick the look; each theme has its own light + dark version */}
+      <Card style={styles.card}>
+        <Card.Content>
+          <Text variant="titleLarge" style={styles.cardTitle}>Theme</Text>
+          <Divider style={styles.divider} />
+          {themeOrder.map((id) => {
+            const t = themes[id];
+            const p = mode === 'dark' ? t.dark : t.light;
+            const selected = id === themeId;
+            return (
+              <TouchableOpacity
+                key={id}
+                onPress={() => setThemeId(id)}
+                accessibilityRole="radio"
+                accessibilityState={{ selected }}
+                accessibilityLabel={`${t.name} theme`}
+                style={[
+                  styles.themeRow,
+                  { backgroundColor: p.header, borderColor: selected ? Colors.primary : 'transparent' },
+                ]}
+              >
+                <View style={{ flex: 1 }}>
+                  <Text
+                    numberOfLines={1}
+                    style={[getHeaderTitleStyle(t), { color: p.onHeader, fontSize: Math.min(t.headerFontSize, 22) }]}
+                  >
+                    {t.name}
+                  </Text>
+                  <View style={styles.swatchRow}>
+                    {[p.background, p.surface, p.primary, p.accent, p.success].map((c, i) => (
+                      <View key={i} style={[styles.swatch, { backgroundColor: c }]} />
+                    ))}
+                  </View>
+                </View>
+                {selected && (
+                  <View style={[styles.themeCheck, { backgroundColor: Colors.primary }]}>
+                    <Text style={{ color: Colors.onPrimary, fontSize: 16, fontWeight: 'bold' }}>✓</Text>
+                  </View>
+                )}
+              </TouchableOpacity>
+            );
+          })}
+          <Paragraph style={[styles.subtitle, { marginTop: Spacing.sm }]}>
+            {themes[themeId].description}
+          </Paragraph>
         </Card.Content>
       </Card>
       {/* Appearance Card — light (cabin canvas) / dark (midnight pines) */}
@@ -503,6 +550,35 @@ export default function ProfileScreen() {
 }
 
 const useStyles = makeStyles((Colors) => ({
+  themeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: Spacing.md,
+    borderRadius: BorderRadius.large,
+    borderWidth: 3,
+    marginBottom: Spacing.sm,
+    minHeight: 64,
+  },
+  swatchRow: {
+    flexDirection: 'row',
+    marginTop: Spacing.xs,
+  },
+  swatch: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    marginRight: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.35)',
+  },
+  themeCheck: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: Spacing.sm,
+  },
   container: {
     flex: 1,
     backgroundColor: Colors.background,

@@ -20,7 +20,7 @@ interface DetailedReportParams {
 }
 
 export default function DetailedReportScreen() {
-  const { colors: Colors } = useAppTheme();
+  const { colors: Colors, gradients } = useAppTheme();
   const styles = useStyles();
   const route = useRoute();
   const navigation = useNavigation();
@@ -249,7 +249,7 @@ export default function DetailedReportScreen() {
   return (
     <ScrollView style={styles.container}>
       <LinearGradient
-        colors={[Colors.primary, Colors.primaryDark]}
+        colors={gradients.primary}
         style={styles.header}
       >
         <Text style={styles.headerTitle}>{getTitle()}</Text>

@@ -29,7 +29,7 @@ import { useAppTheme, makeStyles } from '../theme';
 const db = getFirestore();
 
 export default function InvoiceDetailScreen() {
-  const { colors: Colors } = useAppTheme();
+  const { colors: Colors, gradients } = useAppTheme();
   const styles = useStyles();
   const navigation = useNavigation();
   const route = useRoute();
@@ -381,7 +381,7 @@ export default function InvoiceDetailScreen() {
   return (
     <ScrollView style={styles.container}>
       <LinearGradient
-        colors={[Colors.primary, Colors.primaryDark]}
+        colors={gradients.primary}
         style={styles.header}
       >
         <Text style={styles.headerTitle}>🧾 {initialInvoice.invoiceNumber}</Text>

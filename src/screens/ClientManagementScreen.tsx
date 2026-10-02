@@ -30,7 +30,7 @@ import { useAppTheme, makeStyles } from '../theme';
 const db = getFirestore();
 
 export default function ClientManagementScreen() {
-  const { colors: Colors } = useAppTheme();
+  const { colors: Colors, gradients } = useAppTheme();
   const styles = useStyles();
   const navigation = useNavigation<any>();
   const { user } = useAuth();
@@ -88,7 +88,7 @@ export default function ClientManagementScreen() {
   return (
     <View style={styles.container}>
       <LinearGradient
-        colors={[Colors.accent, Colors.accentDark]}
+        colors={gradients.accent}
         style={styles.header}
       >
         <Text style={styles.headerTitle}>🏢 Client Management</Text>

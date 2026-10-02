@@ -3,8 +3,15 @@
 
 import InvoiceDetailScreen from './src/screens/InvoiceDetailScreen';
 import { MD3LightTheme, MD3DarkTheme } from 'react-native-paper';
-import { AppThemeProvider, useAppTheme, HeaderFont, Palette } from './src/theme';
-import { useFonts, Nosifer_400Regular } from '@expo-google-fonts/nosifer';
+import { AppThemeProvider, useAppTheme, Palette } from './src/theme';
+// Header fonts for each theme
+import { useFonts } from 'expo-font';
+import { Nosifer_400Regular } from '@expo-google-fonts/nosifer';
+import { Creepster_400Regular } from '@expo-google-fonts/creepster';
+import { RubikGlitch_400Regular } from '@expo-google-fonts/rubik-glitch';
+import { Butcherman_400Regular } from '@expo-google-fonts/butcherman';
+import { Bangers_400Regular } from '@expo-google-fonts/bangers';
+import { VT323_400Regular } from '@expo-google-fonts/vt323';
 import ReportsScreen from './src/screens/ReportsScreen';
 import ClientManagementScreen from './src/screens/ClientManagementScreen';
 import AddClientScreen from './src/screens/AddClientScreen';
@@ -104,14 +111,14 @@ function AuthNavigator() {
 // Separate component for navigation + FAB that can use useNavigation
 function AppNavigatorWithFAB({ user }: { user: any }) {
   const navigation = useNavigation();
-  const { colors } = useAppTheme();
+  const { colors, headerTitleStyle } = useAppTheme();
 
-  // Every stack header uses the camp header colors and the Nosifer title font
+  // Every stack header uses the current theme's header colors and title font
   const headerTheme = {
     headerStyle: { backgroundColor: colors.header },
     headerTintColor: colors.onHeader,
     headerTitleAlign: 'center' as const,
-    headerTitleStyle: { fontFamily: HeaderFont, fontSize: 15 },
+    headerTitleStyle,
   };
 
   return (
@@ -295,12 +302,12 @@ function buildPaperTheme(colors: Palette, isDark: boolean) {
       ...base.colors,
       primary: colors.primary,
       onPrimary: colors.onPrimary,
-      primaryContainer: isDark ? '#4A2412' : '#FBE3D6',
-      onPrimaryContainer: isDark ? '#FFB98F' : '#8A3412',
+      primaryContainer: colors.primaryBg,
+      onPrimaryContainer: colors.text,
       secondary: colors.secondary,
-      onSecondary: colors.textInverse,
-      secondaryContainer: isDark ? colors.secondaryLight : '#DDE6D8',
-      onSecondaryContainer: isDark ? colors.text : colors.secondary,
+      onSecondary: colors.onPrimary,
+      secondaryContainer: colors.surfaceDark,
+      onSecondaryContainer: colors.text,
       tertiary: colors.accent,
       error: colors.error,
       background: colors.background,
@@ -346,9 +353,16 @@ function ThemedApp() {
 
 // Main App Component
 export default function App() {
-  const [fontsLoaded] = useFonts({ Nosifer_400Regular });
+  const [fontsLoaded] = useFonts({
+    Nosifer_400Regular,
+    Creepster_400Regular,
+    RubikGlitch_400Regular,
+    Butcherman_400Regular,
+    Bangers_400Regular,
+    VT323_400Regular,
+  });
 
-  // Wait for the header font so titles don't flash in the wrong font
+  // Wait for the header fonts so titles don't flash in the wrong font
   if (!fontsLoaded) {
     return null;
   }

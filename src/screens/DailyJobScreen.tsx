@@ -18,7 +18,7 @@ interface DailyJobsParams {
 }
 
 export default function DailyJobsScreen() {
-  const { colors: Colors } = useAppTheme();
+  const { colors: Colors, gradients } = useAppTheme();
   const styles = useStyles();
   const route = useRoute();
   const navigation = useNavigation();
@@ -89,7 +89,7 @@ export default function DailyJobsScreen() {
   return (
     <View style={styles.container}>
       <LinearGradient
-        colors={[Colors.primary, Colors.primaryDark]}
+        colors={gradients.primary}
         style={styles.header}
       >
         <Text style={styles.headerTitle}>📅 {dayName}</Text>

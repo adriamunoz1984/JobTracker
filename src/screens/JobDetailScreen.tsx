@@ -15,7 +15,7 @@ import { useAppTheme, makeStyles } from '../theme';
 const db = getFirestore();
 
 export default function JobDetailScreen() {
-  const { colors: Colors } = useAppTheme();
+  const { colors: Colors, gradients } = useAppTheme();
   const styles = useStyles();
   const navigation = useNavigation();
   const route = useRoute();
@@ -138,7 +138,7 @@ export default function JobDetailScreen() {
   return (
     <ScrollView style={styles.container}>
       <LinearGradient
-        colors={[Colors.primary, Colors.primaryDark]}
+        colors={gradients.primary}
         style={styles.header}
       >
         <View style={styles.headerTop}>

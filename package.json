@@ -9,12 +9,18 @@
     "ios": "expo run:ios"
   },
   "dependencies": {
+    "@expo-google-fonts/bangers": "^0.4.1",
+    "@expo-google-fonts/butcherman": "^0.4.1",
+    "@expo-google-fonts/creepster": "^0.4.0",
     "@expo-google-fonts/nosifer": "^0.4.1",
+    "@expo-google-fonts/rubik-glitch": "^0.4.0",
+    "@expo-google-fonts/vt323": "^0.4.1",
     "@react-native-async-storage/async-storage": "1.23.1",
     "@react-native-community/datetimepicker": "8.2.0",
     "@react-native-community/viewpager": "^5.0.11",
     "@react-native-google-signin/google-signin": "^15.0.0",
     "@react-navigation/bottom-tabs": "^7.2.1",
+    "@react-navigation/elements": "2.6.3",
     "@react-navigation/material-top-tabs": "^7.3.6",
     "@react-navigation/native": "^7.1.17",
     "@react-navigation/stack": "^7.4.7",

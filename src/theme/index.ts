@@ -1,6 +1,13 @@
 // src/theme/index.ts
-export { AppThemeProvider, useAppTheme, makeStyles } from './ThemeContext';
+export { AppThemeProvider, useAppTheme, makeStyles, getHeaderTitleStyle } from './ThemeContext';
 export type { AppearancePreference } from './ThemeContext';
-export { palettes, gradientSets, lightPalette, darkPalette, HeaderFont, withOpacity } from './palettes';
-export type { Palette, GradientSet, ThemeMode } from './palettes';
+export {
+  themes,
+  themeOrder,
+  DEFAULT_THEME,
+  lightPalette,
+  darkPalette,
+  withOpacity,
+} from './palettes';
+export type { Palette, GradientSet, ThemeMode, ThemeId, ThemeDefinition } from './palettes';
 export { Spacing, BorderRadius, Shadows, Typography } from './colors';
