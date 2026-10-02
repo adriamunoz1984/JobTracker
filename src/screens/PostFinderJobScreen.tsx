@@ -18,6 +18,7 @@ import {
   FinderPpeItem,
   FinderPricingMode,
 } from '../types/pumpFinder';
+import { useAppTheme, makeStyles } from '../theme';
 
 const pricingOptions: Array<{ value: FinderPricingMode; label: string; help: string }> = [
   { value: 'standard', label: 'Standard', help: 'Normal setup / yard pricing' },
@@ -26,6 +27,8 @@ const pricingOptions: Array<{ value: FinderPricingMode; label: string; help: str
 ];
 
 export default function PostFinderJobScreen({ navigation }: any) {
+  const { colors: Colors } = useAppTheme();
+  const styles = useStyles();
   const [customerName, setCustomerName] = useState('');
   const [startTime, setStartTime] = useState('');
   const [address, setAddress] = useState('');
@@ -92,7 +95,7 @@ export default function PostFinderJobScreen({ navigation }: any) {
     <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
         <View style={styles.intro}>
-          <Ionicons name="construct-outline" size={32} color="#2196F3" />
+          <Ionicons name="construct-outline" size={32} color={Colors.primary} />
           <Text style={styles.title}>Post a Pumping Job</Text>
           <Text style={styles.subtitle}>
             Add the job details and requirements. You’ll review everything before it is posted.
@@ -124,7 +127,7 @@ export default function PostFinderJobScreen({ navigation }: any) {
                 <Ionicons
                   name={selected ? 'radio-button-on' : 'radio-button-off'}
                   size={22}
-                  color={selected ? '#2196F3' : '#98A2B3'}
+                  color={selected ? Colors.primary : Colors.textLight}
                 />
                 <View style={styles.choiceText}>
                   <Text style={styles.choiceLabel}>{option.label}</Text>
@@ -181,7 +184,7 @@ export default function PostFinderJobScreen({ navigation }: any) {
                     <Ionicons
                       name={selected ? 'checkmark-circle' : 'ellipse-outline'}
                       size={18}
-                      color={selected ? '#fff' : '#667085'}
+                      color={selected ? Colors.onPrimary : Colors.textSecondary}
                     />
                     <Text style={[styles.chipText, selected && styles.chipTextSelected]}>{item}</Text>
                   </TouchableOpacity>
@@ -199,14 +202,14 @@ export default function PostFinderJobScreen({ navigation }: any) {
           value={notes}
           onChangeText={setNotes}
           placeholder="Add any details that do not fit the options above"
-          placeholderTextColor="#98A2B3"
+          placeholderTextColor={Colors.textLight}
           multiline
           textAlignVertical="top"
           style={[styles.input, styles.notesInput]}
         />
 
         <View style={styles.policyCard}>
-          <Ionicons name="people-outline" size={22} color="#2196F3" />
+          <Ionicons name="people-outline" size={22} color={Colors.primary} />
           <View style={styles.policyTextWrap}>
             <Text style={styles.policyTitle}>Pumpers request — you award</Text>
             <Text style={styles.policyText}>
@@ -216,7 +219,7 @@ export default function PostFinderJobScreen({ navigation }: any) {
         </View>
 
         <View style={styles.policyCard}>
-          <Ionicons name="information-circle-outline" size={22} color="#2196F3" />
+          <Ionicons name="information-circle-outline" size={22} color={Colors.primary} />
           <View style={styles.policyTextWrap}>
             <Text style={styles.policyTitle}>Cancellation policy</Text>
             <Text style={styles.policyText}>
@@ -227,7 +230,7 @@ export default function PostFinderJobScreen({ navigation }: any) {
 
         <TouchableOpacity style={styles.reviewButton} onPress={continueToReview} activeOpacity={0.8}>
           <Text style={styles.reviewButtonText}>Review Job</Text>
-          <Ionicons name="arrow-forward" size={20} color="#fff" />
+          <Ionicons name="arrow-forward" size={20} color={Colors.onPrimary} />
         </TouchableOpacity>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -235,15 +238,18 @@ export default function PostFinderJobScreen({ navigation }: any) {
 }
 
 function SectionTitle({ title }: { title: string }) {
+  const styles = useStyles();
   return <Text style={styles.sectionTitle}>{title}</Text>;
 }
 
 function Field({ label, suffix, ...props }: any) {
+  const { colors: Colors } = useAppTheme();
+  const styles = useStyles();
   return (
     <View style={styles.field}>
       <Text style={styles.label}>{label}</Text>
       <View style={styles.inputRow}>
-        <TextInput {...props} placeholderTextColor="#98A2B3" style={[styles.input, suffix && styles.inputWithSuffix]} />
+        <TextInput {...props} placeholderTextColor={Colors.textLight} style={[styles.input, suffix && styles.inputWithSuffix]} />
         {suffix ? <Text style={styles.suffix}>{suffix}</Text> : null}
       </View>
     </View>
@@ -261,52 +267,54 @@ function ToggleRow({
   value: boolean;
   onValueChange: (value: boolean) => void;
 }) {
+  const { colors: Colors } = useAppTheme();
+  const styles = useStyles();
   return (
     <View style={styles.toggleRow}>
       <View style={styles.toggleText}>
         <Text style={styles.toggleTitle}>{title}</Text>
         <Text style={styles.toggleSubtitle}>{subtitle}</Text>
       </View>
-      <Switch value={value} onValueChange={onValueChange} trackColor={{ true: '#90CAF9' }} thumbColor={value ? '#2196F3' : '#f4f3f4'} />
+      <Switch value={value} onValueChange={onValueChange} trackColor={{ true: Colors.primaryLight }} thumbColor={value ? Colors.primary : Colors.surfaceDark} />
     </View>
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f6f7f9' },
+const useStyles = makeStyles((Colors) => ({
+  container: { flex: 1, backgroundColor: Colors.background },
   content: { padding: 16, paddingBottom: 36 },
   intro: { alignItems: 'center', paddingVertical: 12, marginBottom: 8 },
-  title: { fontSize: 24, fontWeight: '700', color: '#1f2937', marginTop: 8 },
-  subtitle: { fontSize: 14, color: '#667085', textAlign: 'center', marginTop: 5, maxWidth: 350, lineHeight: 20 },
-  sectionTitle: { fontSize: 17, fontWeight: '800', color: '#1f2937', marginTop: 10, marginBottom: 12 },
+  title: { fontSize: 24, fontWeight: '700', color: Colors.text, marginTop: 8 },
+  subtitle: { fontSize: 14, color: Colors.textSecondary, textAlign: 'center', marginTop: 5, maxWidth: 350, lineHeight: 20 },
+  sectionTitle: { fontSize: 17, fontWeight: '800', color: Colors.text, marginTop: 10, marginBottom: 12 },
   field: { marginBottom: 14 },
-  label: { fontSize: 14, fontWeight: '600', color: '#344054', marginBottom: 6 },
-  helperText: { fontSize: 12, color: '#667085', lineHeight: 17, marginTop: -7, marginBottom: 14 },
+  label: { fontSize: 14, fontWeight: '600', color: Colors.text, marginBottom: 6 },
+  helperText: { fontSize: 12, color: Colors.textSecondary, lineHeight: 17, marginTop: -7, marginBottom: 14 },
   inputRow: { position: 'relative' },
-  input: { backgroundColor: '#fff', borderWidth: 1, borderColor: '#D0D5DD', borderRadius: 10, paddingHorizontal: 13, paddingVertical: 12, fontSize: 16, color: '#101828' },
+  input: { backgroundColor: Colors.surface, borderWidth: 1, borderColor: Colors.borderDark, borderRadius: 10, paddingHorizontal: 13, paddingVertical: 12, fontSize: 16, color: Colors.text },
   inputWithSuffix: { paddingRight: 48 },
-  suffix: { position: 'absolute', right: 14, top: 14, color: '#667085', fontWeight: '600' },
+  suffix: { position: 'absolute', right: 14, top: 14, color: Colors.textSecondary, fontWeight: '600' },
   notesInput: { minHeight: 110, marginBottom: 14 },
   optionGroup: { marginBottom: 12 },
-  choiceCard: { backgroundColor: '#fff', borderWidth: 1, borderColor: '#D0D5DD', borderRadius: 12, padding: 12, marginBottom: 9, flexDirection: 'row', alignItems: 'center' },
-  choiceCardSelected: { borderColor: '#2196F3', backgroundColor: '#f2f8ff' },
+  choiceCard: { backgroundColor: Colors.surface, borderWidth: 1, borderColor: Colors.borderDark, borderRadius: 12, padding: 12, marginBottom: 9, flexDirection: 'row', alignItems: 'center' },
+  choiceCardSelected: { borderColor: Colors.primary, backgroundColor: Colors.primaryBg },
   choiceText: { marginLeft: 10, flex: 1 },
-  choiceLabel: { fontSize: 15, fontWeight: '700', color: '#1f2937' },
-  choiceHelp: { fontSize: 12, color: '#667085', marginTop: 2 },
-  toggleRow: { backgroundColor: '#fff', borderRadius: 12, borderWidth: 1, borderColor: '#EAECF0', padding: 13, marginBottom: 10, flexDirection: 'row', alignItems: 'center' },
+  choiceLabel: { fontSize: 15, fontWeight: '700', color: Colors.text },
+  choiceHelp: { fontSize: 12, color: Colors.textSecondary, marginTop: 2 },
+  toggleRow: { backgroundColor: Colors.surface, borderRadius: 12, borderWidth: 1, borderColor: Colors.border, padding: 13, marginBottom: 10, flexDirection: 'row', alignItems: 'center' },
   toggleText: { flex: 1, paddingRight: 12 },
-  toggleTitle: { fontSize: 15, fontWeight: '700', color: '#1f2937' },
-  toggleSubtitle: { fontSize: 12, color: '#667085', marginTop: 3, lineHeight: 17 },
-  revealCard: { backgroundColor: '#F9FAFB', borderRadius: 12, borderWidth: 1, borderColor: '#EAECF0', padding: 13, marginTop: -2, marginBottom: 12 },
+  toggleTitle: { fontSize: 15, fontWeight: '700', color: Colors.text },
+  toggleSubtitle: { fontSize: 12, color: Colors.textSecondary, marginTop: 3, lineHeight: 17 },
+  revealCard: { backgroundColor: Colors.surfaceDark, borderRadius: 12, borderWidth: 1, borderColor: Colors.border, padding: 13, marginTop: -2, marginBottom: 12 },
   chipWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 6 },
-  chip: { borderWidth: 1, borderColor: '#D0D5DD', borderRadius: 20, paddingHorizontal: 10, paddingVertical: 8, flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: '#fff' },
-  chipSelected: { backgroundColor: '#2196F3', borderColor: '#2196F3' },
-  chipText: { color: '#475467', fontSize: 12, fontWeight: '600' },
-  chipTextSelected: { color: '#fff' },
-  policyCard: { flexDirection: 'row', backgroundColor: '#e8f2ff', borderRadius: 12, padding: 14, marginBottom: 12 },
+  chip: { borderWidth: 1, borderColor: Colors.borderDark, borderRadius: 20, paddingHorizontal: 10, paddingVertical: 8, flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: Colors.surface },
+  chipSelected: { backgroundColor: Colors.primary, borderColor: Colors.primary },
+  chipText: { color: Colors.textSecondary, fontSize: 12, fontWeight: '600' },
+  chipTextSelected: { color: Colors.onPrimary },
+  policyCard: { flexDirection: 'row', backgroundColor: Colors.primaryBg, borderRadius: 12, padding: 14, marginBottom: 12 },
   policyTextWrap: { flex: 1, marginLeft: 10 },
-  policyTitle: { fontSize: 14, fontWeight: '700', color: '#1f2937' },
-  policyText: { fontSize: 13, color: '#475467', marginTop: 3, lineHeight: 18 },
-  reviewButton: { backgroundColor: '#2196F3', borderRadius: 12, minHeight: 52, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: 6 },
-  reviewButtonText: { color: '#fff', fontSize: 17, fontWeight: '700' },
-});
+  policyTitle: { fontSize: 14, fontWeight: '700', color: Colors.text },
+  policyText: { fontSize: 13, color: Colors.textSecondary, marginTop: 3, lineHeight: 18 },
+  reviewButton: { backgroundColor: Colors.primary, borderRadius: 12, minHeight: 52, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: 6 },
+  reviewButtonText: { color: Colors.onPrimary, fontSize: 17, fontWeight: '700' },
+}));

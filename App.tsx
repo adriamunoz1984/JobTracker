@@ -50,6 +50,25 @@ import DashboardScreen from './src/screens/DashboardScreen';
 import InvoiceScreen   from './src/screens/InvoiceScreen';
 import DailyJobsScreen from './src/screens/DailyJobScreen';
 import DetailedReportScreen from './src/screens/DetailedReportScreen';
+// Pump Finder sub-screens (the Finder home is a tab in MainNavigator)
+import PostFinderJobScreen from './src/screens/PostFinderJobScreen';
+import ReviewFinderJobScreen from './src/screens/ReviewFinderJobScreen';
+import FinderBusinessProfileScreen from './src/screens/FinderBusinessProfileScreen';
+import FinderPlaceholderScreen from './src/screens/FinderPlaceholderScreen';
+
+// Pump Finder pages that are still placeholders: route name -> title + description
+const FINDER_PLACEHOLDERS: { name: string; title: string; description: string }[] = [
+  { name: 'AvailableJobs', title: 'Available Jobs', description: 'Matching jobs will appear here. Pumpers request work; they do not instantly claim it.' },
+  { name: 'FinderJobDetail', title: 'Job Details', description: 'Review Finder job requirements, location, yards, hose, PSI, and timing.' },
+  { name: 'InterestedPumpers', title: 'Interested Pumpers', description: 'Compare pumpers who requested this job. The original poster chooses who receives it.' },
+  { name: 'Messages', title: 'Messages', description: 'V1 keeps conversations tied to jobs, with private pumper-to-pumper messaging available for recommendations and coverage.' },
+  { name: 'RecommendPumper', title: 'Recommend a Pumper', description: 'A pumper can recommend another qualified pumper, but the original poster must approve any replacement.' },
+  { name: 'SelectPumper', title: 'Select Pumper', description: 'Award the job to one requester. Conflicting awarded jobs will be blocked before confirmation.' },
+  { name: 'ConfirmJob', title: 'Confirm Job', description: 'The selected pumper confirms the awarded job. A pumper cannot transfer it without poster approval.' },
+  { name: 'ActiveJobs', title: 'Active Jobs', description: 'Confirmed, arrived, in-progress, completion, cancellation, and replacement-request statuses will live here.' },
+  { name: 'CompleteFinderJob', title: 'Complete Job', description: 'Fast closeout for actual yards, final price, payment status, and notes.' },
+  { name: 'Reviews', title: 'Reviews', description: 'Completed-job participants can leave ratings and optional comments.' },
+];
 const Stack = createStackNavigator();
 
 // Component that handles the authentication flowa
@@ -269,6 +288,32 @@ function AppNavigatorWithFAB({ user }: { user: any }) {
               component={DetailedReportScreen}
               options={{ title: 'Report Details' }}
             />
+
+            {/* Pump Finder — full screens over the tabs, with a back button */}
+            <Stack.Screen
+              name="PostJob"
+              component={PostFinderJobScreen}
+              options={{ headerShown: true, title: 'Post a Job' }}
+            />
+            <Stack.Screen
+              name="ReviewJob"
+              component={ReviewFinderJobScreen}
+              options={{ headerShown: true, title: 'Review Job' }}
+            />
+            <Stack.Screen
+              name="BusinessProfile"
+              component={FinderBusinessProfileScreen}
+              options={{ headerShown: true, title: 'Business Profile' }}
+            />
+            {FINDER_PLACEHOLDERS.map(p => (
+              <Stack.Screen
+                key={p.name}
+                name={p.name}
+                component={FinderPlaceholderScreen}
+                initialParams={{ title: p.title, description: p.description }}
+                options={{ headerShown: true, title: p.title }}
+              />
+            ))}
 
             <Stack.Screen 
               name="Invoice" 

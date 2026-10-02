@@ -1,6 +1,7 @@
 import React from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useAppTheme, makeStyles } from '../theme';
 
 const finderActions = [
   { key: 'PostJob', title: 'Post a Job', subtitle: 'Find an available concrete pumping business', icon: 'add-circle-outline' },
@@ -11,10 +12,12 @@ const finderActions = [
 ];
 
 export default function PumpFinderScreen({ navigation }: any) {
+  const { colors: Colors } = useAppTheme();
+  const styles = useStyles();
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <View style={styles.hero}>
-        <Ionicons name="locate-outline" size={42} color="#2196F3" />
+        <Ionicons name="locate-outline" size={42} color={Colors.primary} />
         <Text style={styles.title}>Pump Finder</Text>
         <Text style={styles.subtitle}>Connect concrete jobs with available pumping businesses.</Text>
       </View>
@@ -37,33 +40,33 @@ export default function PumpFinderScreen({ navigation }: any) {
           activeOpacity={0.75}
         >
           <View style={styles.iconWrap}>
-            <Ionicons name={action.icon as any} size={26} color="#2196F3" />
+            <Ionicons name={action.icon as any} size={26} color={Colors.primary} />
           </View>
           <View style={styles.actionText}>
             <Text style={styles.actionTitle}>{action.title}</Text>
             <Text style={styles.actionSubtitle}>{action.subtitle}</Text>
           </View>
-          <Ionicons name="chevron-forward" size={22} color="#777" />
+          <Ionicons name="chevron-forward" size={22} color={Colors.textLight} />
         </TouchableOpacity>
       ))}
     </ScrollView>
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f6f7f9' },
+const useStyles = makeStyles((Colors) => ({
+  container: { flex: 1, backgroundColor: Colors.background },
   content: { padding: 16, paddingBottom: 32 },
   hero: { alignItems: 'center', paddingVertical: 24 },
-  title: { fontSize: 28, fontWeight: '700', marginTop: 8, color: '#1f2937' },
-  subtitle: { fontSize: 15, color: '#667085', textAlign: 'center', marginTop: 6, maxWidth: 320 },
-  availabilityCard: { backgroundColor: '#fff', borderRadius: 14, padding: 16, marginBottom: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  cardTitle: { fontSize: 17, fontWeight: '700', color: '#1f2937' },
-  cardText: { fontSize: 13, color: '#667085', marginTop: 4, maxWidth: 260 },
-  statusPill: { backgroundColor: '#e8f2ff', borderRadius: 20, paddingHorizontal: 12, paddingVertical: 6 },
-  statusText: { color: '#2196F3', fontWeight: '700' },
-  actionCard: { backgroundColor: '#fff', borderRadius: 14, padding: 14, marginBottom: 12, flexDirection: 'row', alignItems: 'center' },
-  iconWrap: { width: 46, height: 46, borderRadius: 23, backgroundColor: '#e8f2ff', alignItems: 'center', justifyContent: 'center', marginRight: 12 },
+  title: { fontSize: 28, fontWeight: '700', marginTop: 8, color: Colors.text },
+  subtitle: { fontSize: 15, color: Colors.textSecondary, textAlign: 'center', marginTop: 6, maxWidth: 320 },
+  availabilityCard: { backgroundColor: Colors.surface, borderRadius: 14, padding: 16, marginBottom: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  cardTitle: { fontSize: 17, fontWeight: '700', color: Colors.text },
+  cardText: { fontSize: 13, color: Colors.textSecondary, marginTop: 4, maxWidth: 260 },
+  statusPill: { backgroundColor: Colors.primaryBg, borderRadius: 20, paddingHorizontal: 12, paddingVertical: 6 },
+  statusText: { color: Colors.primary, fontWeight: '700' },
+  actionCard: { backgroundColor: Colors.surface, borderRadius: 14, padding: 14, marginBottom: 12, flexDirection: 'row', alignItems: 'center' },
+  iconWrap: { width: 46, height: 46, borderRadius: 23, backgroundColor: Colors.primaryBg, alignItems: 'center', justifyContent: 'center', marginRight: 12 },
   actionText: { flex: 1 },
-  actionTitle: { fontSize: 16, fontWeight: '700', color: '#1f2937' },
-  actionSubtitle: { fontSize: 13, color: '#667085', marginTop: 3 },
-});
+  actionTitle: { fontSize: 16, fontWeight: '700', color: Colors.text },
+  actionSubtitle: { fontSize: 13, color: Colors.textSecondary, marginTop: 3 },
+}));

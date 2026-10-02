@@ -2,6 +2,7 @@ import React from 'react';
 import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { FinderJobDraft, FINDER_REQUEST_POLICY } from '../types/pumpFinder';
+import { useAppTheme, makeStyles } from '../theme';
 
 const pricingLabels = {
   standard: 'Standard pricing',
@@ -10,12 +11,14 @@ const pricingLabels = {
 };
 
 export default function ReviewFinderJobScreen({ navigation, route }: any) {
+  const { colors: Colors } = useAppTheme();
+  const styles = useStyles();
   const jobDraft: FinderJobDraft | undefined = route?.params?.jobDraft;
 
   if (!jobDraft) {
     return (
       <View style={styles.empty}>
-        <Ionicons name="alert-circle-outline" size={48} color="#667085" />
+        <Ionicons name="alert-circle-outline" size={48} color={Colors.textSecondary} />
         <Text style={styles.emptyTitle}>No job draft found</Text>
         <TouchableOpacity style={styles.primaryButton} onPress={() => navigation.goBack()}>
           <Text style={styles.primaryButtonText}>Back to Job Form</Text>
@@ -38,7 +41,7 @@ export default function ReviewFinderJobScreen({ navigation, route }: any) {
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <View style={styles.hero}>
-        <Ionicons name="checkmark-circle-outline" size={38} color="#2196F3" />
+        <Ionicons name="checkmark-circle-outline" size={38} color={Colors.primary} />
         <Text style={styles.title}>Review Job</Text>
         <Text style={styles.subtitle}>Make sure pumpers have everything they need before the job goes live.</Text>
       </View>
@@ -81,7 +84,7 @@ export default function ReviewFinderJobScreen({ navigation, route }: any) {
       ) : null}
 
       <View style={styles.infoCard}>
-        <Ionicons name="git-pull-request-outline" size={23} color="#2196F3" />
+        <Ionicons name="git-pull-request-outline" size={23} color={Colors.primary} />
         <View style={styles.infoTextWrap}>
           <Text style={styles.infoTitle}>Pumpers request — poster awards</Text>
           <Text style={styles.infoText}>
@@ -92,7 +95,7 @@ export default function ReviewFinderJobScreen({ navigation, route }: any) {
       </View>
 
       <View style={styles.infoCard}>
-        <Ionicons name="shield-checkmark-outline" size={23} color="#2196F3" />
+        <Ionicons name="shield-checkmark-outline" size={23} color={Colors.primary} />
         <View style={styles.infoTextWrap}>
           <Text style={styles.infoTitle}>Marketplace safeguards</Text>
           <Text style={styles.infoText}>
@@ -103,7 +106,7 @@ export default function ReviewFinderJobScreen({ navigation, route }: any) {
       </View>
 
       <View style={styles.warningCard}>
-        <Ionicons name="information-circle-outline" size={23} color="#B54708" />
+        <Ionicons name="information-circle-outline" size={23} color={Colors.warning} />
         <View style={styles.infoTextWrap}>
           <Text style={styles.warningTitle}>Cancellation</Text>
           <Text style={styles.warningText}>
@@ -113,19 +116,20 @@ export default function ReviewFinderJobScreen({ navigation, route }: any) {
       </View>
 
       <TouchableOpacity style={styles.editButton} onPress={() => navigation.goBack()} activeOpacity={0.8}>
-        <Ionicons name="create-outline" size={20} color="#2196F3" />
+        <Ionicons name="create-outline" size={20} color={Colors.primary} />
         <Text style={styles.editButtonText}>Edit Job</Text>
       </TouchableOpacity>
 
       <TouchableOpacity style={styles.primaryButton} onPress={handlePost} activeOpacity={0.8}>
         <Text style={styles.primaryButtonText}>Post Job</Text>
-        <Ionicons name="send" size={19} color="#fff" />
+        <Ionicons name="send" size={19} color={Colors.onPrimary} />
       </TouchableOpacity>
     </ScrollView>
   );
 }
 
 function ReviewCard({ title, children }: { title: string; children: React.ReactNode }) {
+  const styles = useStyles();
   return (
     <View style={styles.card}>
       <Text style={styles.cardTitle}>{title}</Text>
@@ -136,6 +140,7 @@ function ReviewCard({ title, children }: { title: string; children: React.ReactN
 }
 
 function ReviewRow({ label, value }: { label: string; value: string }) {
+  const styles = useStyles();
   return (
     <View style={styles.row}>
       <Text style={styles.rowLabel}>{label}</Text>
@@ -144,30 +149,30 @@ function ReviewRow({ label, value }: { label: string; value: string }) {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f6f7f9' },
+const useStyles = makeStyles((Colors) => ({
+  container: { flex: 1, backgroundColor: Colors.background },
   content: { padding: 16, paddingBottom: 36 },
   hero: { alignItems: 'center', paddingVertical: 12, marginBottom: 8 },
-  title: { fontSize: 24, fontWeight: '800', color: '#1f2937', marginTop: 6 },
-  subtitle: { fontSize: 14, color: '#667085', textAlign: 'center', marginTop: 5, maxWidth: 350, lineHeight: 20 },
-  card: { backgroundColor: '#fff', borderRadius: 14, padding: 15, marginBottom: 12, borderWidth: 1, borderColor: '#EAECF0' },
-  cardTitle: { fontSize: 16, fontWeight: '800', color: '#1f2937' },
-  divider: { height: 1, backgroundColor: '#EAECF0', marginVertical: 10 },
+  title: { fontSize: 24, fontWeight: '800', color: Colors.text, marginTop: 6 },
+  subtitle: { fontSize: 14, color: Colors.textSecondary, textAlign: 'center', marginTop: 5, maxWidth: 350, lineHeight: 20 },
+  card: { backgroundColor: Colors.surface, borderRadius: 14, padding: 15, marginBottom: 12, borderWidth: 1, borderColor: Colors.border },
+  cardTitle: { fontSize: 16, fontWeight: '800', color: Colors.text },
+  divider: { height: 1, backgroundColor: Colors.border, marginVertical: 10 },
   row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', paddingVertical: 6, gap: 12 },
-  rowLabel: { fontSize: 13, fontWeight: '600', color: '#667085', width: 108 },
-  rowValue: { flex: 1, textAlign: 'right', fontSize: 13, color: '#1f2937', lineHeight: 18 },
-  notes: { fontSize: 14, color: '#344054', lineHeight: 20 },
-  infoCard: { flexDirection: 'row', backgroundColor: '#e8f2ff', borderRadius: 12, padding: 14, marginBottom: 12 },
-  warningCard: { flexDirection: 'row', backgroundColor: '#FFF4E5', borderRadius: 12, padding: 14, marginBottom: 16 },
+  rowLabel: { fontSize: 13, fontWeight: '600', color: Colors.textSecondary, width: 108 },
+  rowValue: { flex: 1, textAlign: 'right', fontSize: 13, color: Colors.text, lineHeight: 18 },
+  notes: { fontSize: 14, color: Colors.text, lineHeight: 20 },
+  infoCard: { flexDirection: 'row', backgroundColor: Colors.primaryBg, borderRadius: 12, padding: 14, marginBottom: 12 },
+  warningCard: { flexDirection: 'row', backgroundColor: Colors.warningBg, borderRadius: 12, padding: 14, marginBottom: 16 },
   infoTextWrap: { flex: 1, marginLeft: 10 },
-  infoTitle: { fontSize: 14, fontWeight: '800', color: '#1f2937' },
-  infoText: { fontSize: 12, color: '#475467', marginTop: 3, lineHeight: 18 },
-  warningTitle: { fontSize: 14, fontWeight: '800', color: '#7A2E0E' },
-  warningText: { fontSize: 12, color: '#7A2E0E', marginTop: 3, lineHeight: 18 },
-  editButton: { minHeight: 50, borderRadius: 12, borderWidth: 1, borderColor: '#2196F3', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, marginBottom: 10, backgroundColor: '#fff' },
-  editButtonText: { color: '#2196F3', fontSize: 16, fontWeight: '700' },
-  primaryButton: { minHeight: 52, borderRadius: 12, backgroundColor: '#2196F3', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
-  primaryButtonText: { color: '#fff', fontSize: 17, fontWeight: '800' },
-  empty: { flex: 1, backgroundColor: '#f6f7f9', alignItems: 'center', justifyContent: 'center', padding: 24 },
-  emptyTitle: { fontSize: 20, fontWeight: '800', color: '#1f2937', marginTop: 10, marginBottom: 20 },
-});
+  infoTitle: { fontSize: 14, fontWeight: '800', color: Colors.text },
+  infoText: { fontSize: 12, color: Colors.textSecondary, marginTop: 3, lineHeight: 18 },
+  warningTitle: { fontSize: 14, fontWeight: '800', color: Colors.warning },
+  warningText: { fontSize: 12, color: Colors.warning, marginTop: 3, lineHeight: 18 },
+  editButton: { minHeight: 50, borderRadius: 12, borderWidth: 1, borderColor: Colors.primary, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, marginBottom: 10, backgroundColor: Colors.surface },
+  editButtonText: { color: Colors.primary, fontSize: 16, fontWeight: '700' },
+  primaryButton: { minHeight: 52, borderRadius: 12, backgroundColor: Colors.primary, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
+  primaryButtonText: { color: Colors.onPrimary, fontSize: 17, fontWeight: '800' },
+  empty: { flex: 1, backgroundColor: Colors.background, alignItems: 'center', justifyContent: 'center', padding: 24 },
+  emptyTitle: { fontSize: 20, fontWeight: '800', color: Colors.text, marginTop: 10, marginBottom: 20 },
+}));

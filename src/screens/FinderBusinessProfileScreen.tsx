@@ -15,8 +15,11 @@ import {
   FinderPpeItem,
   PumpFinderBusinessProfile,
 } from '../types/pumpFinder';
+import { useAppTheme, makeStyles } from '../theme';
 
 export default function FinderBusinessProfileScreen() {
+  const { colors: Colors } = useAppTheme();
+  const styles = useStyles();
   const { user, updateProfile } = useAuth();
   const saved = user?.pumpFinderProfile;
 
@@ -94,7 +97,7 @@ export default function FinderBusinessProfileScreen() {
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
       <View style={styles.hero}>
-        <Ionicons name="business-outline" size={38} color="#2196F3" />
+        <Ionicons name="business-outline" size={38} color={Colors.primary} />
         <Text style={styles.title}>Business Profile</Text>
         <Text style={styles.subtitle}>
           These settings help posters understand what your pump can handle and how your common surcharges work.
@@ -139,7 +142,7 @@ export default function FinderBusinessProfileScreen() {
                 <Ionicons
                   name={selected ? 'checkmark-circle' : 'ellipse-outline'}
                   size={18}
-                  color={selected ? '#fff' : '#667085'}
+                  color={selected ? Colors.onPrimary : Colors.textSecondary}
                 />
                 <Text style={[styles.chipText, selected && styles.chipTextSelected]}>{item}</Text>
               </TouchableOpacity>
@@ -149,7 +152,7 @@ export default function FinderBusinessProfileScreen() {
       </Section>
 
       <View style={styles.policyCard}>
-        <Ionicons name="shield-checkmark-outline" size={22} color="#2196F3" />
+        <Ionicons name="shield-checkmark-outline" size={22} color={Colors.primary} />
         <View style={styles.policyTextWrap}>
           <Text style={styles.policyTitle}>Marketplace control stays with the poster</Text>
           <Text style={styles.policyText}>
@@ -164,7 +167,7 @@ export default function FinderBusinessProfileScreen() {
         disabled={saving}
         activeOpacity={0.8}
       >
-        <Ionicons name="save-outline" size={20} color="#fff" />
+        <Ionicons name="save-outline" size={20} color={Colors.onPrimary} />
         <Text style={styles.saveButtonText}>{saving ? 'Saving…' : 'Save Business Profile'}</Text>
       </TouchableOpacity>
     </ScrollView>
@@ -172,6 +175,7 @@ export default function FinderBusinessProfileScreen() {
 }
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
+  const styles = useStyles();
   return (
     <View style={styles.section}>
       <Text style={styles.sectionTitle}>{title}</Text>
@@ -181,6 +185,8 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 }
 
 function Field({ label, prefix, suffix, ...props }: any) {
+  const { colors: Colors } = useAppTheme();
+  const styles = useStyles();
   return (
     <View style={styles.field}>
       <Text style={styles.label}>{label}</Text>
@@ -188,7 +194,7 @@ function Field({ label, prefix, suffix, ...props }: any) {
         {prefix ? <Text style={styles.prefix}>{prefix}</Text> : null}
         <TextInput
           {...props}
-          placeholderTextColor="#98A2B3"
+          placeholderTextColor={Colors.textLight}
           style={[
             styles.input,
             prefix && styles.inputWithPrefix,
@@ -201,33 +207,33 @@ function Field({ label, prefix, suffix, ...props }: any) {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f6f7f9' },
+const useStyles = makeStyles((Colors) => ({
+  container: { flex: 1, backgroundColor: Colors.background },
   content: { padding: 16, paddingBottom: 36 },
   hero: { alignItems: 'center', paddingVertical: 12, marginBottom: 8 },
-  title: { fontSize: 24, fontWeight: '800', color: '#1f2937', marginTop: 6 },
-  subtitle: { fontSize: 14, color: '#667085', textAlign: 'center', marginTop: 5, maxWidth: 360, lineHeight: 20 },
-  section: { backgroundColor: '#fff', borderRadius: 14, borderWidth: 1, borderColor: '#EAECF0', padding: 14, marginBottom: 12 },
-  sectionTitle: { fontSize: 16, fontWeight: '800', color: '#1f2937', marginBottom: 12 },
+  title: { fontSize: 24, fontWeight: '800', color: Colors.text, marginTop: 6 },
+  subtitle: { fontSize: 14, color: Colors.textSecondary, textAlign: 'center', marginTop: 5, maxWidth: 360, lineHeight: 20 },
+  section: { backgroundColor: Colors.surface, borderRadius: 14, borderWidth: 1, borderColor: Colors.border, padding: 14, marginBottom: 12 },
+  sectionTitle: { fontSize: 16, fontWeight: '800', color: Colors.text, marginBottom: 12 },
   field: { marginBottom: 12 },
-  label: { fontSize: 13, fontWeight: '700', color: '#344054', marginBottom: 6 },
+  label: { fontSize: 13, fontWeight: '700', color: Colors.text, marginBottom: 6 },
   inputWrap: { position: 'relative', justifyContent: 'center' },
-  input: { backgroundColor: '#fff', borderWidth: 1, borderColor: '#D0D5DD', borderRadius: 10, paddingHorizontal: 13, paddingVertical: 12, fontSize: 16, color: '#101828' },
+  input: { backgroundColor: Colors.surface, borderWidth: 1, borderColor: Colors.borderDark, borderRadius: 10, paddingHorizontal: 13, paddingVertical: 12, fontSize: 16, color: Colors.text },
   inputWithPrefix: { paddingLeft: 28 },
   inputWithSuffix: { paddingRight: 56 },
-  prefix: { position: 'absolute', left: 13, zIndex: 2, color: '#667085', fontWeight: '700' },
-  suffix: { position: 'absolute', right: 13, zIndex: 2, color: '#667085', fontWeight: '600' },
-  helperText: { fontSize: 12, color: '#667085', lineHeight: 18, marginBottom: 8 },
+  prefix: { position: 'absolute', left: 13, zIndex: 2, color: Colors.textSecondary, fontWeight: '700' },
+  suffix: { position: 'absolute', right: 13, zIndex: 2, color: Colors.textSecondary, fontWeight: '600' },
+  helperText: { fontSize: 12, color: Colors.textSecondary, lineHeight: 18, marginBottom: 8 },
   chipWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 4 },
-  chip: { borderWidth: 1, borderColor: '#D0D5DD', borderRadius: 20, paddingHorizontal: 10, paddingVertical: 8, flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: '#fff' },
-  chipSelected: { backgroundColor: '#2196F3', borderColor: '#2196F3' },
-  chipText: { color: '#475467', fontSize: 12, fontWeight: '600' },
-  chipTextSelected: { color: '#fff' },
-  policyCard: { flexDirection: 'row', backgroundColor: '#e8f2ff', borderRadius: 12, padding: 14, marginBottom: 16 },
+  chip: { borderWidth: 1, borderColor: Colors.borderDark, borderRadius: 20, paddingHorizontal: 10, paddingVertical: 8, flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: Colors.surface },
+  chipSelected: { backgroundColor: Colors.primary, borderColor: Colors.primary },
+  chipText: { color: Colors.textSecondary, fontSize: 12, fontWeight: '600' },
+  chipTextSelected: { color: Colors.onPrimary },
+  policyCard: { flexDirection: 'row', backgroundColor: Colors.primaryBg, borderRadius: 12, padding: 14, marginBottom: 16 },
   policyTextWrap: { flex: 1, marginLeft: 10 },
-  policyTitle: { fontSize: 14, fontWeight: '800', color: '#1f2937' },
-  policyText: { fontSize: 12, color: '#475467', marginTop: 3, lineHeight: 18 },
-  saveButton: { minHeight: 52, borderRadius: 12, backgroundColor: '#2196F3', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
+  policyTitle: { fontSize: 14, fontWeight: '800', color: Colors.text },
+  policyText: { fontSize: 12, color: Colors.textSecondary, marginTop: 3, lineHeight: 18 },
+  saveButton: { minHeight: 52, borderRadius: 12, backgroundColor: Colors.primary, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
   saveButtonDisabled: { opacity: 0.65 },
-  saveButtonText: { color: '#fff', fontSize: 16, fontWeight: '800' },
-});
+  saveButtonText: { color: Colors.onPrimary, fontSize: 16, fontWeight: '800' },
+}));
