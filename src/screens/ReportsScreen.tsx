@@ -38,7 +38,7 @@ interface ColumnConfig {
 }
 
 export default function ReportsScreen() {
-  const { colors: Colors } = useAppTheme();
+  const { colors: Colors, gradients } = useAppTheme();
   const styles = useStyles();
   const { jobs } = useJobs();
   const { user } = useAuth();
@@ -391,7 +391,7 @@ export default function ReportsScreen() {
   return (
     <ScrollView style={styles.container}>
       <LinearGradient
-        colors={[Colors.info, Colors.infoLight]}
+        colors={gradients.info}
         style={styles.header}
       >
         <Text style={styles.headerTitle}>📊 Reports & Analytics</Text>
@@ -714,7 +714,7 @@ export default function ReportsScreen() {
               <Divider style={styles.divider} />
               
               <LinearGradient
-                colors={[Colors.success, Colors.successLight]}
+                colors={gradients.success}
                 style={styles.totalBox}
               >
                 <Text style={styles.totalLabel}>You're Owed:</Text>

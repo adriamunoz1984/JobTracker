@@ -1,36 +1,61 @@
 // src/theme/ThemeContext.tsx
-// Provides the current palette (light or dark) to the whole app.
-// Appearance can follow the phone ("system") or be locked to light/dark from Profile.
+// Provides the current theme + palette (light or dark) to the whole app.
+// - Theme: one of the horror themes (or Clean Concrete), picked in Profile.
+// - Appearance: follow the phone ("system"), or lock to light / dark.
+// Both choices are saved on the phone and restored on the next launch.
 import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
-import { StyleSheet, useColorScheme } from 'react-native';
+import { StyleSheet, TextStyle, useColorScheme } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { GradientSet, Palette, ThemeMode, gradientSets, palettes } from './palettes';
+import {
+  DEFAULT_THEME,
+  GradientSet,
+  Palette,
+  ThemeDefinition,
+  ThemeId,
+  ThemeMode,
+  themes,
+} from './palettes';
 
 export type AppearancePreference = 'system' | 'light' | 'dark';
 
-const STORAGE_KEY = 'appearancePreference';
+const APPEARANCE_KEY = 'appearancePreference';
+const THEME_KEY = 'themeId';
 
 interface ThemeContextValue {
   mode: ThemeMode;                       // What is actually showing right now
   isDark: boolean;
   colors: Palette;
   gradients: GradientSet;
-  preference: AppearancePreference;      // What the user picked
+  theme: ThemeDefinition;                // Current theme (name, header font, ...)
+  themeId: ThemeId;
+  setThemeId: (id: ThemeId) => void;
+  headerTitleStyle: TextStyle;           // Font for the top bar / big titles
+  preference: AppearancePreference;      // What the user picked for light/dark
   setPreference: (p: AppearancePreference) => void;
 }
 
 const ThemeContext = createContext<ThemeContextValue | null>(null);
 
+export function getHeaderTitleStyle(theme: ThemeDefinition): TextStyle {
+  return theme.headerFont
+    ? { fontFamily: theme.headerFont, fontSize: theme.headerFontSize, fontWeight: 'normal' }
+    : { fontSize: theme.headerFontSize, fontWeight: 'bold' };
+}
+
 export function AppThemeProvider({ children }: { children: React.ReactNode }) {
   const systemScheme = useColorScheme();
   const [preference, setPreferenceState] = useState<AppearancePreference>('system');
+  const [themeId, setThemeIdState] = useState<ThemeId>(DEFAULT_THEME);
 
-  // Load the saved choice once on startup.
+  // Load the saved choices once on startup.
   useEffect(() => {
-    AsyncStorage.getItem(STORAGE_KEY)
-      .then(saved => {
-        if (saved === 'light' || saved === 'dark' || saved === 'system') {
-          setPreferenceState(saved);
+    AsyncStorage.multiGet([APPEARANCE_KEY, THEME_KEY])
+      .then(([[, savedAppearance], [, savedTheme]]) => {
+        if (savedAppearance === 'light' || savedAppearance === 'dark' || savedAppearance === 'system') {
+          setPreferenceState(savedAppearance);
+        }
+        if (savedTheme && savedTheme in themes) {
+          setThemeIdState(savedTheme as ThemeId);
         }
       })
       .catch(() => {});
@@ -38,23 +63,32 @@ export function AppThemeProvider({ children }: { children: React.ReactNode }) {
 
   const setPreference = (p: AppearancePreference) => {
     setPreferenceState(p);
-    AsyncStorage.setItem(STORAGE_KEY, p).catch(() => {});
+    AsyncStorage.setItem(APPEARANCE_KEY, p).catch(() => {});
+  };
+
+  const setThemeId = (id: ThemeId) => {
+    setThemeIdState(id);
+    AsyncStorage.setItem(THEME_KEY, id).catch(() => {});
   };
 
   const mode: ThemeMode =
     preference === 'system' ? (systemScheme === 'dark' ? 'dark' : 'light') : preference;
 
-  const value = useMemo<ThemeContextValue>(
-    () => ({
+  const value = useMemo<ThemeContextValue>(() => {
+    const theme = themes[themeId];
+    return {
       mode,
       isDark: mode === 'dark',
-      colors: palettes[mode],
-      gradients: gradientSets[mode],
+      colors: mode === 'dark' ? theme.dark : theme.light,
+      gradients: mode === 'dark' ? theme.darkGradients : theme.lightGradients,
+      theme,
+      themeId,
+      setThemeId,
+      headerTitleStyle: getHeaderTitleStyle(theme),
       preference,
       setPreference,
-    }),
-    [mode, preference]
-  );
+    };
+  }, [mode, preference, themeId]);
 
   return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
 }
@@ -69,20 +103,21 @@ export function useAppTheme(): ThemeContextValue {
 
 /**
  * Build a themed stylesheet. Write styles once as a function of the palette;
- * each component calls the returned hook to get styles for the current mode.
+ * each component calls the returned hook to get styles for the current theme + mode.
  *
  *   const useStyles = makeStyles((Colors) => ({ card: { backgroundColor: Colors.surface } }));
  *   function MyScreen() { const styles = useStyles(); ... }
  */
 export function makeStyles<T extends StyleSheet.NamedStyles<T> | StyleSheet.NamedStyles<any>>(
-  factory: (colors: Palette, gradients: GradientSet) => T
+  factory: (colors: Palette, gradients: GradientSet, theme: ThemeDefinition) => T
 ): () => T {
-  const cache: Partial<Record<ThemeMode, T>> = {};
+  const cache: Record<string, T> = {};
   return function useStyles(): T {
-    const { mode, colors, gradients } = useAppTheme();
-    if (!cache[mode]) {
-      cache[mode] = StyleSheet.create(factory(colors, gradients)) as T;
+    const { mode, colors, gradients, theme } = useAppTheme();
+    const key = `${theme.id}:${mode}`;
+    if (!cache[key]) {
+      cache[key] = StyleSheet.create(factory(colors, gradients, theme)) as T;
     }
-    return cache[mode] as T;
+    return cache[key];
   };
 }

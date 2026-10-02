@@ -1,11 +1,11 @@
 // src/navigation/MainNavigator.tsx
 import InvoiceListScreen from '../screens/InvoiceListScreen';
 import NotificationBell from '../components/NotificationBell';
-import React from 'react';
+import React, { useState } from 'react';
 import { createMaterialTopTabNavigator } from '@react-navigation/material-top-tabs';
-import { createStackNavigator } from '@react-navigation/stack';
+import { Header } from '@react-navigation/elements';
 import { Ionicons } from '@expo/vector-icons';
-import { StyleSheet, useWindowDimensions, TouchableOpacity, View } from 'react-native';
+import { useWindowDimensions, TouchableOpacity, View } from 'react-native';
 import { Avatar, IconButton } from 'react-native-paper';
 import { useNavigation } from '@react-navigation/native';
 import { useAuth } from '../context/AuthContext';
@@ -15,12 +15,9 @@ import HomeScreen from '../screens/HomeScreen';
 import WeeklyDashboardScreen from '../screens/WeeklyDashBoardScreen';
 import MonthlySummaryScreen from '../screens/MonthlySummaryScreen';
 import YearlySummaryScreen from '../screens/YearlySummaryScreen';
-import AddJobScreen from '../screens/AddjobScreen';
-import JobDetailScreen from '../screens/JobDetailScreen';
-import { useAppTheme, makeStyles, HeaderFont } from '../theme';
+import { useAppTheme, makeStyles } from '../theme';
 
 const Tab = createMaterialTopTabNavigator();
-const Stack = createStackNavigator();
 
 // Profile Button Component
 const ProfileButton = () => {
@@ -59,101 +56,34 @@ const ProfileButton = () => {
   );
 };
 
-// Common header options — campfire header colors + Nosifer title font
-function useCommonScreenOptions() {
-  const { colors } = useAppTheme();
-  return {
-    headerTitleAlign: 'center' as const,
-    headerStyle: {
-      backgroundColor: colors.header,
-    },
-    headerTintColor: colors.onHeader,
-    headerTitleStyle: { fontFamily: HeaderFont, fontSize: 15 },
-    headerRight: () => (
-      <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-        <NotificationBell />
-        <ProfileButton />
-      </View>
-    )
-  };
-}
+// Title shown in the fixed top bar for each tab
+const TAB_TITLES: Record<string, string> = {
+  Home: 'My Jobs',
+  Weekly: 'Weekly Dashboard',
+  Monthly: 'Monthly Summary',
+  Yearly: 'Yearly Summary',
+  Invoices: 'Invoices',
+};
 
-// Home stack includes the job list and related screens
-function HomeStack() {
-  const commonScreenOptions = useCommonScreenOptions();
+// The one top bar for the main tabs. It sits ABOVE the swipeable tabs, so it stays
+// put while you swipe — only the title changes. Job details / Add Job open as full
+// screens on top (from App.tsx) with their own back button.
+function FixedTopBar({ title }: { title: string }) {
+  const { colors, headerTitleStyle } = useAppTheme();
   return (
-    <Stack.Navigator screenOptions={commonScreenOptions}>
-      <Stack.Screen 
-        name="JobsList" 
-        component={HomeScreen} 
-        options={{ title: 'My Jobs' }} 
-      />
-      <Stack.Screen 
-        name="JobDetail" 
-        component={JobDetailScreen} 
-        options={{ title: 'Job Details' }} 
-      />
-      <Stack.Screen 
-        name="AddJob" 
-        component={AddJobScreen} 
-        options={{ title: 'Add New Job' }} 
-      />
-    </Stack.Navigator>
-  );
-}
-
-// Weekly stack
-function WeeklyStack() {
-  const commonScreenOptions = useCommonScreenOptions();
-  return (
-    <Stack.Navigator screenOptions={commonScreenOptions}>
-      <Stack.Screen 
-        name="WeeklyDashboard" 
-        component={WeeklyDashboardScreen} 
-        options={{ title: 'Weekly Dashboard' }} 
-      />
-    </Stack.Navigator>
-  );
-}
-
-// Monthly screen
-function MonthlyStack() {
-  const commonScreenOptions = useCommonScreenOptions();
-  return (
-    <Stack.Navigator screenOptions={commonScreenOptions}>
-      <Stack.Screen 
-        name="MonthlySummary" 
-        component={MonthlySummaryScreen} 
-        options={{ title: 'Monthly Summary' }} 
-      />
-    </Stack.Navigator>
-  );
-}
-
-// Yearly screen
-function YearlyStack() {
-  const commonScreenOptions = useCommonScreenOptions();
-  return (
-    <Stack.Navigator screenOptions={commonScreenOptions}>
-      <Stack.Screen 
-        name="YearlySummary" 
-        component={YearlySummaryScreen} 
-        options={{ title: 'Yearly Summary' }} 
-      />
-    </Stack.Navigator>
-  );
-}
-// Invoices stack
-function InvoicesStack() {
-  const commonScreenOptions = useCommonScreenOptions();
-  return (
-    <Stack.Navigator screenOptions={commonScreenOptions}>
-      <Stack.Screen 
-        name="InvoicesList" 
-        component={InvoiceListScreen} 
-        options={{ title: 'Invoices' }} 
-      />
-    </Stack.Navigator>
+    <Header
+      title={title}
+      headerTitleAlign="center"
+      headerStyle={{ backgroundColor: colors.header }}
+      headerTintColor={colors.onHeader}
+      headerTitleStyle={headerTitleStyle}
+      headerRight={() => (
+        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+          <NotificationBell />
+          <ProfileButton />
+        </View>
+      )}
+    />
   );
 }
 
@@ -162,9 +92,15 @@ export default function MainNavigator() {
   const { colors: Colors } = useAppTheme();
   const styles = useStyles();
   const dimensions = useWindowDimensions();
+  const [activeTab, setActiveTab] = useState('Home');
   
   return (
+    <View style={styles.root}>
+    <FixedTopBar title={TAB_TITLES[activeTab] ?? ''} />
     <Tab.Navigator
+      screenListeners={({ route }) => ({
+        focus: () => setActiveTab(route.name),
+      })}
       screenOptions={({ route }) => ({
         tabBarIcon: ({ focused, color }) => {
           let iconName;
@@ -196,16 +132,21 @@ export default function MainNavigator() {
       tabBarPosition="bottom"
       initialLayout={{ width: dimensions.width }}
     >
-      <Tab.Screen name="Home" component={HomeStack} />
-      <Tab.Screen name="Weekly" component={WeeklyStack} />
-      <Tab.Screen name="Monthly" component={MonthlyStack} />
-      <Tab.Screen name="Yearly" component={YearlyStack} />
-      <Tab.Screen name="Invoices" component={InvoicesStack} />
+      <Tab.Screen name="Home" component={HomeScreen} />
+      <Tab.Screen name="Weekly" component={WeeklyDashboardScreen} />
+      <Tab.Screen name="Monthly" component={MonthlySummaryScreen} />
+      <Tab.Screen name="Yearly" component={YearlySummaryScreen} />
+      <Tab.Screen name="Invoices" component={InvoiceListScreen} />
     </Tab.Navigator>
+    </View>
   );
 }
 
 const useStyles = makeStyles((Colors) => ({
+  root: {
+    flex: 1,
+    backgroundColor: Colors.background,
+  },
   container: {
     backgroundColor: Colors.surface,
   },

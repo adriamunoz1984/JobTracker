@@ -27,7 +27,7 @@ import { useAppTheme, makeStyles, withOpacity } from '../theme';
 const screenWidth = Dimensions.get('window').width;
 
 export default function YearlySummaryScreen() {
-  const { colors: Colors } = useAppTheme();
+  const { colors: Colors, gradients } = useAppTheme();
   const styles = useStyles();
   const navigation = useNavigation();
   const { jobs } = useJobs();
@@ -292,7 +292,7 @@ export default function YearlySummaryScreen() {
   return (
     <ScrollView style={styles.container}>
       <LinearGradient
-        colors={[Colors.info, Colors.infoLight]}
+        colors={gradients.info}
         style={styles.header}
       >
         <View style={styles.headerContent}>
@@ -459,7 +459,7 @@ export default function YearlySummaryScreen() {
               <Divider style={styles.divider} />
 
               <LinearGradient
-                colors={[Colors.success, Colors.successLight]}
+                colors={gradients.success}
                 style={styles.totalBox}
               >
                 <Text style={styles.totalLabel}>Your Pay:</Text>
@@ -489,7 +489,7 @@ export default function YearlySummaryScreen() {
               <Divider style={styles.divider} />
 
               <LinearGradient
-                colors={[Colors.success, Colors.successLight]}
+                colors={gradients.success}
                 style={styles.totalBox}
               >
                 <Text style={styles.totalLabel}>Final Take Home:</Text>

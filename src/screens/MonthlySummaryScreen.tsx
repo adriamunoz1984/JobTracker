@@ -27,7 +27,7 @@ import { useAppTheme, makeStyles, withOpacity } from '../theme';
 const screenWidth = Dimensions.get('window').width;
 
 export default function MonthlySummaryScreen() {
-  const { colors: Colors } = useAppTheme();
+  const { colors: Colors, gradients } = useAppTheme();
   const styles = useStyles();
   const navigation = useNavigation();
   const { jobs } = useJobs();
@@ -263,7 +263,7 @@ export default function MonthlySummaryScreen() {
   return (
     <ScrollView style={styles.container}>
       <LinearGradient
-        colors={[Colors.secondary, Colors.secondaryDark]}
+        colors={gradients.secondary}
         style={styles.header}
       >
         <View style={styles.headerContent}>
@@ -380,7 +380,7 @@ export default function MonthlySummaryScreen() {
               <Divider style={styles.divider} />
 
               <LinearGradient
-                colors={[Colors.success, Colors.successLight]}
+                colors={gradients.success}
                 style={styles.totalBox}
               >
                 <Text style={styles.totalLabel}>Your Pay:</Text>
@@ -410,7 +410,7 @@ export default function MonthlySummaryScreen() {
               <Divider style={styles.divider} />
 
               <LinearGradient
-                colors={[Colors.success, Colors.successLight]}
+                colors={gradients.success}
                 style={styles.totalBox}
               >
                 <Text style={styles.totalLabel}>Final Take Home:</Text>

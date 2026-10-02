@@ -35,7 +35,7 @@ const formatAmount = (amount: number): string => {
 };
 
 export default function WeeklyDashboardScreen() {
-  const { colors: Colors } = useAppTheme();
+  const { colors: Colors, gradients } = useAppTheme();
   const styles = useStyles();
   const navigation = useNavigation();
   const { jobs } = useJobs();
@@ -411,7 +411,7 @@ export default function WeeklyDashboardScreen() {
   return (
     <ScrollView style={styles.container}>
       <LinearGradient
-        colors={[Colors.primary, Colors.primaryDark]}
+        colors={gradients.primary}
         style={styles.header}
       >
         <View style={styles.headerContent}>
@@ -541,7 +541,7 @@ export default function WeeklyDashboardScreen() {
               <Divider style={styles.divider} />
 
               <LinearGradient
-                colors={[Colors.success, Colors.successLight]}
+                colors={gradients.success}
                 style={styles.totalBox}
               >
                 <Text style={styles.totalLabel}>Your Pay:</Text>
@@ -571,7 +571,7 @@ export default function WeeklyDashboardScreen() {
               <Divider style={styles.divider} />
 
               <LinearGradient
-                colors={[Colors.success, Colors.successLight]}
+                colors={gradients.success}
                 style={styles.totalBox}
               >
                 <Text style={styles.totalLabel}>Final Take Home:</Text>

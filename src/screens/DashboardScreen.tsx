@@ -34,7 +34,7 @@ import { useAppTheme, makeStyles, withOpacity } from '../theme';
 const screenWidth = Dimensions.get('window').width;
 
 export default function DashboardScreen() {
-  const { colors: Colors } = useAppTheme();
+  const { colors: Colors, gradients } = useAppTheme();
   const styles = useStyles();
   const { jobs } = useJobs();
   const { user } = useAuth();
@@ -239,7 +239,7 @@ export default function DashboardScreen() {
   return (
     <ScrollView style={styles.container}>
       <LinearGradient
-        colors={[Colors.secondary, Colors.secondaryDark]}
+        colors={gradients.secondary}
         style={styles.header}
       >
         <Text style={styles.headerTitle}>📈 Dashboard</Text>
