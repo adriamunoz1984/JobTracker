@@ -73,14 +73,10 @@ export default function WeeklyDashboardScreen() {
 
   if (!isOwner) {
     totals.commission = (totals.income * commissionRate) / 100;
-    
-    // FIXED: Only subtract cash if employee DOESN'T keep cash (keepsCash === false)
-    const cashToSubtract = user?.keepsCash === false ? totals.cashPayments : 0;
-    
-    // FIXED: Only subtract checks if employee DOESN'T keep checks (keepsCheck === false)
-    const checkToSubtract = user?.keepsCheck === false ? totals.checkPayments : 0;
-    
-    totals.yourPay = totals.commission - cashToSubtract - checkToSubtract;
+
+    // Payment method is informational. Only a job explicitly marked as
+    // Direct Payment reduces the amount owed at the end of the week.
+    totals.yourPay = totals.commission - totals.paidToMeAmount;
     totals.finalTakeHome = totals.yourPay;
   } else {
     totals.finalTakeHome = totals.income - totals.paidToMeAmount;
@@ -162,58 +158,48 @@ export default function WeeklyDashboardScreen() {
     try {
       setIsExporting(true);
 
-      // Build job rows for each day (Mon-Sat)
-      const jobRows = dailyData.slice(0, 6).map(day => {
-        const dayJobs = weekJobs.filter(job => {
-          const jobDate = parseISO(job.date);
-          return format(jobDate, 'yyyy-MM-dd') === format(days[dailyData.indexOf(day)], 'yyyy-MM-dd');
-        });
+      // Export only calendar days that actually contain jobs.
+      // This naturally includes Saturday, and Sunday only when a Sunday job exists.
+      const workedDays = dailyData
+        .map((day, index) => ({ ...day, dateValue: days[index] }))
+        .filter(day => day.jobs > 0);
 
-        if (dayJobs.length === 0) {
-          // No work day
-          return `
-            <div class="job-row" style="border-top: 2px solid #333;">
-              <div class="day-section">
-                <div class="day-name">${day.day}</div>
-                <div class="day-date">${day.date}</div>
+      const jobRows = workedDays.length > 0
+        ? workedDays.map(day => {
+            const dayJobs = weekJobs.filter(job => {
+              const jobDate = parseISO(job.date);
+              return format(jobDate, 'yyyy-MM-dd') === format(day.dateValue, 'yyyy-MM-dd');
+            });
+
+            return dayJobs.map((job, idx) => `
+              <div class="job-row" ${idx === 0 ? `style="border-top: 2px solid #333;"` : ''}>
+                ${idx === 0 ? `
+                  <div class="day-section">
+                    <div class="day-name">${day.day}</div>
+                    <div class="day-date">${day.date}</div>
+                  </div>
+                ` : `
+                  <div class="day-section"></div>
+                `}
+                
+                <div class="job-section">
+                  <div class="client-name">${job.companyName || job.clientName || 'Job'}</div>
+                  <div class="address">${job.address}</div>
+                  <div class="city">${job.city}</div>
+                  <div class="yards">${job.yards} yards</div>
+                </div>
+                
+                <div class="payment-section">
+                  <div class="payment-method">${job.paymentMethod}</div>
+                  <div class="divider-line">________________</div>
+                  <div class="amount">$${job.amount.toFixed(0)}</div>
+                </div>
               </div>
-              
-              <div class="job-section">
-                <div class="no-work">No Work</div>
-              </div>
-              
-              <div class="payment-section">
-              </div>
-            </div>
+            `).join('');
+          }).join('')
+        : `
+            <div class="no-work">No jobs this week.</div>
           `;
-        }
-
-        return dayJobs.map((job, idx) => `
-          <div class="job-row" ${idx === 0 ? `style="border-top: 2px solid #333;"` : ''}>
-            ${idx === 0 ? `
-              <div class="day-section">
-                <div class="day-name">${day.day}</div>
-                <div class="day-date">${day.date}</div>
-              </div>
-            ` : `
-              <div class="day-section"></div>
-            `}
-            
-            <div class="job-section">
-              <div class="client-name">${job.companyName || job.clientName || 'Job'}</div>
-              <div class="address">${job.address}</div>
-              <div class="city">${job.city}</div>
-              <div class="yards">${job.yards} yards</div>
-            </div>
-            
-            <div class="payment-section">
-              <div class="payment-method">${job.paymentMethod}</div>
-              <div class="divider-line">________________</div>
-              <div class="amount">$${job.amount.toFixed(0)}</div>
-            </div>
-          </div>
-        `).join('');
-      }).join('');
 
       const htmlContent = `
         <!DOCTYPE html>
@@ -361,7 +347,7 @@ export default function WeeklyDashboardScreen() {
               </div>
               <div class="footer-row">
                 <div class="footer-label">- Direct Payments</div>
-                <div class="footer-value">-$${(totals.cashPayments + totals.checkPayments).toFixed(0)}</div>
+                <div class="footer-value">-${totals.paidToMeAmount.toFixed(0)}</div>
               </div>
               <div class="footer-row footer-total">
                 <div class="footer-label">Amount Owed</div>
