@@ -2,6 +2,7 @@
 import React from 'react';
 import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { Text } from 'react-native-paper';
+import { makeStyles } from '../theme';
 
 interface EarningsToggleProps {
   currentView: 'gross' | 'net';
@@ -18,6 +19,7 @@ const SimpleEarningsToggle: React.FC<EarningsToggleProps> = ({
   onToggle,
   label = 'Show earnings:'
 }) => {
+  const styles = useStyles();
   return (
     <View style={styles.container}>
       <Text style={styles.label}>{label}</Text>
@@ -56,7 +58,7 @@ const SimpleEarningsToggle: React.FC<EarningsToggleProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((Colors) => ({
   container: {
     marginVertical: 12,
   },
@@ -70,7 +72,7 @@ const styles = StyleSheet.create({
     borderRadius: 4,
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: '#2196F3',
+    borderColor: Colors.primary,
   },
   button: {
     flex: 1,
@@ -78,7 +80,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   activeButton: {
-    backgroundColor: '#2196F3',
+    backgroundColor: Colors.primary,
   },
   inactiveButton: {
     backgroundColor: 'transparent',
@@ -88,11 +90,11 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   activeButtonText: {
-    color: 'white',
+    color: Colors.onPrimary,
   },
   inactiveButtonText: {
-    color: '#2196F3',
+    color: Colors.primary,
   }
-});
+}));
 
 export default SimpleEarningsToggle;

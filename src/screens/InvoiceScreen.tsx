@@ -26,8 +26,10 @@ import {
 import { db } from '../firebase/config'
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
+import { makeStyles } from '../theme';
 
 export default function InvoiceScreen() {
+  const styles = useStyles();
   const navigation = useNavigation();
   const route = useRoute();
   const { user } = useAuth();
@@ -110,7 +112,7 @@ export default function InvoiceScreen() {
             justify-content: space-between;
             margin-bottom: 40px;
             padding-bottom: 20px;
-            border-bottom: 3px solid #2196F3;
+            border-bottom: 3px solid #B8461A;
           }
           .company-info {
             flex: 1;
@@ -121,7 +123,7 @@ export default function InvoiceScreen() {
           .invoice-number {
             font-size: 24px;
             font-weight: bold;
-            color: #2196F3;
+            color: #B8461A;
             margin-bottom: 10px;
           }
           .bill-to {
@@ -140,7 +142,7 @@ export default function InvoiceScreen() {
             margin: 30px 0;
           }
           th {
-            background-color: #2196F3;
+            background-color: #B8461A;
             color: white;
             padding: 12px;
             text-align: left;
@@ -164,13 +166,13 @@ export default function InvoiceScreen() {
           .total-row {
             font-size: 18px;
             font-weight: bold;
-            color: #2196F3;
+            color: #B8461A;
           }
           .notes {
             margin-top: 40px;
             padding: 20px;
             background-color: #f9f9f9;
-            border-left: 4px solid #2196F3;
+            border-left: 4px solid #B8461A;
           }
           .footer {
             margin-top: 60px;
@@ -185,7 +187,7 @@ export default function InvoiceScreen() {
       <body>
         <div class="header">
           <div class="company-info">
-            <h1 style="margin: 0; color: #2196F3;">🚚 ${user?.displayName || 'Your Company'}</h1>
+            <h1 style="margin: 0; color: #B8461A;">🚚 ${user?.displayName || 'Your Company'}</h1>
             <p style="margin: 5px 0;">${user?.email || ''}</p>
           </div>
           <div class="invoice-info">
@@ -540,17 +542,17 @@ export default function InvoiceScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((Colors) => ({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: Colors.background,
   },
   content: {
     padding: 16,
   },
   title: {
     marginBottom: 16,
-    color: '#2196F3',
+    color: Colors.primary,
     fontWeight: 'bold',
   },
   card: {
@@ -578,7 +580,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingVertical: 8,
     borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
+    borderBottomColor: Colors.border,
   },
   lineItemDescription: {
     flex: 1,
@@ -591,7 +593,7 @@ const styles = StyleSheet.create({
   },
   noItemsText: {
     fontSize: 14,
-    color: '#999',
+    color: Colors.textLight,
     fontStyle: 'italic',
     textAlign: 'center',
     paddingVertical: 12,
@@ -611,23 +613,23 @@ const styles = StyleSheet.create({
   grandTotalLabel: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#2196F3',
+    color: Colors.primary,
   },
   grandTotalValue: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#2196F3',
+    color: Colors.primary,
   },
   actions: {
     marginTop: 16,
     marginBottom: 32,
   },
   generateButton: {
-    backgroundColor: '#2196F3',
+    backgroundColor: Colors.primary,
     paddingVertical: 8,
     marginBottom: 12,
   },
   cancelButton: {
-    borderColor: '#999',
+    borderColor: Colors.textLight,
   },
-});
+}));

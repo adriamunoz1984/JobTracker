@@ -6,7 +6,8 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useRoute, useNavigation } from '@react-navigation/native';
 import { Job } from '../types';
 import { format, parseISO } from 'date-fns';
-import { Colors, Spacing, BorderRadius, Shadows } from '../theme/colors';
+import { Spacing, BorderRadius, Shadows } from '../theme/colors';
+import { useAppTheme, makeStyles } from '../theme';
 
 type MetricType = 'income' | 'takeHome' | 'paid' | 'unpaid' | 'yards' | 'avgJob';
 
@@ -19,6 +20,8 @@ interface DetailedReportParams {
 }
 
 export default function DetailedReportScreen() {
+  const { colors: Colors } = useAppTheme();
+  const styles = useStyles();
   const route = useRoute();
   const navigation = useNavigation();
   const params = route.params as DetailedReportParams;
@@ -300,7 +303,7 @@ export default function DetailedReportScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((Colors) => ({
   container: {
     flex: 1,
     backgroundColor: Colors.background,
@@ -403,4 +406,4 @@ const styles = StyleSheet.create({
     fontSize: 14,
     padding: Spacing.lg,
   },
-});
+}));

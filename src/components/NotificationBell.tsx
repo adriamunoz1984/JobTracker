@@ -11,10 +11,13 @@ import {
   where, 
   onSnapshot 
 } from 'firebase/firestore';
+import { useAppTheme, makeStyles } from '../theme';
 
 const db = getFirestore();
 
 export default function NotificationBell() {
+  const { colors: Colors } = useAppTheme();
+  const styles = useStyles();
   const navigation = useNavigation();
   const { user } = useAuth();
   const [pendingCount, setPendingCount] = useState(0);
@@ -52,7 +55,7 @@ export default function NotificationBell() {
         <IconButton 
           icon="bell-outline" 
           size={24} 
-          iconColor="#fff"
+          iconColor={Colors.onHeader}
           style={styles.iconButton}
         />
         {pendingCount > 0 && (
@@ -65,7 +68,7 @@ export default function NotificationBell() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((Colors) => ({
   container: {
     marginRight: 4,
   },
@@ -76,10 +79,10 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 4,
     right: 4,
-    backgroundColor: '#F44336',
-    color: 'white',
+    backgroundColor: Colors.error,
+    color: Colors.onPrimary,
     fontSize: 10,
     minWidth: 18,
     height: 18,
   },
-});
+}));

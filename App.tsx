@@ -2,8 +2,9 @@
 // Authentication Screens
 
 import InvoiceDetailScreen from './src/screens/InvoiceDetailScreen';
-import { MD3LightTheme} from 'react-native-paper';
-import { Colors } from './src/theme/colors';
+import { MD3LightTheme, MD3DarkTheme } from 'react-native-paper';
+import { AppThemeProvider, useAppTheme, HeaderFont, Palette } from './src/theme';
+import { useFonts, Nosifer_400Regular } from '@expo-google-fonts/nosifer';
 import ReportsScreen from './src/screens/ReportsScreen';
 import ClientManagementScreen from './src/screens/ClientManagementScreen';
 import AddClientScreen from './src/screens/AddClientScreen';
@@ -12,7 +13,7 @@ import PendingJobsScreen from './src/screens/PendingJobsScreen';
 import AssignJobScreen from './src/screens/AssignJobScreen';
 import React, { useEffect } from 'react';
 import { View } from 'react-native';
-import { NavigationContainer, useNavigation } from '@react-navigation/native';
+import { NavigationContainer, useNavigation, DefaultTheme as NavLightTheme, DarkTheme as NavDarkTheme } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 // Main App Screensa
 import MainNavigator from './src/navigation/MainNavigator';
@@ -47,6 +48,21 @@ const Stack = createStackNavigator();
 // Component that handles the authentication flowa
 function AuthNavigator() {
   const { user, isLoading } = useAuth();
+  const { colors, isDark } = useAppTheme();
+
+  // Let React Navigation paint its backgrounds/cards with the camp palette too
+  const navTheme = {
+    ...(isDark ? NavDarkTheme : NavLightTheme),
+    colors: {
+      ...(isDark ? NavDarkTheme : NavLightTheme).colors,
+      primary: colors.primary,
+      background: colors.background,
+      card: colors.header,
+      text: colors.onHeader,
+      border: colors.border,
+      notification: colors.primary,
+    },
+  };
 
   // Debug logging
   useEffect(() => {
@@ -64,10 +80,10 @@ function AuthNavigator() {
         flex: 1, 
         justifyContent: 'center', 
         alignItems: 'center',
-        backgroundColor: '#f5f5f5'
+        backgroundColor: colors.background
       }}>
-        <ActivityIndicator size="large" color="#2196F3" />
-        <Text style={{ marginTop: 16, color: '#666' }}>Loading...</Text>
+        <ActivityIndicator size="large" color={colors.primary} />
+        <Text style={{ marginTop: 16, color: colors.textSecondary }}>Loading...</Text>
       </View>
     );
   }
@@ -79,7 +95,7 @@ function AuthNavigator() {
   }
 
   return (
-    <NavigationContainer>
+    <NavigationContainer theme={navTheme}>
       <AppNavigatorWithFAB user={user} />
     </NavigationContainer>
   );
@@ -88,10 +104,19 @@ function AuthNavigator() {
 // Separate component for navigation + FAB that can use useNavigation
 function AppNavigatorWithFAB({ user }: { user: any }) {
   const navigation = useNavigation();
+  const { colors } = useAppTheme();
+
+  // Every stack header uses the camp header colors and the Nosifer title font
+  const headerTheme = {
+    headerStyle: { backgroundColor: colors.header },
+    headerTintColor: colors.onHeader,
+    headerTitleAlign: 'center' as const,
+    headerTitleStyle: { fontFamily: HeaderFont, fontSize: 15 },
+  };
 
   return (
     <>
-      <Stack.Navigator screenOptions={{ headerShown: false }}>
+      <Stack.Navigator screenOptions={{ headerShown: false, ...headerTheme }}>
         {!user ? (
           // Authentication Stack - shown when user is not logged in
           <>
@@ -113,8 +138,6 @@ function AppNavigatorWithFAB({ user }: { user: any }) {
               options={{
                 headerShown: true,
                 title: 'Profile',
-                headerStyle: { backgroundColor: '#2196F3' },
-                headerTintColor: '#fff',
                 headerTitleAlign: 'center'
               }}
             />
@@ -130,8 +153,6 @@ function AppNavigatorWithFAB({ user }: { user: any }) {
               options={{
                 headerShown: true,
                 title: 'Employees',
-                headerStyle: { backgroundColor: '#2196F3' },
-                headerTintColor: '#fff',
                 headerTitleAlign: 'center'
               }}
             />
@@ -141,8 +162,6 @@ function AppNavigatorWithFAB({ user }: { user: any }) {
               options={{
                 headerShown: true,
                 title: 'Add Job',
-                headerStyle: { backgroundColor: '#2196F3' },
-                headerTintColor: '#fff',
                 headerTitleAlign: 'center',
                 presentation: 'modal'
               }}
@@ -158,8 +177,6 @@ function AppNavigatorWithFAB({ user }: { user: any }) {
               options={{
                 headerShown: true,
                 title: 'Job Details',
-                headerStyle: { backgroundColor: '#2196F3' },
-                headerTintColor: '#fff',
                 headerTitleAlign: 'center'
               }}
             />
@@ -169,8 +186,6 @@ function AppNavigatorWithFAB({ user }: { user: any }) {
               options={{
                 headerShown: true,
                 title: 'Invoice Details',
-                headerStyle: { backgroundColor: '#2196F3' },
-                headerTintColor: '#fff',
                 headerTitleAlign: 'center' as const
               }}
             />
@@ -181,8 +196,6 @@ function AppNavigatorWithFAB({ user }: { user: any }) {
               options={{
                 headerShown: true,
                 title: 'Pending Jobs',
-                headerStyle: { backgroundColor: '#2196F3' },
-                headerTintColor: '#fff',
                 headerTitleAlign: 'center'
               }}
             />
@@ -193,8 +206,6 @@ function AppNavigatorWithFAB({ user }: { user: any }) {
               options={{
                 headerShown: true,
                 title: 'Complete Job Details',
-                headerStyle: { backgroundColor: '#2196F3' },
-                headerTintColor: '#fff',
                 headerTitleAlign: 'center'
               }}
             />
@@ -204,8 +215,6 @@ function AppNavigatorWithFAB({ user }: { user: any }) {
               options={{
                 headerShown: true,
                 title: 'Assign Job to Employee',
-                headerStyle: { backgroundColor: '#2196F3' },
-                headerTintColor: '#fff',
                 headerTitleAlign: 'center'
               }}
             />
@@ -215,8 +224,6 @@ function AppNavigatorWithFAB({ user }: { user: any }) {
               options={{
                 headerShown: true,
                 title: 'Data Seeder',
-                headerStyle: { backgroundColor: '#2196F3' },
-                headerTintColor: '#fff',
                 headerTitleAlign: 'center'
               }}
             />
@@ -227,8 +234,6 @@ function AppNavigatorWithFAB({ user }: { user: any }) {
               options={{
                 headerShown: true,
                 title: 'Clients',
-                headerStyle: { backgroundColor: '#2196F3' },
-                headerTintColor: '#fff',
                 headerTitleAlign: 'center'
               }}
             />
@@ -239,8 +244,6 @@ function AppNavigatorWithFAB({ user }: { user: any }) {
               options={{
                 headerShown: true,
                 title: 'Add/Edit Client',
-                headerStyle: { backgroundColor: '#2196F3' },
-                headerTintColor: '#fff',
                 headerTitleAlign: 'center'
               }}
             />
@@ -251,8 +254,6 @@ function AppNavigatorWithFAB({ user }: { user: any }) {
               options={{
                 headerShown: true,
                 title: 'Reports & Analytics',
-                headerStyle: { backgroundColor: '#2196F3' },
-                headerTintColor: '#fff',
                 headerTitleAlign: 'center'
               }}
             />
@@ -268,8 +269,6 @@ function AppNavigatorWithFAB({ user }: { user: any }) {
               options={{
                 headerShown: true,
                 title: 'Create Invoice',
-                headerStyle: { backgroundColor: '#2196F3' },
-                headerTintColor: '#fff',
                 headerTitleAlign: 'center' as const
               }}
             />
@@ -287,36 +286,78 @@ function AppNavigatorWithFAB({ user }: { user: any }) {
   );
 }
 
-const theme = {
-  ...MD3LightTheme,
-  colors: {
-    ...MD3LightTheme.colors,
-    primary: Colors.primary,
-    secondary: Colors.secondary,
-    tertiary: Colors.accent,
-    error: Colors.error,
-    background: Colors.background,
-    surface: Colors.surface,
-    onPrimary: Colors.textInverse,
-    onSecondary: Colors.textInverse,
-    onSurface: Colors.text,
-  },
-};
+// Build the React Native Paper theme from the current camp palette
+function buildPaperTheme(colors: Palette, isDark: boolean) {
+  const base = isDark ? MD3DarkTheme : MD3LightTheme;
+  return {
+    ...base,
+    colors: {
+      ...base.colors,
+      primary: colors.primary,
+      onPrimary: colors.onPrimary,
+      primaryContainer: isDark ? '#4A2412' : '#FBE3D6',
+      onPrimaryContainer: isDark ? '#FFB98F' : '#8A3412',
+      secondary: colors.secondary,
+      onSecondary: colors.textInverse,
+      secondaryContainer: isDark ? colors.secondaryLight : '#DDE6D8',
+      onSecondaryContainer: isDark ? colors.text : colors.secondary,
+      tertiary: colors.accent,
+      error: colors.error,
+      background: colors.background,
+      onBackground: colors.text,
+      surface: colors.surface,
+      onSurface: colors.text,
+      surfaceVariant: colors.surfaceDark,
+      onSurfaceVariant: colors.textSecondary,
+      outline: colors.borderDark,
+      outlineVariant: colors.border,
+      backdrop: colors.overlay,
+      elevation: {
+        ...base.colors.elevation,
+        level0: 'transparent',
+        level1: colors.surface,
+        level2: colors.surface,
+        level3: colors.surfaceDark,
+        level4: colors.surfaceDark,
+        level5: colors.surfaceDark,
+      },
+    },
+  };
+}
+
+function ThemedApp() {
+  const { colors, isDark } = useAppTheme();
+  const paperTheme = React.useMemo(() => buildPaperTheme(colors, isDark), [colors, isDark]);
+
+  return (
+    <PaperProvider theme={paperTheme}>
+      <GestureHandlerRootView style={{ flex: 1, backgroundColor: colors.background }}>
+        <AuthProvider>
+          <JobsProvider>
+            {/* Header is dark pine in both modes, so status bar text stays light */}
+            <StatusBar style="light" backgroundColor={colors.header} />
+            <AuthNavigator />
+          </JobsProvider>
+        </AuthProvider>
+      </GestureHandlerRootView>
+    </PaperProvider>
+  );
+}
 
 // Main App Component
 export default function App() {
+  const [fontsLoaded] = useFonts({ Nosifer_400Regular });
+
+  // Wait for the header font so titles don't flash in the wrong font
+  if (!fontsLoaded) {
+    return null;
+  }
+
   return (
     <TextScaleProvider>
-      <PaperProvider theme={theme}>
-        <GestureHandlerRootView style={{ flex: 1 }}>
-          <AuthProvider>
-            <JobsProvider>
-              <StatusBar style="light" />
-              <AuthNavigator />
-            </JobsProvider>
-          </AuthProvider>
-        </GestureHandlerRootView>
-      </PaperProvider>
+      <AppThemeProvider>
+        <ThemedApp />
+      </AppThemeProvider>
     </TextScaleProvider>
   );
 }

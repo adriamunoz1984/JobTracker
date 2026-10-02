@@ -14,10 +14,12 @@ import {
   doc,
   setDoc
 } from 'firebase/firestore';
+import { makeStyles } from '../theme';
 
 const db = getFirestore();
 
 export default function AssignJobScreen() {
+  const styles = useStyles();
   const navigation = useNavigation();
   const { user } = useAuth();
   
@@ -277,10 +279,10 @@ export default function AssignJobScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((Colors) => ({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: Colors.background,
   },
   inputContainer: {
     padding: 16,
@@ -297,7 +299,7 @@ const styles = StyleSheet.create({
   emptyText: {
     fontSize: 16,
     textAlign: 'center',
-    color: '#666',
+    color: Colors.textSecondary,
     marginBottom: 24,
   },
   manageButton: {
@@ -310,7 +312,7 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     fontSize: 14,
-    color: '#666',
+    color: Colors.textSecondary,
     marginBottom: 16,
   },
   divider: {
@@ -322,16 +324,16 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   employeeItem: {
-    backgroundColor: 'white',
+    backgroundColor: Colors.surface,
     marginBottom: 8,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#e0e0e0',
+    borderColor: Colors.border,
   },
   selectedEmployee: {
-    borderColor: '#2196F3',
+    borderColor: Colors.primary,
     borderWidth: 2,
-    backgroundColor: '#E3F2FD',
+    backgroundColor: Colors.primaryBg,
   },
   dateLabel: {
     fontSize: 16,
@@ -343,20 +345,20 @@ const styles = StyleSheet.create({
   },
   input: {
     marginBottom: 16,
-    backgroundColor: 'white',
+    backgroundColor: Colors.surface,
   },
   infoText: {
     fontSize: 14,
-    color: '#666',
+    color: Colors.textSecondary,
     fontStyle: 'italic',
     marginVertical: 16,
     padding: 12,
-    backgroundColor: '#E3F2FD',
+    backgroundColor: Colors.primaryBg,
     borderRadius: 8,
   },
   submitButton: {
     marginTop: 24,
     paddingVertical: 8,
-    backgroundColor: '#2196F3',
+    backgroundColor: Colors.primary,
   },
-});
+}));

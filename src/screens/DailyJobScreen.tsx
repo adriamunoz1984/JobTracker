@@ -8,7 +8,8 @@ import { useJobs } from '../context/JobsContext';
 import { Job } from '../types';
 import { parseISO, format } from 'date-fns';
 import JobCard from '../components/JobCard';
-import { Colors, Spacing, BorderRadius, Shadows } from '../theme/colors';
+import { Spacing, BorderRadius, Shadows } from '../theme/colors';
+import { useAppTheme, makeStyles } from '../theme';
 
 interface DailyJobsParams {
   date: string;
@@ -17,6 +18,8 @@ interface DailyJobsParams {
 }
 
 export default function DailyJobsScreen() {
+  const { colors: Colors } = useAppTheme();
+  const styles = useStyles();
   const route = useRoute();
   const navigation = useNavigation();
   const { jobs } = useJobs();
@@ -128,7 +131,7 @@ export default function DailyJobsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((Colors) => ({
   container: {
     flex: 1,
     backgroundColor: Colors.background,
@@ -212,4 +215,4 @@ const styles = StyleSheet.create({
     fontSize: 14,
     padding: Spacing.lg,
   },
-});
+}));

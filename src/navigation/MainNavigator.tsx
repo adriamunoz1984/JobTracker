@@ -17,12 +17,14 @@ import MonthlySummaryScreen from '../screens/MonthlySummaryScreen';
 import YearlySummaryScreen from '../screens/YearlySummaryScreen';
 import AddJobScreen from '../screens/AddjobScreen';
 import JobDetailScreen from '../screens/JobDetailScreen';
+import { useAppTheme, makeStyles, HeaderFont } from '../theme';
 
 const Tab = createMaterialTopTabNavigator();
 const Stack = createStackNavigator();
 
 // Profile Button Component
 const ProfileButton = () => {
+  const { colors: Colors } = useAppTheme();
   const navigation = useNavigation();
   const { user } = useAuth();
   
@@ -36,20 +38,20 @@ const ProfileButton = () => {
         <Avatar.Image 
           source={{ uri: user.photoURL }} 
           size={34} 
-          style={{ backgroundColor: '#2196F3' }} 
+          style={{ backgroundColor: Colors.primary }} 
         />
       ) : (
         user?.displayName ? (
           <Avatar.Text 
             size={34} 
             label={user.displayName.substring(0, 2).toUpperCase()} 
-            style={{ backgroundColor: '#2196F3' }} 
+            style={{ backgroundColor: Colors.primary }} 
           />
         ) : (
           <IconButton 
             icon="account-circle" 
             size={28} 
-            color="#fff" 
+            iconColor={Colors.onHeader} 
           />
         )
       )}
@@ -57,23 +59,28 @@ const ProfileButton = () => {
   );
 };
 
-// Define common header options
-const commonScreenOptions = {
-  headerTitleAlign: 'center' as const,
-  headerStyle: {
-    backgroundColor: '#2196F3',
-  },
-  headerTintColor: '#fff',
-  headerRight: () => (
-    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-      <NotificationBell />
-      <ProfileButton />
-    </View>
-  )
-};
+// Common header options — campfire header colors + Nosifer title font
+function useCommonScreenOptions() {
+  const { colors } = useAppTheme();
+  return {
+    headerTitleAlign: 'center' as const,
+    headerStyle: {
+      backgroundColor: colors.header,
+    },
+    headerTintColor: colors.onHeader,
+    headerTitleStyle: { fontFamily: HeaderFont, fontSize: 15 },
+    headerRight: () => (
+      <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+        <NotificationBell />
+        <ProfileButton />
+      </View>
+    )
+  };
+}
 
 // Home stack includes the job list and related screens
 function HomeStack() {
+  const commonScreenOptions = useCommonScreenOptions();
   return (
     <Stack.Navigator screenOptions={commonScreenOptions}>
       <Stack.Screen 
@@ -97,6 +104,7 @@ function HomeStack() {
 
 // Weekly stack
 function WeeklyStack() {
+  const commonScreenOptions = useCommonScreenOptions();
   return (
     <Stack.Navigator screenOptions={commonScreenOptions}>
       <Stack.Screen 
@@ -110,6 +118,7 @@ function WeeklyStack() {
 
 // Monthly screen
 function MonthlyStack() {
+  const commonScreenOptions = useCommonScreenOptions();
   return (
     <Stack.Navigator screenOptions={commonScreenOptions}>
       <Stack.Screen 
@@ -123,6 +132,7 @@ function MonthlyStack() {
 
 // Yearly screen
 function YearlyStack() {
+  const commonScreenOptions = useCommonScreenOptions();
   return (
     <Stack.Navigator screenOptions={commonScreenOptions}>
       <Stack.Screen 
@@ -135,6 +145,7 @@ function YearlyStack() {
 }
 // Invoices stack
 function InvoicesStack() {
+  const commonScreenOptions = useCommonScreenOptions();
   return (
     <Stack.Navigator screenOptions={commonScreenOptions}>
       <Stack.Screen 
@@ -148,6 +159,8 @@ function InvoicesStack() {
 
 // Main tab navigation
 export default function MainNavigator() {
+  const { colors: Colors } = useAppTheme();
+  const styles = useStyles();
   const dimensions = useWindowDimensions();
   
   return (
@@ -173,8 +186,8 @@ export default function MainNavigator() {
         tabBarShowLabel: false,
         tabBarStyle: styles.tabBar,
         tabBarItemStyle: styles.tabItem,
-        tabBarActiveTintColor: '#2196F3',
-        tabBarInactiveTintColor: '#777',
+        tabBarActiveTintColor: Colors.primary,
+        tabBarInactiveTintColor: Colors.textLight,
         tabBarIndicatorStyle: { opacity: 0 },
         swipeEnabled: true,
         animationEnabled: true,
@@ -192,15 +205,15 @@ export default function MainNavigator() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((Colors) => ({
   container: {
-    backgroundColor: 'white',
+    backgroundColor: Colors.surface,
   },
   tabBar: {
     height: 60,
-    backgroundColor: 'white',
+    backgroundColor: Colors.surface,
     borderTopWidth: 1,
-    borderTopColor: '#e0e0e0',
+    borderTopColor: Colors.border,
     shadowOpacity: 0,
     elevation: 0,
   },
@@ -210,4 +223,4 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-});
+}));

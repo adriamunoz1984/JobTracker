@@ -3,8 +3,10 @@ import React from 'react';
 import { View, StyleSheet, ScrollView } from 'react-native';
 import { Text, Button, Card, Title, Paragraph } from 'react-native-paper';
 import { useNavigation } from '@react-navigation/native';
+import { makeStyles } from '../theme';
 
 export default function RoleSelectionScreen() {
+  const styles = useStyles();
   const navigation = useNavigation();
 
   const handleOwnerSelection = () => {
@@ -79,10 +81,10 @@ export default function RoleSelectionScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((Colors) => ({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: Colors.background,
   },
   content: {
     padding: 20,
@@ -92,13 +94,13 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     marginBottom: 8,
     textAlign: 'center',
-    color: '#2196F3',
+    color: Colors.primary,
   },
   subtitle: {
     fontSize: 16,
     marginBottom: 24,
     textAlign: 'center',
-    color: '#666',
+    color: Colors.textSecondary,
   },
   card: {
     marginBottom: 16,
@@ -107,7 +109,7 @@ const styles = StyleSheet.create({
   description: {
     marginTop: 8,
     lineHeight: 24,
-    color: '#555',
+    color: Colors.textSecondary,
   },
   button: {
     marginTop: 8,
@@ -115,4 +117,4 @@ const styles = StyleSheet.create({
   backButton: {
     marginTop: 16,
   },
-});
+}));

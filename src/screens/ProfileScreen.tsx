@@ -1,7 +1,7 @@
 // src/screens/ProfileScreen.tsx
 import React, { useState, useEffect } from 'react';
 import { View, StyleSheet, ScrollView, Alert } from 'react-native';
-import { Card, Paragraph, Button, Divider, Text, TextInput, Switch } from 'react-native-paper';
+import { Card, Paragraph, Button, Divider, Text, TextInput, Switch, SegmentedButtons } from 'react-native-paper';
 import { useNavigation } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '../context/AuthContext';
@@ -12,9 +12,12 @@ import {
   where, 
   getDocs 
 } from 'firebase/firestore';
-import { Colors, Spacing, BorderRadius, Shadows, Typography } from '../theme/colors';
+import { Spacing, BorderRadius, Shadows, Typography } from '../theme/colors';
+import { useAppTheme, makeStyles } from '../theme';
 
 export default function ProfileScreen() {
+  const { colors: Colors, preference, setPreference } = useAppTheme();
+  const styles = useStyles();
   const navigation = useNavigation();
   const { user, updateProfile, logout } = useAuth();
   const [isCheckingInvites, setIsCheckingInvites] = useState(false);
@@ -219,6 +222,26 @@ export default function ProfileScreen() {
               </View>
             </View>
           )}
+        </Card.Content>
+      </Card>
+      {/* Appearance Card — light (cabin canvas) / dark (midnight pines) */}
+      <Card style={styles.card}>
+        <Card.Content>
+          <Text variant="titleLarge" style={styles.cardTitle}>Appearance</Text>
+          <Divider style={styles.divider} />
+          <Paragraph style={styles.subtitle}>
+            Auto follows your phone's light or dark setting.
+          </Paragraph>
+          <SegmentedButtons
+            value={preference}
+            onValueChange={(v) => setPreference(v as 'system' | 'light' | 'dark')}
+            style={{ marginTop: Spacing.sm }}
+            buttons={[
+              { value: 'system', label: 'Auto', icon: 'theme-light-dark' },
+              { value: 'light', label: 'Light', icon: 'white-balance-sunny' },
+              { value: 'dark', label: 'Dark', icon: 'weather-night' },
+            ]}
+          />
         </Card.Content>
       </Card>
             {/* Dashboard */}
@@ -479,7 +502,7 @@ export default function ProfileScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((Colors) => ({
   container: {
     flex: 1,
     backgroundColor: Colors.background,
@@ -603,4 +626,4 @@ const styles = StyleSheet.create({
     borderColor: Colors.error,
     borderWidth: 1,
   },
-});
+}));

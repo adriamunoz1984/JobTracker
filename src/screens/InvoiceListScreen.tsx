@@ -21,9 +21,12 @@ import {
   onSnapshot 
 } from 'firebase/firestore';
 import { db } from '../firebase/config';
-import { Colors, Spacing, BorderRadius, Shadows } from '../theme/colors';
+import { Spacing, BorderRadius, Shadows } from '../theme/colors';
+import { useAppTheme, makeStyles } from '../theme';
 
 export default function InvoiceListScreen() {
+  const { colors: Colors } = useAppTheme();
+  const styles = useStyles();
   const navigation = useNavigation();
   const { user } = useAuth();
   const [invoices, setInvoices] = useState<Invoice[]>([]);
@@ -157,7 +160,7 @@ export default function InvoiceListScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((Colors) => ({
   container: {
     flex: 1,
     backgroundColor: Colors.background,
@@ -244,4 +247,4 @@ const styles = StyleSheet.create({
     bottom: 0,
     backgroundColor: Colors.primary,
   },
-});
+}));
