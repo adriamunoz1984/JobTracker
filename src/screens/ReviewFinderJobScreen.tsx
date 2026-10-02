@@ -3,6 +3,7 @@ import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'rea
 import { Ionicons } from '@expo/vector-icons';
 import { FinderJobDraft, FINDER_REQUEST_POLICY } from '../types/pumpFinder';
 import { useAppTheme, makeStyles } from '../theme';
+import ThemedHero from '../components/ThemedHero';
 
 const pricingLabels = {
   standard: 'Standard pricing',
@@ -40,11 +41,11 @@ export default function ReviewFinderJobScreen({ navigation, route }: any) {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <View style={styles.hero}>
-        <Ionicons name="checkmark-circle-outline" size={38} color={Colors.primary} />
-        <Text style={styles.title}>Review Job</Text>
-        <Text style={styles.subtitle}>Make sure pumpers have everything they need before the job goes live.</Text>
-      </View>
+      <ThemedHero
+        icon="checkmark-circle-outline"
+        title="Review Job"
+        subtitle="Make sure pumpers have everything they need before the job goes live."
+      />
 
       <ReviewCard title="Job">
         <ReviewRow label="Customer" value={jobDraft.customerName} />
@@ -156,7 +157,7 @@ const useStyles = makeStyles((Colors) => ({
   title: { fontSize: 24, fontWeight: '800', color: Colors.text, marginTop: 6 },
   subtitle: { fontSize: 14, color: Colors.textSecondary, textAlign: 'center', marginTop: 5, maxWidth: 350, lineHeight: 20 },
   card: { backgroundColor: Colors.surface, borderRadius: 14, padding: 15, marginBottom: 12, borderWidth: 1, borderColor: Colors.border },
-  cardTitle: { fontSize: 16, fontWeight: '800', color: Colors.text },
+  cardTitle: { fontSize: 16, fontWeight: '800', color: Colors.text, borderLeftWidth: 4, borderLeftColor: Colors.primary, paddingLeft: 10 },
   divider: { height: 1, backgroundColor: Colors.border, marginVertical: 10 },
   row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', paddingVertical: 6, gap: 12 },
   rowLabel: { fontSize: 13, fontWeight: '600', color: Colors.textSecondary, width: 108 },

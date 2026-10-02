@@ -19,6 +19,7 @@ import {
   FinderPricingMode,
 } from '../types/pumpFinder';
 import { useAppTheme, makeStyles } from '../theme';
+import ThemedHero from '../components/ThemedHero';
 
 const pricingOptions: Array<{ value: FinderPricingMode; label: string; help: string }> = [
   { value: 'standard', label: 'Standard', help: 'Normal setup / yard pricing' },
@@ -94,13 +95,11 @@ export default function PostFinderJobScreen({ navigation }: any) {
   return (
     <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-        <View style={styles.intro}>
-          <Ionicons name="construct-outline" size={32} color={Colors.primary} />
-          <Text style={styles.title}>Post a Pumping Job</Text>
-          <Text style={styles.subtitle}>
-            Add the job details and requirements. You’ll review everything before it is posted.
-          </Text>
-        </View>
+        <ThemedHero
+          icon="construct-outline"
+          title="Post a Pumping Job"
+          subtitle="Add the job details and requirements. You’ll review everything before it is posted."
+        />
 
         <SectionTitle title="Job details" />
         <Field label="Customer name" value={customerName} onChangeText={setCustomerName} placeholder="Customer or company name" />
@@ -286,7 +285,7 @@ const useStyles = makeStyles((Colors) => ({
   intro: { alignItems: 'center', paddingVertical: 12, marginBottom: 8 },
   title: { fontSize: 24, fontWeight: '700', color: Colors.text, marginTop: 8 },
   subtitle: { fontSize: 14, color: Colors.textSecondary, textAlign: 'center', marginTop: 5, maxWidth: 350, lineHeight: 20 },
-  sectionTitle: { fontSize: 17, fontWeight: '800', color: Colors.text, marginTop: 10, marginBottom: 12 },
+  sectionTitle: { fontSize: 17, fontWeight: '800', color: Colors.text, marginTop: 10, marginBottom: 12, borderLeftWidth: 4, borderLeftColor: Colors.primary, paddingLeft: 10 },
   field: { marginBottom: 14 },
   label: { fontSize: 14, fontWeight: '600', color: Colors.text, marginBottom: 6 },
   helperText: { fontSize: 12, color: Colors.textSecondary, lineHeight: 17, marginTop: -7, marginBottom: 14 },

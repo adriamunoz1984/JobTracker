@@ -2,6 +2,7 @@ import React from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAppTheme, makeStyles } from '../theme';
+import ThemedHero from '../components/ThemedHero';
 
 const finderActions = [
   { key: 'PostJob', title: 'Post a Job', subtitle: 'Find an available concrete pumping business', icon: 'add-circle-outline' },
@@ -16,11 +17,11 @@ export default function PumpFinderScreen({ navigation }: any) {
   const styles = useStyles();
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <View style={styles.hero}>
-        <Ionicons name="locate-outline" size={42} color={Colors.primary} />
-        <Text style={styles.title}>Pump Finder</Text>
-        <Text style={styles.subtitle}>Connect concrete jobs with available pumping businesses.</Text>
-      </View>
+      <ThemedHero
+        icon="locate-outline"
+        title="Pump Finder"
+        subtitle="Connect concrete jobs with available pumping businesses."
+      />
 
       <View style={styles.availabilityCard}>
         <View>

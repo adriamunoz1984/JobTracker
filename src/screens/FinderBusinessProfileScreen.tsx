@@ -16,6 +16,7 @@ import {
   PumpFinderBusinessProfile,
 } from '../types/pumpFinder';
 import { useAppTheme, makeStyles } from '../theme';
+import ThemedHero from '../components/ThemedHero';
 
 export default function FinderBusinessProfileScreen() {
   const { colors: Colors } = useAppTheme();
@@ -96,13 +97,11 @@ export default function FinderBusinessProfileScreen() {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-      <View style={styles.hero}>
-        <Ionicons name="business-outline" size={38} color={Colors.primary} />
-        <Text style={styles.title}>Business Profile</Text>
-        <Text style={styles.subtitle}>
-          These settings help posters understand what your pump can handle and how your common surcharges work.
-        </Text>
-      </View>
+      <ThemedHero
+        icon="business-outline"
+        title="Business Profile"
+        subtitle="These settings help posters understand what your pump can handle and how your common surcharges work."
+      />
 
       <Section title="Equipment & service area">
         <Field label="Pump type" value={pumpType} onChangeText={setPumpType} placeholder="Trailer, boom, line pump, etc." />
@@ -214,7 +213,7 @@ const useStyles = makeStyles((Colors) => ({
   title: { fontSize: 24, fontWeight: '800', color: Colors.text, marginTop: 6 },
   subtitle: { fontSize: 14, color: Colors.textSecondary, textAlign: 'center', marginTop: 5, maxWidth: 360, lineHeight: 20 },
   section: { backgroundColor: Colors.surface, borderRadius: 14, borderWidth: 1, borderColor: Colors.border, padding: 14, marginBottom: 12 },
-  sectionTitle: { fontSize: 16, fontWeight: '800', color: Colors.text, marginBottom: 12 },
+  sectionTitle: { fontSize: 16, fontWeight: '800', color: Colors.text, marginBottom: 12, borderLeftWidth: 4, borderLeftColor: Colors.primary, paddingLeft: 10 },
   field: { marginBottom: 12 },
   label: { fontSize: 13, fontWeight: '700', color: Colors.text, marginBottom: 6 },
   inputWrap: { position: 'relative', justifyContent: 'center' },

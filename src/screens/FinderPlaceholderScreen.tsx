@@ -2,6 +2,7 @@ import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAppTheme, makeStyles } from '../theme';
+import ThemedHero from '../components/ThemedHero';
 
 export default function FinderPlaceholderScreen({ route }: any) {
   const { colors: Colors } = useAppTheme();
@@ -11,9 +12,7 @@ export default function FinderPlaceholderScreen({ route }: any) {
 
   return (
     <View style={styles.container}>
-      <Ionicons name="construct-outline" size={52} color={Colors.primary} />
-      <Text style={styles.title}>{title}</Text>
-      <Text style={styles.description}>{description}</Text>
+      <ThemedHero icon="construct-outline" title={title} subtitle={description} style={{ alignSelf: 'stretch' }} />
       <View style={styles.badge}>
         <Text style={styles.badgeText}>V1 PLACEHOLDER</Text>
       </View>
