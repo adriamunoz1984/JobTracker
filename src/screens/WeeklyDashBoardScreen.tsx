@@ -21,7 +21,8 @@ import {
 } from 'date-fns';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
-import { Colors, Spacing, BorderRadius, Shadows } from '../theme/colors';
+import { Spacing, BorderRadius, Shadows } from '../theme/colors';
+import { useAppTheme, makeStyles, withOpacity } from '../theme';
 
 const screenWidth = Dimensions.get('window').width;
 
@@ -34,6 +35,8 @@ const formatAmount = (amount: number): string => {
 };
 
 export default function WeeklyDashboardScreen() {
+  const { colors: Colors } = useAppTheme();
+  const styles = useStyles();
   const navigation = useNavigation();
   const { jobs } = useJobs();
   const { user } = useAuth();
@@ -111,8 +114,8 @@ export default function WeeklyDashboardScreen() {
     backgroundGradientFrom: Colors.surface,
     backgroundGradientTo: Colors.surface,
     decimalPlaces: 0,
-    color: (opacity = 1) => `rgba(255, 107, 53, ${opacity})`,
-    labelColor: (opacity = 1) => `rgba(0, 0, 0, ${opacity})`,
+    color: (opacity = 1) => withOpacity(Colors.primary, opacity),
+    labelColor: (opacity = 1) => withOpacity(Colors.text, opacity),
     style: {
       borderRadius: BorderRadius.large,
     },
@@ -649,7 +652,7 @@ export default function WeeklyDashboardScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((Colors) => ({
   container: {
     flex: 1,
     backgroundColor: Colors.background,
@@ -874,4 +877,4 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.medium,
     ...Shadows.medium,
   },
-});
+}));

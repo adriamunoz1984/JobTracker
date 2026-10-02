@@ -31,10 +31,13 @@ import {
   updateDoc,
   deleteDoc 
 } from 'firebase/firestore';
+import { useAppTheme, makeStyles } from '../theme';
 
 const db = getFirestore();
 
 export default function EmployeeManagementScreen() {
+  const { colors: Colors } = useAppTheme();
+  const styles = useStyles();
   const navigation = useNavigation();
   const { user } = useAuth();
   const [employees, setEmployees] = useState<Employee[]>([]);
@@ -252,7 +255,7 @@ export default function EmployeeManagementScreen() {
 
         {isLoading ? (
           <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color="#2196F3" />
+            <ActivityIndicator size="large" color={Colors.primary} />
             <Text style={styles.loadingText}>Loading employees...</Text>
           </View>
         ) : employees.length === 0 ? (
@@ -285,7 +288,7 @@ export default function EmployeeManagementScreen() {
                   </View>
                   <IconButton
                     icon="delete"
-                    iconColor="#F44336"
+                    iconColor={Colors.error}
                     size={24}
                     onPress={() => handleRemoveEmployee(employee)}
                   />
@@ -388,26 +391,26 @@ export default function EmployeeManagementScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((Colors) => ({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: Colors.background,
   },
   scrollView: {
     flex: 1,
   },
   header: {
     padding: 20,
-    backgroundColor: 'white',
+    backgroundColor: Colors.surface,
     marginBottom: 16,
   },
   title: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#2196F3',
+    color: Colors.primary,
   },
   subtitle: {
-    color: '#666',
+    color: Colors.textSecondary,
     marginTop: 4,
   },
   inviteButton: {
@@ -417,7 +420,7 @@ const styles = StyleSheet.create({
   assignJobButton: {
     marginHorizontal: 20,
     marginBottom: 16,
-    borderColor: '#2196F3',
+    borderColor: Colors.primary,
   },
   loadingContainer: {
     padding: 40,
@@ -425,7 +428,7 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     marginTop: 16,
-    color: '#666',
+    color: Colors.textSecondary,
   },
   emptyCard: {
     marginHorizontal: 20,
@@ -444,7 +447,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   email: {
-    color: '#666',
+    color: Colors.textSecondary,
     fontSize: 14,
   },
   statusChip: {
@@ -452,10 +455,10 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
   },
   activeChip: {
-    backgroundColor: '#E8F5E9',
+    backgroundColor: Colors.successBg,
   },
   invitedChip: {
-    backgroundColor: '#FFF3E0',
+    backgroundColor: Colors.warningBg,
   },
   divider: {
     marginVertical: 16,
@@ -485,7 +488,7 @@ const styles = StyleSheet.create({
   },
   joinedText: {
     fontSize: 12,
-    color: '#999',
+    color: Colors.textLight,
     marginTop: 8,
   },
   dialogInput: {
@@ -493,7 +496,7 @@ const styles = StyleSheet.create({
   },
   dialogHint: {
     fontSize: 12,
-    color: '#666',
+    color: Colors.textSecondary,
     marginTop: 8,
   },
-});
+}));

@@ -4,8 +4,10 @@ import { View, StyleSheet, ScrollView, KeyboardAvoidingView, Platform } from 're
 import { TextInput, Button, Text, Title, Surface, HelperText, Snackbar } from 'react-native-paper';
 import { useNavigation } from '@react-navigation/native';
 import { useAuth } from '../context/AuthContext';
+import { makeStyles } from '../theme';
 
 export default function ForgotPasswordScreen() {
+  const styles = useStyles();
   const navigation = useNavigation();
   const { resetPassword, error, clearError, isLoading } = useAuth();
   
@@ -115,10 +117,10 @@ export default function ForgotPasswordScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((Colors) => ({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: Colors.background,
   },
   scrollContent: {
     flexGrow: 1,
@@ -133,7 +135,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#2196F3',
+    color: Colors.primary,
     textAlign: 'center',
     marginBottom: 16,
   },
@@ -148,15 +150,15 @@ const styles = StyleSheet.create({
   resetButton: {
     marginBottom: 16,
     paddingVertical: 8,
-    backgroundColor: '#2196F3',
+    backgroundColor: Colors.primary,
   },
   backButton: {
     marginBottom: 8,
   },
   errorSnackbar: {
-    backgroundColor: '#F44336',
+    backgroundColor: Colors.error,
   },
   successSnackbar: {
-    backgroundColor: '#4CAF50',
+    backgroundColor: Colors.success,
   },
-});
+}));

@@ -16,11 +16,13 @@ import HomeScreen from '../screens/HomeScreen';
 import WeeklyDashboardScreen from '../screens/WeeklyDashBoardScreen';
 import MonthlySummaryScreen from '../screens/MonthlySummaryScreen';
 import YearlySummaryScreen from '../screens/YearlySummaryScreen';
+import { makeStyles } from '../theme';
 
 const { width } = Dimensions.get('window');
 const SWIPE_THRESHOLD = width * 0.25;
 
 export default function SwipeableTabNavigator() {
+  const styles = useStyles();
   const [index, setIndex] = useState(0);
   const translateX = useSharedValue(0);
   const prevIndexRef = useRef(0);
@@ -142,7 +144,7 @@ export default function SwipeableTabNavigator() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((Colors) => ({
   container: {
     flex: 1,
   },
@@ -150,8 +152,8 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   bottomBar: {
-    backgroundColor: 'white',
+    backgroundColor: Colors.surface,
     borderTopWidth: 1,
-    borderTopColor: '#e0e0e0',
+    borderTopColor: Colors.border,
   },
-});
+}));

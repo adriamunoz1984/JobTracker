@@ -24,11 +24,14 @@ import {
   deleteDoc,
   doc
 } from 'firebase/firestore';
-import { Colors, Spacing, BorderRadius, Shadows } from '../theme/colors';
+import { Spacing, BorderRadius, Shadows } from '../theme/colors';
+import { useAppTheme, makeStyles } from '../theme';
 
 const db = getFirestore();
 
 export default function ClientManagementScreen() {
+  const { colors: Colors } = useAppTheme();
+  const styles = useStyles();
   const navigation = useNavigation<any>();
   const { user } = useAuth();
   const [clients, setClients] = useState<Client[]>([]);
@@ -248,7 +251,7 @@ export default function ClientManagementScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((Colors) => ({
   container: {
     flex: 1,
     backgroundColor: Colors.background,
@@ -418,4 +421,4 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.round,
     ...Shadows.large,
   },
-});
+}));

@@ -11,9 +11,12 @@ import { useJobs } from '../context/JobsContext';
 import { useAuth } from '../context/AuthContext';
 import JobCard from '../components/JobCard';
 import { Job } from '../types';
-import { Colors, Spacing, BorderRadius, Shadows, Typography } from '../theme/colors';
+import { Spacing, BorderRadius, Shadows, Typography } from '../theme/colors';
+import { useAppTheme, makeStyles } from '../theme';
 
 export default function HomeScreen() {
+  const { colors: Colors } = useAppTheme();
+  const styles = useStyles();
   const navigation = useNavigation();
   const { user } = useAuth();
   const { 
@@ -340,7 +343,7 @@ export default function HomeScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((Colors) => ({
   container: {
     flex: 1,
     backgroundColor: Colors.background,
@@ -454,4 +457,4 @@ const styles = StyleSheet.create({
     minWidth: 90,
     textAlign: 'right',
   },
-});
+}));

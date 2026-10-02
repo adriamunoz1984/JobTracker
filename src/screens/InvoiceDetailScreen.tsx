@@ -23,11 +23,14 @@ import {
 } from 'firebase/firestore';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
-import { Colors, Spacing, BorderRadius, Shadows } from '../theme/colors';
+import { Spacing, BorderRadius, Shadows } from '../theme/colors';
+import { useAppTheme, makeStyles } from '../theme';
 
 const db = getFirestore();
 
 export default function InvoiceDetailScreen() {
+  const { colors: Colors } = useAppTheme();
+  const styles = useStyles();
   const navigation = useNavigation();
   const route = useRoute();
   const { invoice: initialInvoice } = route.params as { invoice: Invoice };
@@ -196,7 +199,7 @@ export default function InvoiceDetailScreen() {
             justify-content: space-between;
             margin-bottom: 40px;
             padding-bottom: 20px;
-            border-bottom: 3px solid #2196F3;
+            border-bottom: 3px solid #B8461A;
           }
           .company-info {
             flex: 1;
@@ -207,7 +210,7 @@ export default function InvoiceDetailScreen() {
           .invoice-number {
             font-size: 24px;
             font-weight: bold;
-            color: #2196F3;
+            color: #B8461A;
             margin-bottom: 10px;
           }
           .bill-to {
@@ -226,7 +229,7 @@ export default function InvoiceDetailScreen() {
             margin: 30px 0;
           }
           th {
-            background-color: #2196F3;
+            background-color: #B8461A;
             color: white;
             padding: 12px;
             text-align: left;
@@ -250,7 +253,7 @@ export default function InvoiceDetailScreen() {
           .total-row {
             font-size: 18px;
             font-weight: bold;
-            color: #2196F3;
+            color: #B8461A;
           }
           .status-badge {
             display: inline-block;
@@ -264,7 +267,7 @@ export default function InvoiceDetailScreen() {
       <body>
         <div class="header">
           <div class="company-info">
-            <h1 style="margin: 0; color: #2196F3;">🚚 ${user?.displayName || 'Invoice'}</h1>
+            <h1 style="margin: 0; color: #B8461A;">🚚 ${user?.displayName || 'Invoice'}</h1>
             <p style="margin: 5px 0;">${user?.email || ''}</p>
           </div>
           <div class="invoice-info">
@@ -320,14 +323,14 @@ export default function InvoiceDetailScreen() {
         </div>
 
         ${terms ? `
-          <div style="margin-top: 40px; padding: 20px; background-color: #f9f9f9; border-left: 4px solid #2196F3;">
+          <div style="margin-top: 40px; padding: 20px; background-color: #f9f9f9; border-left: 4px solid #B8461A;">
             <h4 style="margin: 0 0 10px 0;">Payment Terms:</h4>
             <p style="margin: 0;">${terms}</p>
           </div>
         ` : ''}
 
         ${notes ? `
-          <div style="margin-top: 20px; padding: 20px; background-color: #f9f9f9; border-left: 4px solid #2196F3;">
+          <div style="margin-top: 20px; padding: 20px; background-color: #f9f9f9; border-left: 4px solid #B8461A;">
             <h4 style="margin: 0 0 10px 0;">Notes:</h4>
             <p style="margin: 0;">${notes}</p>
           </div>
@@ -700,7 +703,7 @@ export default function InvoiceDetailScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((Colors) => ({
   container: {
     flex: 1,
     backgroundColor: Colors.background,
@@ -813,4 +816,4 @@ const styles = StyleSheet.create({
   button: {
     paddingVertical: Spacing.sm,
   },
-});
+}));

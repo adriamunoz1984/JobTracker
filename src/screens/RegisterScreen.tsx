@@ -5,8 +5,10 @@ import { TextInput, Button, Text, Title, Surface, HelperText, Snackbar } from 'r
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useAuth } from '../context/AuthContext';
 import { UserRole } from '../types';
+import { makeStyles } from '../theme';
 
 export default function RegisterScreen() {
+  const styles = useStyles();
   const navigation = useNavigation();
   const route = useRoute();
   const { register, error, clearError, isLoading } = useAuth();
@@ -286,10 +288,10 @@ export default function RegisterScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((Colors) => ({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: Colors.background,
   },
   scrollContent: {
     flexGrow: 1,
@@ -304,7 +306,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#2196F3',
+    color: Colors.primary,
     textAlign: 'center',
     marginBottom: 24,
   },
@@ -328,7 +330,7 @@ const styles = StyleSheet.create({
   registerButton: {
     marginVertical: 16,
     paddingVertical: 8,
-    backgroundColor: '#2196F3',
+    backgroundColor: Colors.primary,
   },
   changeRoleButton: {
     marginBottom: 8,
@@ -339,10 +341,10 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   loginLink: {
-    color: '#2196F3',
+    color: Colors.primary,
     fontWeight: 'bold',
   },
   snackbar: {
-    backgroundColor: '#F44336',
+    backgroundColor: Colors.error,
   },
-});
+}));

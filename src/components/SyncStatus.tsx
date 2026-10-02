@@ -4,15 +4,18 @@ import { View, StyleSheet } from 'react-native';
 import { Text, IconButton } from 'react-native-paper';
 import { useJobs } from '../context/JobsContext';
 import { useAuth } from '../context/AuthContext';
+import { useAppTheme, makeStyles } from '../theme';
 
 export default function SyncStatus() {
+  const { colors: Colors } = useAppTheme();
+  const styles = useStyles();
   const { syncStatus, lastSyncTime, jobCount } = useJobs();
   const { user } = useAuth();
 
   if (!user) {
     return (
       <View style={styles.container}>
-        <IconButton icon="cloud-outline" size={16} iconColor="#757575" style={styles.icon} />
+        <IconButton icon="cloud-outline" size={16} iconColor={Colors.textLight} style={styles.icon} />
         <Text style={styles.offlineText}>Offline mode • {jobCount} jobs stored locally</Text>
       </View>
     );
@@ -34,13 +37,13 @@ export default function SyncStatus() {
   const getSyncColor = () => {
     switch (syncStatus) {
       case 'syncing':
-        return '#2196F3';
+        return Colors.primary;
       case 'synced':
-        return '#4CAF50';
+        return Colors.success;
       case 'error':
-        return '#F44336';
+        return Colors.error;
       default:
-        return '#757575';
+        return Colors.textLight;
     }
   };
 
@@ -79,15 +82,15 @@ export default function SyncStatus() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((Colors) => ({
   container: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
     paddingVertical: 8,
-    backgroundColor: '#f8f9fa',
+    backgroundColor: Colors.background,
     borderBottomWidth: 1,
-    borderBottomColor: '#e9ecef',
+    borderBottomColor: Colors.border,
   },
   icon: {
     margin: 0,
@@ -100,7 +103,7 @@ const styles = StyleSheet.create({
   },
   offlineText: {
     fontSize: 13,
-    color: '#757575',
+    color: Colors.textLight,
     flex: 1,
   },
-});
+}));

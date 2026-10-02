@@ -7,10 +7,10 @@
     "platforms": [
       "android"
     ],
-    "userInterfaceStyle": "light",
+    "userInterfaceStyle": "automatic",
     "splash": {
       "resizeMode": "contain",
-      "backgroundColor": "#2196F3"
+      "backgroundColor": "#1F3324"
     },
     "android": {
       "package": "com.jobtracker.app",

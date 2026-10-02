@@ -4,8 +4,9 @@ import { Card, Title, Paragraph, Text, Button, IconButton, Menu, Divider, Badge,
 import { format } from 'date-fns';
 import { useNavigation } from '@react-navigation/native';
 import { useJobs } from '../context/JobsContext';
-import { Colors, Spacing, BorderRadius, Shadows, Typography } from '../theme/colors';
+import { Spacing, BorderRadius, Shadows, Typography } from '../theme/colors';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useAppTheme, makeStyles } from '../theme';
 
 interface Job {
   id: string;
@@ -33,6 +34,8 @@ interface JobCardProps {
 }
 
 const JobCard: React.FC<JobCardProps> = ({ job, onDelete, onTogglePaid }) => {
+  const { colors: Colors } = useAppTheme();
+  const styles = useStyles();
   const navigation = useNavigation<any>();
   const { updateJob } = useJobs();
   const [expanded, setExpanded] = useState(false);
@@ -259,7 +262,7 @@ const JobCard: React.FC<JobCardProps> = ({ job, onDelete, onTogglePaid }) => {
   );
 };
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((Colors) => ({
   card: {
     marginHorizontal: Spacing.md,
     marginVertical: Spacing.sm,
@@ -440,6 +443,6 @@ directPaymentText: {
   color: Colors.info,
   fontWeight: '600',
 },
-});
+}));
 
 export default JobCard;

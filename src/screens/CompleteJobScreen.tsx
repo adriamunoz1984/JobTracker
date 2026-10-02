@@ -12,6 +12,7 @@ import {
   getDoc,
   updateDoc
 } from 'firebase/firestore';
+import { makeStyles } from '../theme';
 
 const db = getFirestore();
 
@@ -33,6 +34,7 @@ interface OwnerJob {
 }
 
 export default function CompleteJobScreen() {
+  const styles = useStyles();
   const navigation = useNavigation();
   const route = useRoute();
   const { user } = useAuth();
@@ -253,23 +255,23 @@ export default function CompleteJobScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((Colors) => ({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: Colors.background,
   },
   inputContainer: {
     padding: 16,
   },
   subtitle: {
-    color: '#666',
+    color: Colors.textSecondary,
     marginBottom: 16,
   },
   divider: {
     marginVertical: 16,
   },
   infoSection: {
-    backgroundColor: '#E3F2FD',
+    backgroundColor: Colors.primaryBg,
     padding: 12,
     borderRadius: 8,
     marginBottom: 8,
@@ -291,7 +293,7 @@ const styles = StyleSheet.create({
   },
   input: {
     marginBottom: 16,
-    backgroundColor: 'white',
+    backgroundColor: Colors.surface,
   },
   segmentedButtons: {
     marginBottom: 16,
@@ -302,7 +304,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginVertical: 16,
     padding: 12,
-    backgroundColor: 'white',
+    backgroundColor: Colors.surface,
     borderRadius: 8,
   },
   switchLabel: {
@@ -312,6 +314,6 @@ const styles = StyleSheet.create({
   submitButton: {
     marginTop: 24,
     paddingVertical: 8,
-    backgroundColor: '#4CAF50',
+    backgroundColor: Colors.success,
   },
-});
+}));

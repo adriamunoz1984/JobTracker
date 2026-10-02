@@ -19,7 +19,8 @@ import { Job } from '../types';
 import { format, startOfWeek, endOfWeek, isWithinInterval, parseISO } from 'date-fns';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
-import { Colors, Spacing, BorderRadius, Shadows } from '../theme/colors';
+import { Spacing, BorderRadius, Shadows } from '../theme/colors';
+import { useAppTheme, makeStyles, withOpacity } from '../theme';
 
 const screenWidth = Dimensions.get('window').width;
 
@@ -37,6 +38,8 @@ interface ColumnConfig {
 }
 
 export default function ReportsScreen() {
+  const { colors: Colors } = useAppTheme();
+  const styles = useStyles();
   const { jobs } = useJobs();
   const { user } = useAuth();
 
@@ -675,7 +678,7 @@ export default function ReportsScreen() {
                 width={screenWidth - 60}
                 height={220}
                 chartConfig={{
-                  color: (opacity = 1) => `rgba(0, 0, 0, ${opacity})`,
+                  color: (opacity = 1) => withOpacity(Colors.text, opacity),
                 }}
                 accessor="amount"
                 backgroundColor="transparent"
@@ -738,7 +741,7 @@ export default function ReportsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((Colors) => ({
   container: {
     flex: 1,
     backgroundColor: Colors.background,
@@ -943,4 +946,4 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.medium,
     ...Shadows.medium,
   },
-});
+}));

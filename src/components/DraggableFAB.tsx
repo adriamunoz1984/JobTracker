@@ -3,10 +3,12 @@ import React, { useRef, useEffect } from 'react';
 import { Animated, PanResponder, StyleSheet, Vibration, Dimensions } from 'react-native';
 import { FAB } from 'react-native-paper';
 import { useNavigation } from '@react-navigation/native';
+import { makeStyles } from '../theme';
 
 const { width, height } = Dimensions.get('window');
 
 const DraggableFAB: React.FC = () => {
+  const styles = useStyles();
   const navigation = useNavigation();
   
   // Initial position at bottom center of screen
@@ -135,14 +137,14 @@ const DraggableFAB: React.FC = () => {
   );
 };
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((Colors) => ({
   fabContainer: {
     position: 'absolute',
     zIndex: 999,
   },
   fab: {
-    backgroundColor: '#2196F3',
+    backgroundColor: Colors.primary,
   },
-});
+}));
 
 export default DraggableFAB;

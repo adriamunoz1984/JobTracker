@@ -2,6 +2,7 @@
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Text, Button } from 'react-native-paper';
+import { makeStyles } from '../theme';
 
 interface EarningsToggleProps {
   currentView: 'gross' | 'net';
@@ -17,6 +18,7 @@ const EarningsToggle: React.FC<EarningsToggleProps> = ({
   onToggle,
   label = 'Show earnings:'
 }) => {
+  const styles = useStyles();
   return (
     <View style={styles.container}>
       <Text style={styles.label}>{label}</Text>
@@ -44,7 +46,7 @@ const EarningsToggle: React.FC<EarningsToggleProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((Colors) => ({
   container: {
     marginVertical: 12,
   },
@@ -66,6 +68,6 @@ const styles = StyleSheet.create({
   buttonContent: {
     paddingVertical: 6,
   }
-});
+}));
 
 export default EarningsToggle;

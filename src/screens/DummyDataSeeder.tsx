@@ -3,6 +3,7 @@ import { View, StyleSheet, ScrollView, Alert } from 'react-native';
 import { Card, Title, Paragraph, Button, Divider, Text } from 'react-native-paper';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from '@react-navigation/native';
+import { makeStyles } from '../theme';
 
 // Define interfaces for our data types
 interface Job {
@@ -294,6 +295,7 @@ function generateDummyData(startDate: Date = new Date(new Date().getFullYear(), 
 
 // Component to display data seeding tools
 const DummyDataSeeder: React.FC = () => {
+  const styles = useStyles();
   const navigation = useNavigation();
   const [isLoading, setIsLoading] = useState(false);
   const [stats, setStats] = useState<{
@@ -506,10 +508,10 @@ const DummyDataSeeder: React.FC = () => {
   );
 };
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((Colors) => ({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: Colors.background,
   },
   card: {
     margin: 16,
@@ -518,7 +520,7 @@ const styles = StyleSheet.create({
   statsCard: {
     marginHorizontal: 16,
     marginBottom: 8,
-    backgroundColor: '#e3f2fd',
+    backgroundColor: Colors.primaryBg,
   },
   actionsCard: {
     marginHorizontal: 16,
@@ -535,7 +537,7 @@ const styles = StyleSheet.create({
     marginVertical: 8,
   },
   dangerButton: {
-    borderColor: '#f44336',
+    borderColor: Colors.error,
   },
   statsRow: {
     flexDirection: 'row',
@@ -557,6 +559,6 @@ const styles = StyleSheet.create({
     marginTop: 16,
     fontSize: 12,
   },
-});
+}));
 
 export default DummyDataSeeder;

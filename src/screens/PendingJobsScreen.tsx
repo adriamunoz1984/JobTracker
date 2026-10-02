@@ -15,6 +15,7 @@ import {
   updateDoc,
   or
 } from 'firebase/firestore';
+import { useAppTheme, makeStyles } from '../theme';
 
 const db = getFirestore();
 
@@ -33,6 +34,8 @@ interface PendingJob {
 }
 
 export default function PendingJobsScreen() {
+  const { colors: Colors } = useAppTheme();
+  const styles = useStyles();
   const navigation = useNavigation();
   const { user } = useAuth();
   const [pendingJobs, setPendingJobs] = useState<PendingJob[]>([]);
@@ -186,7 +189,7 @@ export default function PendingJobsScreen() {
             <Button
               mode="outlined"
               onPress={() => handleDeclineJob(job)}
-              textColor="#F44336"
+              textColor={Colors.error}
             >
               Decline
             </Button>
@@ -231,7 +234,7 @@ export default function PendingJobsScreen() {
 
       {isLoading ? (
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#2196F3" />
+          <ActivityIndicator size="large" color={Colors.primary} />
           <Text style={styles.loadingText}>Loading jobs...</Text>
         </View>
       ) : (
@@ -272,23 +275,23 @@ export default function PendingJobsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((Colors) => ({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: Colors.background,
   },
   header: {
     padding: 20,
-    backgroundColor: 'white',
+    backgroundColor: Colors.surface,
     marginBottom: 16,
   },
   title: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#2196F3',
+    color: Colors.primary,
   },
   subtitle: {
-    color: '#666',
+    color: Colors.textSecondary,
     marginTop: 4,
   },
   section: {
@@ -297,13 +300,13 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#333',
+    color: Colors.text,
     paddingHorizontal: 20,
     marginBottom: 8,
   },
   sectionSubtitle: {
     fontSize: 14,
-    color: '#666',
+    color: Colors.textSecondary,
     paddingHorizontal: 20,
     marginBottom: 12,
     fontStyle: 'italic',
@@ -314,7 +317,7 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     marginTop: 16,
-    color: '#666',
+    color: Colors.textSecondary,
   },
   emptyCard: {
     marginHorizontal: 20,
@@ -335,13 +338,13 @@ const styles = StyleSheet.create({
   date: {
     fontSize: 14,
     fontWeight: 'bold',
-    color: '#555',
+    color: Colors.textSecondary,
   },
   statusChip: {
-    backgroundColor: '#FFF3E0',
+    backgroundColor: Colors.warningBg,
   },
   acceptedChip: {
-    backgroundColor: '#E8F5E9',
+    backgroundColor: Colors.successBg,
   },
   companyName: {
     fontSize: 18,
@@ -349,7 +352,7 @@ const styles = StyleSheet.create({
   },
   address: {
     fontSize: 14,
-    color: '#444',
+    color: Colors.text,
   },
   divider: {
     marginVertical: 12,
@@ -362,14 +365,14 @@ const styles = StyleSheet.create({
   notes: {
     fontSize: 14,
     fontStyle: 'italic',
-    color: '#666',
+    color: Colors.textSecondary,
   },
   infoText: {
     fontSize: 13,
-    color: '#666',
+    color: Colors.textSecondary,
     fontStyle: 'italic',
     padding: 12,
-    backgroundColor: '#E3F2FD',
+    backgroundColor: Colors.primaryBg,
     borderRadius: 8,
   },
   actions: {
@@ -378,10 +381,10 @@ const styles = StyleSheet.create({
   },
   acceptButton: {
     marginLeft: 8,
-    backgroundColor: '#4CAF50',
+    backgroundColor: Colors.success,
   },
   completeButton: {
     flex: 1,
-    backgroundColor: '#2196F3',
+    backgroundColor: Colors.primary,
   },
-});
+}));
