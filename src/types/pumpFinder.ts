@@ -34,7 +34,13 @@ export interface FinderJobDraft {
   customerName: string;
   jobDate: string;
   startTime: string;
-  address: string;
+
+  // Location is deliberately split for marketplace privacy.
+  // generalArea can live on the public/matchable job record.
+  // exactAddress belongs in protected/private job details and is only revealed
+  // to the awarded pumper after confirmation.
+  generalArea: string;
+  exactAddress: string;
   yards?: number;
   pumpType?: string;
   concretePsi?: number;
@@ -53,6 +59,11 @@ export interface FinderJobRequest {
   status: FinderRequestStatus;
   createdAt: string;
 }
+
+export const FINDER_LOCATION_POLICY = {
+  publicBeforeConfirmation: 'general-area-only' as const,
+  revealExactAddress: 'after-award-and-confirmation' as const,
+};
 
 export const FINDER_REQUEST_POLICY = {
   requestMode: 'poster-awards' as const,
