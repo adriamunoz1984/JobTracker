@@ -21,7 +21,7 @@ import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 import { Spacing, BorderRadius, Shadows } from '../theme/colors';
 import { useAppTheme, makeStyles, withOpacity } from '../theme';
-import { calculateOwnerPay, calculateTaxEstimate, getJobPumperName } from '../utils/jobMath';
+import { calculateOwnerPay, calculateTaxEstimate, getEstimatedTaxForJob, getJobPumperName } from '../utils/jobMath';
 
 const screenWidth = Dimensions.get('window').width;
 
@@ -38,6 +38,7 @@ interface ColumnConfig {
   jobNumber: boolean;
   poNumber: boolean;
   pumper: boolean;
+  estimatedTax: boolean;
   notes: boolean;
 }
 
@@ -72,6 +73,7 @@ export default function ReportsScreen() {
     jobNumber: true,
     poNumber: true,
     pumper: true,
+    estimatedTax: true,
     notes: false,
   });
 
@@ -207,6 +209,7 @@ export default function ReportsScreen() {
       if (columns.jobNumber && hasJobNumbers) tableHeaders += '<th>Job #</th>';
       if (columns.poNumber && hasPONumbers) tableHeaders += '<th>PO #</th>';
       if (columns.pumper && user?.role === 'owner') tableHeaders += '<th>Pumper</th>';
+      if (columns.estimatedTax && (user?.estimatedTaxRate || 0) > 0) tableHeaders += '<th>Est. Tax</th>';
       if (columns.notes) tableHeaders += '<th>Notes</th>';
 
       // Build table rows based on selected columns
@@ -228,6 +231,20 @@ export default function ReportsScreen() {
         if (columns.poNumber && hasPONumbers) row += `<td>${job.poNumber || ''}</td>`;
         if (columns.pumper && user?.role === 'owner') {
           row += `<td>${getJobPumperName(job, user?.displayName || 'Owner')}</td>`;
+        }
+        if (columns.estimatedTax && (user?.estimatedTaxRate || 0) > 0) {
+          const cashExcluded =
+            job.paymentMethod === 'Cash' &&
+            user?.includeCashInTaxEstimate === false;
+          row += `<td>${cashExcluded
+            ? 'Cash excluded'
+            : '$' + getEstimatedTaxForJob(
+                job,
+                user?.role === 'owner' ? 'owner' : 'employee',
+                user?.estimatedTaxRate,
+                user?.includeCashInTaxEstimate !== false,
+                user?.commissionRate || 50
+              ).toFixed(2)}</td>`;
         }
         if (columns.notes) row += `<td>${job.notes || '—'}</td>`;
         row += '</tr>';
@@ -675,6 +692,17 @@ export default function ReportsScreen() {
                     color={Colors.primary}
                   />
                   <Text style={styles.checkboxLabel}>Pumper</Text>
+                </View>
+              )}
+
+              {(user?.estimatedTaxRate || 0) > 0 && (
+                <View style={styles.checkboxRow}>
+                  <Checkbox
+                    status={columns.estimatedTax ? 'checked' : 'unchecked'}
+                    onPress={() => toggleColumn('estimatedTax')}
+                    color={Colors.primary}
+                  />
+                  <Text style={styles.checkboxLabel}>Estimated Tax</Text>
                 </View>
               )}
 
