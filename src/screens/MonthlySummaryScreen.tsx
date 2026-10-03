@@ -23,6 +23,7 @@ import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 import { Spacing, BorderRadius, Shadows } from '../theme/colors';
 import { useAppTheme, makeStyles, withOpacity } from '../theme';
+import { calculateOwnerPay, getJobPumperName } from '../utils/jobMath';
 
 const screenWidth = Dimensions.get('window').width;
 
@@ -64,13 +65,15 @@ export default function MonthlySummaryScreen() {
 
   const isOwner = user?.role === 'owner';
   const commissionRate = user?.commissionRate || 50;
+  const ownerPay = calculateOwnerPay(monthJobs);
+  const referenceJobs = monthJobs.filter(job => job.jobNumber || job.poNumber);
 
   if (!isOwner) {
     totals.commission = (totals.income * commissionRate) / 100;
     totals.yourPay = totals.commission - totals.paidToMeAmount;
     totals.finalTakeHome = totals.yourPay;
   } else {
-    totals.finalTakeHome = totals.income - totals.paidToMeAmount;
+    totals.finalTakeHome = ownerPay.ownerAfterPumperPay;
   }
 
   // Get weekly breakdown
@@ -149,6 +152,27 @@ export default function MonthlySummaryScreen() {
         </tr>
       `).join('');
 
+      const referenceRows = referenceJobs.map(job => `
+        <tr>
+          <td>${format(parseISO(job.date), 'MMM d, yyyy')}</td>
+          <td>${job.companyName || job.clientName || 'Job'}</td>
+          <td>${isOwner ? getJobPumperName(job, user?.displayName || 'Owner') : ''}</td>
+          <td>${job.jobNumber || ''}</td>
+          <td>${job.poNumber || ''}</td>
+        </tr>
+      `).join('');
+
+      const pumperRows = ownerPay.byPumper.map(pumper => `
+        <tr>
+          <td>${pumper.name}</td>
+          <td>${pumper.jobs}</td>
+          <td>$${pumper.revenue.toFixed(2)}</td>
+          <td>$${pumper.grossPay.toFixed(2)}</td>
+          <td>$${pumper.directPayments.toFixed(2)}</td>
+          <td>$${pumper.amountOwed.toFixed(2)}</td>
+        </tr>
+      `).join('');
+
       const htmlContent = `
         <!DOCTYPE html>
         <html>
@@ -219,11 +243,13 @@ export default function MonthlySummaryScreen() {
             <p><strong>Total Unpaid:</strong> $${totals.totalUnpaid.toFixed(2)}</p>
             ${!isOwner ? `
               <p><strong>Commission (${commissionRate}%):</strong> $${totals.commission.toFixed(2)}</p>
-              <p><strong>Cash Payments:</strong> $${totals.cashPayments.toFixed(2)}</p>
+              <p><strong>Direct Payments:</strong> $${totals.paidToMeAmount.toFixed(2)}</p>
             ` : `
-              <p><strong>Paid to Me:</strong> $${totals.paidToMeAmount.toFixed(2)}</p>
+              <p><strong>Pumper Gross Pay:</strong> $${ownerPay.grossPumperPay.toFixed(2)}</p>
+              <p><strong>Direct Payments to Pumpers:</strong> $${ownerPay.directPaymentsToPumpers.toFixed(2)}</p>
+              <p><strong>Still Owed to Pumpers:</strong> $${ownerPay.amountOwedToPumpers.toFixed(2)}</p>
             `}
-            <div class="total">Final Take Home: $${totals.finalTakeHome.toFixed(2)}</div>
+            <div class="total">${isOwner ? 'Owner After Pumper Pay' : 'Final Take Home'}: $${totals.finalTakeHome.toFixed(2)}</div>
           </div>
           
           <h2>Weekly Breakdown</h2>
@@ -240,6 +266,28 @@ export default function MonthlySummaryScreen() {
               ${weeklyRows}
             </tbody>
           </table>
+
+          ${isOwner && pumperRows ? `
+            <h2>Pumper Breakdown</h2>
+            <table>
+              <thead>
+                <tr>
+                  <th>Pumper</th><th>Jobs</th><th>Revenue</th><th>Gross Pay</th><th>Direct Payments</th><th>Still Owed</th>
+                </tr>
+              </thead>
+              <tbody>${pumperRows}</tbody>
+            </table>
+          ` : ''}
+
+          ${referenceRows ? `
+            <h2>Job / PO References</h2>
+            <table>
+              <thead>
+                <tr><th>Date</th><th>Client</th>${isOwner ? '<th>Pumper</th>' : ''}<th>Job #</th><th>PO #</th></tr>
+              </thead>
+              <tbody>${referenceRows}</tbody>
+            </table>
+          ` : ''}
           
           <div style="margin-top: 50px; padding-top: 20px; border-top: 1px solid #ddd; color: #999; font-size: 12px; text-align: center;">
             Generated on ${format(new Date(), 'MMMM d, yyyy h:mm a')}
@@ -373,8 +421,8 @@ export default function MonthlySummaryScreen() {
               </View>
 
               <View style={styles.earningsRow}>
-                <Text style={styles.earningsLabel}>- Cash Payments:</Text>
-                <Text style={styles.earningsValue}>-${totals.cashPayments.toFixed(2)}</Text>
+                <Text style={styles.earningsLabel}>- Direct Payments:</Text>
+                <Text style={styles.earningsValue}>-${totals.paidToMeAmount.toFixed(2)}</Text>
               </View>
 
               <Divider style={styles.divider} />
@@ -403,9 +451,26 @@ export default function MonthlySummaryScreen() {
               </View>
 
               <View style={styles.earningsRow}>
-                <Text style={styles.earningsLabel}>- Paid to Me:</Text>
-                <Text style={styles.earningsValue}>-${totals.paidToMeAmount.toFixed(2)}</Text>
+                <Text style={styles.earningsLabel}>Pumper Gross Pay:</Text>
+                <Text style={styles.earningsValue}>-${ownerPay.grossPumperPay.toFixed(2)}</Text>
               </View>
+
+              <View style={styles.earningsRow}>
+                <Text style={styles.earningsLabel}>Direct Payments to Pumpers:</Text>
+                <Text style={styles.earningsValue}>${ownerPay.directPaymentsToPumpers.toFixed(2)}</Text>
+              </View>
+
+              <View style={styles.earningsRow}>
+                <Text style={styles.earningsLabel}>Still Owed to Pumpers:</Text>
+                <Text style={styles.earningsValue}>${ownerPay.amountOwedToPumpers.toFixed(2)}</Text>
+              </View>
+
+              {ownerPay.byPumper.map(pumper => (
+                <View key={pumper.key} style={styles.earningsRow}>
+                  <Text style={styles.earningsLabel}>{pumper.name} ({pumper.jobs} jobs):</Text>
+                  <Text style={styles.earningsValue}>${pumper.grossPay.toFixed(2)}</Text>
+                </View>
+              ))}
 
               <Divider style={styles.divider} />
 
@@ -413,9 +478,38 @@ export default function MonthlySummaryScreen() {
                 colors={gradients.success}
                 style={styles.totalBox}
               >
-                <Text style={styles.totalLabel}>Final Take Home:</Text>
+                <Text style={styles.totalLabel}>Owner After Pumper Pay:</Text>
                 <Text style={styles.totalValue}>${totals.finalTakeHome.toFixed(2)}</Text>
               </LinearGradient>
+            </Card.Content>
+          </Card>
+        )}
+
+        {referenceJobs.length > 0 && (
+          <Card style={styles.card}>
+            <Card.Content>
+              <Text variant="titleMedium" style={styles.sectionTitle}>Job / PO References</Text>
+              <Divider style={styles.divider} />
+              {referenceJobs.map(job => (
+                <View key={job.id} style={styles.referenceRow}>
+                  <View style={styles.referenceInfo}>
+                    <Text style={styles.referenceClient}>
+                      {job.companyName || job.clientName || 'Job'} · {format(parseISO(job.date), 'MMM d')}
+                    </Text>
+                    {isOwner && (
+                      <Text style={styles.referenceMeta}>
+                        Pumper: {getJobPumperName(job, user?.displayName || 'Owner')}
+                      </Text>
+                    )}
+                    <Text style={styles.referenceMeta}>
+                      {[
+                        job.jobNumber ? 'Job #: ' + job.jobNumber : '',
+                        job.poNumber ? 'PO #: ' + job.poNumber : '',
+                      ].filter(Boolean).join('   ')}
+                    </Text>
+                  </View>
+                </View>
+              ))}
             </Card.Content>
           </Card>
         )}
@@ -633,6 +727,24 @@ const useStyles = makeStyles((Colors) => ({
     fontSize: 28,
     fontWeight: 'bold',
     color: Colors.textInverse,
+  },
+  referenceRow: {
+    paddingVertical: Spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.borderLight,
+  },
+  referenceInfo: {
+    flex: 1,
+  },
+  referenceClient: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: Colors.text,
+  },
+  referenceMeta: {
+    fontSize: 12,
+    color: Colors.textSecondary,
+    marginTop: 3,
   },
   chart: {
     marginVertical: Spacing.sm,
