@@ -19,6 +19,7 @@ import {
   doc,
   getDoc,
   setDoc,
+  updateDoc,
 } from 'firebase/firestore';
 import { db } from '../firebase/config';
 import * as Print from 'expo-print';
@@ -304,6 +305,11 @@ export default function InvoiceScreen() {
                   mimeType: 'application/pdf',
                   dialogTitle: 'Invoice ' + invoiceNumber,
                   UTI: 'com.adobe.pdf',
+                });
+
+                await updateDoc(doc(db, 'invoices', docRef.id), {
+                  status: 'sent',
+                  sentDate: new Date().toISOString(),
                 });
               }
               navigation.goBack();
