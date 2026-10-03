@@ -32,6 +32,7 @@ export interface PumpFinderBusinessProfile {
 
 export interface FinderJobDraft {
   customerName: string;
+  jobDate: string;
   startTime: string;
   address: string;
   yards?: number;
