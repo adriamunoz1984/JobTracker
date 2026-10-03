@@ -27,6 +27,7 @@ export interface User {
   keepsCheck?: boolean;
 
   // Private estimated-income-tax settings
+  taxEstimateEnabled?: boolean;
   estimatedTaxRate?: number;
   includeCashInTaxEstimate?: boolean;
 
