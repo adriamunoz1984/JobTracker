@@ -241,21 +241,19 @@ export default function HomeScreen() {
               style={styles.weekHeaderGradient}
             >
               <View style={styles.weekHeaderContent}>
-                <View style={styles.weekHeaderLeft}>
-                  <MaterialCommunityIcons
-                    name={isCollapsed ? 'chevron-right' : 'chevron-down'}
-                    size={24}
-                    color={Colors.textInverse}
-                    style={styles.weekChevron}
-                  />
-                  <ScaledText
-                    style={styles.weekEndText}
-                    numberOfLines={1}
-                    ellipsizeMode="tail"
-                  >
-                    Week ending {format(weekEndDate, 'MMM dd')}
-                  </ScaledText>
-                </View>
+                <MaterialCommunityIcons
+                  name={isCollapsed ? 'chevron-right' : 'chevron-down'}
+                  size={24}
+                  color={Colors.textInverse}
+                  style={styles.weekChevron}
+                />
+                <ScaledText
+                  style={styles.weekEndText}
+                  numberOfLines={1}
+                  ellipsizeMode="tail"
+                >
+                  Week ending {format(weekEndDate, 'MMM dd')}
+                </ScaledText>
                 <ScaledText style={styles.weekTotalText}>
                   ${displayAmount.toFixed(0)}
                 </ScaledText>
@@ -435,20 +433,12 @@ const useStyles = makeStyles((Colors) => ({
   },
   weekHeaderContent: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: Spacing.sm,
     paddingVertical: Spacing.md,
-    gap: Spacing.sm,
-  },
-  weekHeaderLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.xs,
-    flex: 1,
-    minWidth: 0,
   },
   weekChevron: {
+    width: 72,
     marginLeft: -2,
     flexShrink: 0,
   },
@@ -458,12 +448,13 @@ const useStyles = makeStyles((Colors) => ({
     color: Colors.textInverse,
     flex: 1,
     flexShrink: 1,
+    textAlign: 'center',
   },
   weekTotalText: {
     fontSize: 18,
     fontWeight: 'bold',
     color: Colors.textInverse,
-    minWidth: 72,
+    width: 72,
     flexShrink: 0,
     textAlign: 'right',
   },
