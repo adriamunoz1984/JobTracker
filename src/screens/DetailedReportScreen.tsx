@@ -68,7 +68,8 @@ export default function DetailedReportScreen() {
   const directPayments = jobs
     .filter(j => j.isPaidToMe)
     .reduce((sum, job) => sum + (job.amount || 0), 0);
-  const takeHome = isOwner ? ownerPay.ownerAfterPumperPay : commission - directPayments;
+  const amountStillOwed = commission - directPayments;
+  const takeHome = isOwner ? ownerPay.ownerAfterPumperPay : commission;
   const paidAmount = jobs.filter(j => j.isPaid).reduce((sum, job) => sum + (job.amount || 0), 0);
   const unpaidAmount = jobs.filter(j => !j.isPaid).reduce((sum, job) => sum + (job.amount || 0), 0);
   const totalYards = jobs.reduce((sum, job) => sum + (job.yards || 0), 0);
@@ -149,6 +150,10 @@ export default function DetailedReportScreen() {
                 <View style={styles.breakdownRow}>
                   <Text style={styles.breakdownLabel}>- Direct Payments:</Text>
                   <Text style={styles.breakdownValue}>-${directPayments.toFixed(2)}</Text>
+                </View>
+                <View style={styles.breakdownRow}>
+                  <Text style={styles.breakdownLabel}>Amount Still Owed:</Text>
+                  <Text style={styles.breakdownValue}>${amountStillOwed.toFixed(2)}</Text>
                 </View>
               </>
             )}
