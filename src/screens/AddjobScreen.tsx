@@ -69,6 +69,8 @@ export default function AddJobScreen() {
   );
   const [isPaidToMe, setIsPaidToMe] = useState(editingJob?.isPaidToMe || false);
   const [checkNumber, setCheckNumber] = useState(editingJob?.checkNumber || '');
+  const [jobNumber, setJobNumber] = useState(editingJob?.jobNumber || '');
+  const [poNumber, setPoNumber] = useState(editingJob?.poNumber || '');
   const [notes, setNotes] = useState(editingJob?.notes || '');
   const [isSaving, setIsSaving] = useState(false);
 
@@ -381,6 +383,19 @@ export default function AddJobScreen() {
         jobData.companyName = companyName.trim();
       }
 
+      // Job # and PO # are optional per job. When editing, null clears an old value.
+      if (jobNumber.trim()) {
+        jobData.jobNumber = jobNumber.trim();
+      } else if (isEditing && editingJob?.jobNumber) {
+        jobData.jobNumber = null;
+      }
+
+      if (poNumber.trim()) {
+        jobData.poNumber = poNumber.trim();
+      } else if (isEditing && editingJob?.poNumber) {
+        jobData.poNumber = null;
+      }
+
       if (paymentMethod === 'Check' && checkNumber.trim()) {
         jobData.checkNumber = checkNumber.trim();
       }
@@ -590,6 +605,29 @@ else
             outlineColor={Colors.border}
             activeOutlineColor={Colors.primary}
           />
+
+          <View style={styles.row}>
+            <TextInput
+              label="Job Number (Optional)"
+              value={jobNumber}
+              onChangeText={setJobNumber}
+              mode="outlined"
+              style={[styles.input, styles.flexInput]}
+              placeholder="Job #"
+              outlineColor={Colors.border}
+              activeOutlineColor={Colors.primary}
+            />
+            <TextInput
+              label="PO Number (Optional)"
+              value={poNumber}
+              onChangeText={setPoNumber}
+              mode="outlined"
+              style={[styles.input, styles.flexInput]}
+              placeholder="PO #"
+              outlineColor={Colors.border}
+              activeOutlineColor={Colors.primary}
+            />
+          </View>
         </View>
 
         {isFlatRate && !manualOverride && (
