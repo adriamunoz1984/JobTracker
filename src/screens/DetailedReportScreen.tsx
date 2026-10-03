@@ -19,6 +19,7 @@ interface DetailedReportParams {
   timeLabel: string;
   isOwner: boolean;
   commissionRate?: number;
+  taxEstimateEnabled?: boolean;
   estimatedTaxRate?: number;
   includeCashInTaxEstimate?: boolean;
 }
@@ -36,6 +37,7 @@ export default function DetailedReportScreen() {
     timeLabel,
     isOwner,
     commissionRate = user?.commissionRate || 50,
+    taxEstimateEnabled = user?.taxEstimateEnabled === true,
     estimatedTaxRate = user?.estimatedTaxRate || 0,
     includeCashInTaxEstimate = user?.includeCashInTaxEstimate !== false,
   } = params;
@@ -151,7 +153,7 @@ export default function DetailedReportScreen() {
               </>
             )}
 
-            {estimatedTaxRate > 0 && (
+            {taxEstimateEnabled && estimatedTaxRate > 0 && (
               <>
                 <View style={styles.breakdownRow}>
                   <Text style={styles.breakdownLabel}>Estimated Tax Reserve ({estimatedTaxRate}%):</Text>
@@ -315,7 +317,7 @@ export default function DetailedReportScreen() {
             ].filter(Boolean).join('   ')}
           </Text>
         )}
-        {estimatedTaxRate > 0 && (
+        {taxEstimateEnabled && estimatedTaxRate > 0 && (
           <Text style={styles.jobMeta}>
             {item.paymentMethod === 'Cash' && !includeCashInTaxEstimate
               ? 'Tax estimate: cash excluded'
