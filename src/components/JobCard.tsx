@@ -4,6 +4,8 @@ import { Card, Title, Paragraph, Text, Button, IconButton, Menu, Divider, Badge,
 import { format, parseISO } from 'date-fns';
 import { useNavigation } from '@react-navigation/native';
 import { useJobs } from '../context/JobsContext';
+import { useAuth } from '../context/AuthContext';
+import { getJobPumperName } from '../utils/payroll';
 import { Spacing, BorderRadius, Shadows, Typography } from '../theme/colors';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAppTheme, makeStyles } from '../theme';
@@ -38,6 +40,7 @@ const JobCard: React.FC<JobCardProps> = ({ job, onDelete, onTogglePaid }) => {
   const styles = useStyles();
   const navigation = useNavigation<any>();
   const { updateJob } = useJobs();
+  const { user } = useAuth();
   const [expanded, setExpanded] = useState(false);
   const [menuVisible, setMenuVisible] = useState(false);
 
@@ -90,6 +93,10 @@ const JobCard: React.FC<JobCardProps> = ({ job, onDelete, onTogglePaid }) => {
 
   const showSequenceBadge = job.totalJobsOnDate && job.totalJobsOnDate > 1;
   const shouldIndent = showSequenceBadge && job.sequenceNumber && job.sequenceNumber > 1;
+  const pumperLabel =
+    user?.role === 'owner'
+      ? getJobPumperName(job as any, user.displayName || 'Owner')
+      : null;
   
   return (
     <Card 
@@ -116,14 +123,14 @@ const JobCard: React.FC<JobCardProps> = ({ job, onDelete, onTogglePaid }) => {
             </View>
           )}
               
-              {(job as any).isEmployeeJob && (job as any).employeeName && (
+              {pumperLabel && (
                 <Chip 
                   icon="account-hard-hat" 
                   compact
                   style={styles.employeeBadge}
                   textStyle={styles.employeeBadgeText}
                 >
-                  {(job as any).employeeName}
+                  {pumperLabel}
                 </Chip>
               )}
             </View>
@@ -222,6 +229,17 @@ const JobCard: React.FC<JobCardProps> = ({ job, onDelete, onTogglePaid }) => {
               )}
           </View>
           
+          {(job as any).jobNumber || (job as any).poNumber ? (
+            <View style={styles.referenceRow}>
+              {(job as any).jobNumber ? (
+                <Text style={styles.referenceText}>Job #: {(job as any).jobNumber}</Text>
+              ) : null}
+              {(job as any).poNumber ? (
+                <Text style={styles.referenceText}>PO #: {(job as any).poNumber}</Text>
+              ) : null}
+            </View>
+          ) : null}
+
           {/* Notes */}
           {expanded && job.notes && (
             <View style={styles.notesContainer}>
@@ -395,6 +413,17 @@ sequenceBadgeText: {
     fontSize: 14,
     fontWeight: '600',
     color: Colors.text,
+  },
+  referenceRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: Spacing.md,
+    marginTop: Spacing.sm,
+  },
+  referenceText: {
+    fontSize: 12,
+    color: Colors.textSecondary,
+    fontWeight: '600',
   },
   paidToMeChip: {
     height: 28,
