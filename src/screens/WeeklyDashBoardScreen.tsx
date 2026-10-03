@@ -23,7 +23,7 @@ import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 import { Spacing, BorderRadius, Shadows } from '../theme/colors';
 import { useAppTheme, makeStyles, withOpacity } from '../theme';
-import { calculateOwnerPay, calculateTaxEstimate, getJobPumperName } from '../utils/jobMath';
+import { calculateOwnerPay, calculateTaxEstimate, getEstimatedTaxForJob, getJobPumperName } from '../utils/jobMath';
 
 const screenWidth = Dimensions.get('window').width;
 
@@ -208,6 +208,19 @@ export default function WeeklyDashboardScreen() {
                     </div>
                   ` : ''}
                   <div class="yards">${job.yards} yards</div>
+                  ${(user?.estimatedTaxRate || 0) > 0 ? `
+                    <div class="pumper"><strong>Est. tax:</strong> ${
+                      job.paymentMethod === 'Cash' && user?.includeCashInTaxEstimate === false
+                        ? 'Cash excluded'
+                        : '$' + getEstimatedTaxForJob(
+                            job,
+                            isOwner ? 'owner' : 'employee',
+                            user?.estimatedTaxRate,
+                            user?.includeCashInTaxEstimate !== false,
+                            commissionRate
+                          ).toFixed(2)
+                    }</div>
+                  ` : ''}
                 </div>
                 
                 <div class="payment-section">
