@@ -67,7 +67,6 @@ export const FINDER_LOCATION_POLICY = {
 
 export const FINDER_REQUEST_POLICY = {
   requestMode: 'poster-awards' as const,
-  maxPendingRequestsPerPumper: 3,
   preventOverlappingAwards: true,
   allowPumperReassignment: false,
   allowPumperRecommendations: true,
