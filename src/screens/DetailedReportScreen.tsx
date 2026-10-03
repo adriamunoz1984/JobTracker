@@ -8,7 +8,7 @@ import { Job } from '../types';
 import { format, parseISO } from 'date-fns';
 import { Spacing, BorderRadius, Shadows } from '../theme/colors';
 import { useAppTheme, makeStyles } from '../theme';
-import { calculateOwnerPay, getJobPumperName } from '../utils/jobMath';
+import { calculateOwnerPay, calculateTaxEstimate, getEstimatedTaxForJob, getJobPumperName } from '../utils/jobMath';
 
 type MetricType = 'income' | 'takeHome' | 'paid' | 'unpaid' | 'yards' | 'avgJob';
 
@@ -18,6 +18,8 @@ interface DetailedReportParams {
   timeLabel: string;
   isOwner: boolean;
   commissionRate?: number;
+  estimatedTaxRate?: number;
+  includeCashInTaxEstimate?: boolean;
 }
 
 export default function DetailedReportScreen() {
@@ -26,7 +28,15 @@ export default function DetailedReportScreen() {
   const route = useRoute();
   const params = route.params as DetailedReportParams;
 
-  const { metricType, jobs, timeLabel, isOwner, commissionRate = 50 } = params;
+  const {
+    metricType,
+    jobs,
+    timeLabel,
+    isOwner,
+    commissionRate = 50,
+    estimatedTaxRate = 0,
+    includeCashInTaxEstimate = true,
+  } = params;
 
   // Filter jobs based on metric type
   const filteredJobs = useMemo(() => {
@@ -43,6 +53,13 @@ export default function DetailedReportScreen() {
   // Calculate metrics
   const totalIncome = jobs.reduce((sum, job) => sum + (job.amount || 0), 0);
   const ownerPay = calculateOwnerPay(jobs);
+  const taxEstimate = calculateTaxEstimate(
+    jobs,
+    isOwner ? 'owner' : 'employee',
+    estimatedTaxRate,
+    includeCashInTaxEstimate,
+    commissionRate
+  );
   const commission = (totalIncome * commissionRate) / 100;
   const directPayments = jobs
     .filter(j => j.isPaidToMe)
@@ -132,6 +149,18 @@ export default function DetailedReportScreen() {
               </>
             )}
 
+            {estimatedTaxRate > 0 && (
+              <>
+                <View style={styles.breakdownRow}>
+                  <Text style={styles.breakdownLabel}>Estimated Tax Reserve ({estimatedTaxRate}%):</Text>
+                  <Text style={styles.breakdownValue}>-${taxEstimate.estimatedTax.toFixed(2)}</Text>
+                </View>
+                <View style={styles.breakdownRow}>
+                  <Text style={styles.breakdownLabel}>Taxable Share After Reserve:</Text>
+                  <Text style={styles.breakdownValue}>${taxEstimate.afterTax.toFixed(2)}</Text>
+                </View>
+              </>
+            )}
             <Divider style={styles.divider} />
             <View style={styles.breakdownRow}>
               <Text style={[styles.breakdownLabel, styles.bold]}>
@@ -282,6 +311,20 @@ export default function DetailedReportScreen() {
               item.jobNumber ? 'Job #: ' + item.jobNumber : '',
               item.poNumber ? 'PO #: ' + item.poNumber : '',
             ].filter(Boolean).join('   ')}
+          </Text>
+        )}
+        {estimatedTaxRate > 0 && (
+          <Text style={styles.jobMeta}>
+            {item.paymentMethod === 'Cash' && !includeCashInTaxEstimate
+              ? 'Tax estimate: cash excluded'
+              : 'Est. tax reserve: $' +
+                getEstimatedTaxForJob(
+                  item,
+                  isOwner ? 'owner' : 'employee',
+                  estimatedTaxRate,
+                  includeCashInTaxEstimate,
+                  commissionRate
+                ).toFixed(2)}
           </Text>
         )}
       </View>
