@@ -244,11 +244,16 @@ export default function HomeScreen() {
                 <View style={styles.weekHeaderLeft}>
                   <MaterialCommunityIcons
                     name={isCollapsed ? 'chevron-right' : 'chevron-down'}
-                    size={28}
+                    size={24}
                     color={Colors.textInverse}
+                    style={styles.weekChevron}
                   />
-                  <ScaledText style={styles.weekEndText}>
-                    Weekend {format(weekEndDate, 'MMM dd')}
+                  <ScaledText
+                    style={styles.weekEndText}
+                    numberOfLines={1}
+                    ellipsizeMode="tail"
+                  >
+                    Week ending {format(weekEndDate, 'MMM dd')}
                   </ScaledText>
                 </View>
                 <ScaledText style={styles.weekTotalText}>
@@ -426,35 +431,40 @@ const useStyles = makeStyles((Colors) => ({
   },
   weekHeaderGradient: {
     paddingVertical: Spacing.md,
-    paddingHorizontal: Spacing.lg,
+    paddingHorizontal: 0,
   },
   weekHeaderContent: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: Spacing.lg,
+    paddingHorizontal: Spacing.sm,
     paddingVertical: Spacing.md,
-    gap: Spacing.lg,
+    gap: Spacing.sm,
   },
   weekHeaderLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.md,
+    gap: Spacing.xs,
     flex: 1,
     minWidth: 0,
+  },
+  weekChevron: {
+    marginLeft: -2,
+    flexShrink: 0,
   },
   weekEndText: {
     fontSize: 16,
     fontWeight: 'bold',
     color: Colors.textInverse,
     flex: 1,
-    numberOfLines: 1,
+    flexShrink: 1,
   },
   weekTotalText: {
     fontSize: 18,
     fontWeight: 'bold',
     color: Colors.textInverse,
-    minWidth: 90,
+    minWidth: 72,
+    flexShrink: 0,
     textAlign: 'right',
   },
 }));
