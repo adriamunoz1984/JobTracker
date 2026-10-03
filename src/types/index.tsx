@@ -26,6 +26,10 @@ export interface User {
   keepsCash?: boolean;
   keepsCheck?: boolean;
 
+  // Private estimated-income-tax settings
+  estimatedTaxRate?: number;
+  includeCashInTaxEstimate?: boolean;
+
   // Pump Finder marketplace profile
   pumpFinderProfile?: PumpFinderBusinessProfile;
 }
