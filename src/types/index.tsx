@@ -58,6 +58,11 @@ export interface Job {
   setupCharge?: number;
   date: string;
   notes?: string;
+
+  // Optional customer reference numbers for billing/reporting
+  jobNumber?: string | null;
+  poNumber?: string | null;
+
   createdAt?: string;
   updatedAt?: string;
   sequenceNumber?: number;
@@ -147,6 +152,15 @@ export interface Invoice {
   createdBy: string;
   createdAt: string;
   updatedAt?: string;
+
+  // Snapshot of per-job references included on this invoice
+  jobReferences?: Array<{
+    jobId: string;
+    date?: string;
+    address?: string;
+    jobNumber?: string;
+    poNumber?: string;
+  }>;
 }
 
 export interface InvoiceLineItem {
