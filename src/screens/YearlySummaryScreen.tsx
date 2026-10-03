@@ -169,7 +169,7 @@ export default function YearlySummaryScreen() {
         <tr>
           <td>${format(parseISO(job.date), 'MMM d, yyyy')}</td>
           <td>${job.companyName || job.clientName || 'Job'}</td>
-          <td>${isOwner ? getJobPumperName(job, user?.displayName || 'Owner') : ''}</td>
+          ${isOwner ? `<td>${getJobPumperName(job, user?.displayName || 'Owner')}</td>` : ''}
           <td>${job.jobNumber || ''}</td>
           <td>${job.poNumber || ''}</td>
         </tr>
@@ -500,8 +500,8 @@ export default function YearlySummaryScreen() {
               </View>
 
               <View style={styles.earningsRow}>
-                <Text style={styles.earningsLabel}>- Cash Payments:</Text>
-                <Text style={styles.earningsValue}>-${totals.cashPayments.toFixed(2)}</Text>
+                <Text style={styles.earningsLabel}>- Direct Payments:</Text>
+                <Text style={styles.earningsValue}>-${totals.paidToMeAmount.toFixed(2)}</Text>
               </View>
 
               <Divider style={styles.divider} />
