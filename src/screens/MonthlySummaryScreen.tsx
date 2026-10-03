@@ -23,7 +23,7 @@ import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 import { Spacing, BorderRadius, Shadows } from '../theme/colors';
 import { useAppTheme, makeStyles, withOpacity } from '../theme';
-import { calculateOwnerPay, getJobPumperName } from '../utils/jobMath';
+import { calculateOwnerPay, calculateTaxEstimate, getJobPumperName } from '../utils/jobMath';
 
 const screenWidth = Dimensions.get('window').width;
 
@@ -66,6 +66,13 @@ export default function MonthlySummaryScreen() {
   const isOwner = user?.role === 'owner';
   const commissionRate = user?.commissionRate || 50;
   const ownerPay = calculateOwnerPay(monthJobs);
+  const taxEstimate = calculateTaxEstimate(
+    monthJobs,
+    isOwner ? 'owner' : 'employee',
+    user?.estimatedTaxRate,
+    user?.includeCashInTaxEstimate !== false,
+    commissionRate
+  );
   const referenceJobs = monthJobs.filter(job => job.jobNumber || job.poNumber);
 
   if (!isOwner) {
@@ -250,6 +257,14 @@ export default function MonthlySummaryScreen() {
               <p><strong>Still Owed to Pumpers:</strong> $${ownerPay.amountOwedToPumpers.toFixed(2)}</p>
             `}
             <div class="total">${isOwner ? 'Owner After Pumper Pay' : 'Final Take Home'}: $${totals.finalTakeHome.toFixed(2)}</div>
+            ${(user?.estimatedTaxRate || 0) > 0 ? `
+              <p><strong>Taxable Share:</strong> $${taxEstimate.taxableBase.toFixed(2)}</p>
+              <p><strong>Estimated Tax Reserve (${user?.estimatedTaxRate}%):</strong> $${taxEstimate.estimatedTax.toFixed(2)}</p>
+              <p><strong>After Tax Reserve:</strong> $${taxEstimate.afterTax.toFixed(2)}</p>
+              ${taxEstimate.excludedCashBase > 0 ? `
+                <p><strong>Cash Excluded From Estimate:</strong> $${taxEstimate.excludedCashBase.toFixed(2)}</p>
+              ` : ''}
+            ` : ''}
           </div>
           
           <h2>Weekly Breakdown</h2>
@@ -481,6 +496,33 @@ export default function MonthlySummaryScreen() {
                 <Text style={styles.totalLabel}>Owner After Pumper Pay:</Text>
                 <Text style={styles.totalValue}>${totals.finalTakeHome.toFixed(2)}</Text>
               </LinearGradient>
+            </Card.Content>
+          </Card>
+        )}
+
+        {(user?.estimatedTaxRate || 0) > 0 && (
+          <Card style={styles.card}>
+            <Card.Content>
+              <Text variant="titleMedium" style={styles.sectionTitle}>Tax Estimate</Text>
+              <Divider style={styles.divider} />
+              <View style={styles.earningsRow}>
+                <Text style={styles.earningsLabel}>Taxable Share:</Text>
+                <Text style={styles.earningsValue}>${taxEstimate.taxableBase.toFixed(2)}</Text>
+              </View>
+              <View style={styles.earningsRow}>
+                <Text style={styles.earningsLabel}>Estimated Tax Reserve ({user?.estimatedTaxRate}%):</Text>
+                <Text style={styles.earningsValue}>-${taxEstimate.estimatedTax.toFixed(2)}</Text>
+              </View>
+              <View style={styles.earningsRow}>
+                <Text style={styles.earningsLabel}>After Tax Reserve:</Text>
+                <Text style={styles.earningsValue}>${taxEstimate.afterTax.toFixed(2)}</Text>
+              </View>
+              {taxEstimate.excludedCashBase > 0 && (
+                <View style={styles.earningsRow}>
+                  <Text style={styles.earningsLabel}>Cash Excluded:</Text>
+                  <Text style={styles.earningsValue}>${taxEstimate.excludedCashBase.toFixed(2)}</Text>
+                </View>
+              )}
             </Card.Content>
           </Card>
         )}
