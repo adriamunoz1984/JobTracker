@@ -143,6 +143,8 @@ export default function MonthlySummaryScreen() {
       timeLabel: format(adjustedDate, 'MMMM yyyy'),
       isOwner: user?.role === 'owner',
       commissionRate: user?.commissionRate || 50,
+      estimatedTaxRate: user?.estimatedTaxRate || 0,
+      includeCashInTaxEstimate: user?.includeCashInTaxEstimate !== false,
     });
   };
 
