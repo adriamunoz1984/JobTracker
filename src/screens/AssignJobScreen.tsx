@@ -33,6 +33,8 @@ export default function AssignJobScreen() {
   const [companyName, setCompanyName] = useState('');
   const [address, setAddress] = useState('');
   const [city, setCity] = useState('');
+  const [jobNumber, setJobNumber] = useState('');
+  const [poNumber, setPoNumber] = useState('');
   const [notes, setNotes] = useState('');
 
   // Load active employees
@@ -84,11 +86,13 @@ export default function AssignJobScreen() {
 
     const jobId = `job_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     const now = new Date().toISOString();
+    const selectedEmp = employees.find(e => e.uid === selectedEmployee);
 
     // Create incomplete job - remove undefined fields
     const jobData: any = {
       id: jobId,
-      date: date.toISOString(),
+      // Store the local calendar day so assigned jobs cannot shift dates by timezone.
+      date: format(date, 'yyyy-MM-dd'),
       address: address.trim(),
       city: city.trim(),
       
@@ -102,6 +106,9 @@ export default function AssignJobScreen() {
       // Assignment info
       ownerId: user!.uid,
       assignedTo: selectedEmployee,
+      employeeId: selectedEmployee,
+      employeeName: selectedEmp?.name || 'Employee',
+      employeeCommissionRate: selectedEmp?.commissionRate ?? 50,
       jobType: 'owner',
       status: 'pending',
       
@@ -113,13 +120,20 @@ export default function AssignJobScreen() {
     if (companyName.trim()) {
       jobData.companyName = companyName.trim();
     }
+
+    if (jobNumber.trim()) {
+      jobData.jobNumber = jobNumber.trim();
+    }
+
+    if (poNumber.trim()) {
+      jobData.poNumber = poNumber.trim();
+    }
     
     if (notes.trim()) {
       jobData.notes = notes.trim();
     }
 
     // Save to employee's ownerJobs collection
-    const selectedEmp = employees.find(e => e.uid === selectedEmployee);
     await setDoc(
       doc(db, 'users', selectedEmployee, 'ownerJobs', jobId),
       jobData
@@ -248,6 +262,24 @@ export default function AssignJobScreen() {
           style={styles.input}
           mode="outlined"
           required
+        />
+
+        <TextInput
+          label="Job Number (Optional)"
+          value={jobNumber}
+          onChangeText={setJobNumber}
+          style={styles.input}
+          mode="outlined"
+          placeholder="Job #"
+        />
+
+        <TextInput
+          label="PO Number (Optional)"
+          value={poNumber}
+          onChangeText={setPoNumber}
+          style={styles.input}
+          mode="outlined"
+          placeholder="PO #"
         />
 
         <TextInput
