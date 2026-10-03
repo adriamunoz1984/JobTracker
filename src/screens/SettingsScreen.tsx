@@ -185,7 +185,11 @@ export default function SettingsScreen() {
         <SettingsRow
           icon="calculator-outline"
           label="Tax estimate"
-          detail={user?.estimatedTaxRate ? `${user.estimatedTaxRate}% reserve` : 'Set your estimated tax rate'}
+          detail={
+            user?.taxEstimateEnabled
+              ? `On · ${user?.estimatedTaxRate || 0}% reserve`
+              : 'Off'
+          }
           onPress={() => navigation.navigate('TaxSettings')}
         />
         {isEmployee && (
