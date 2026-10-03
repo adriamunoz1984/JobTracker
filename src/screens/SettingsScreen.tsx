@@ -182,6 +182,12 @@ export default function SettingsScreen() {
       </Group>
 
       <Group title="Pay">
+        <SettingsRow
+          icon="calculator-outline"
+          label="Tax estimate"
+          detail={user?.estimatedTaxRate ? `${user.estimatedTaxRate}% reserve` : 'Set your estimated tax rate'}
+          onPress={() => navigation.navigate('TaxSettings')}
+        />
         {isEmployee && (
           <SettingsRow
             icon="cash-outline"
