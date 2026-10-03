@@ -23,6 +23,7 @@ import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 import { Spacing, BorderRadius, Shadows } from '../theme/colors';
 import { useAppTheme, makeStyles, withOpacity } from '../theme';
+import { calculateOwnerPay, getJobPumperName } from '../utils/jobMath';
 
 const screenWidth = Dimensions.get('window').width;
 
@@ -73,6 +74,7 @@ export default function WeeklyDashboardScreen() {
 
   const isOwner = user?.role === 'owner';
   const commissionRate = user?.commissionRate || 50;
+  const ownerPay = calculateOwnerPay(weekJobs);
 
   if (!isOwner) {
     totals.commission = (totals.income * commissionRate) / 100;
@@ -82,7 +84,7 @@ export default function WeeklyDashboardScreen() {
     totals.yourPay = totals.commission - totals.paidToMeAmount;
     totals.finalTakeHome = totals.yourPay;
   } else {
-    totals.finalTakeHome = totals.income - totals.paidToMeAmount;
+    totals.finalTakeHome = ownerPay.ownerAfterPumperPay;
   }
 
   // Get daily breakdown
@@ -189,6 +191,7 @@ export default function WeeklyDashboardScreen() {
                   <div class="client-name">${job.companyName || job.clientName || 'Job'}</div>
                   <div class="address">${job.address}</div>
                   <div class="city">${job.city}</div>
+                  ${isOwner ? `<div class="pumper"><strong>Pumper:</strong> ${getJobPumperName(job, user?.displayName || 'Owner')}</div>` : ''}
                   ${job.jobNumber || job.poNumber ? `
                     <div class="job-refs">
                       ${job.jobNumber ? `<span><strong>Job #:</strong> ${job.jobNumber}</span>` : ''}
@@ -272,6 +275,19 @@ export default function WeeklyDashboardScreen() {
               font-size: 16px;
               margin-bottom: 8px;
               color: #333;
+            }
+            .job-refs {
+              display: flex;
+              flex-wrap: wrap;
+              gap: 14px;
+              margin: 6px 0 8px;
+              font-size: 14px;
+              color: #333;
+            }
+            .pumper {
+              font-size: 14px;
+              color: #333;
+              margin: 5px 0;
             }
             .job-refs {
               display: flex;
@@ -372,12 +388,20 @@ export default function WeeklyDashboardScreen() {
               </div>
             ` : `
               <div class="footer-row">
-                <div class="footer-label">- Paid to Me</div>
-                <div class="footer-value">-$${totals.paidToMeAmount.toFixed(0)}</div>
+                <div class="footer-label">Pumper Gross Pay</div>
+                <div class="footer-value">-$${ownerPay.grossPumperPay.toFixed(0)}</div>
+              </div>
+              <div class="footer-row">
+                <div class="footer-label">Direct Payments to Pumpers</div>
+                <div class="footer-value">$${ownerPay.directPaymentsToPumpers.toFixed(0)}</div>
+              </div>
+              <div class="footer-row">
+                <div class="footer-label">Still Owed to Pumpers</div>
+                <div class="footer-value">$${ownerPay.amountOwedToPumpers.toFixed(0)}</div>
               </div>
               <div class="footer-row footer-total">
-                <div class="footer-label">Final Take Home</div>
-                <div class="footer-value">$${totals.finalTakeHome.toFixed(0)}</div>
+                <div class="footer-label">Owner After Pumper Pay</div>
+                <div class="footer-value">$${ownerPay.ownerAfterPumperPay.toFixed(0)}</div>
               </div>
             `}
           </div>
@@ -568,9 +592,26 @@ export default function WeeklyDashboardScreen() {
               </View>
 
               <View style={styles.earningsRow}>
-                <Text style={styles.earningsLabel}>- Paid to Me:</Text>
-                <Text style={styles.earningsValue}>-${totals.paidToMeAmount.toFixed(2)}</Text>
+                <Text style={styles.earningsLabel}>Pumper Gross Pay:</Text>
+                <Text style={styles.earningsValue}>-${ownerPay.grossPumperPay.toFixed(2)}</Text>
               </View>
+
+              <View style={styles.earningsRow}>
+                <Text style={styles.earningsLabel}>Direct Payments to Pumpers:</Text>
+                <Text style={styles.earningsValue}>${ownerPay.directPaymentsToPumpers.toFixed(2)}</Text>
+              </View>
+
+              <View style={styles.earningsRow}>
+                <Text style={styles.earningsLabel}>Still Owed to Pumpers:</Text>
+                <Text style={styles.earningsValue}>${ownerPay.amountOwedToPumpers.toFixed(2)}</Text>
+              </View>
+
+              {ownerPay.byPumper.map(pumper => (
+                <View key={pumper.key} style={styles.earningsRow}>
+                  <Text style={styles.earningsLabel}>{pumper.name} ({pumper.jobs} jobs):</Text>
+                  <Text style={styles.earningsValue}>${pumper.grossPay.toFixed(2)}</Text>
+                </View>
+              ))}
 
               <Divider style={styles.divider} />
 
@@ -578,7 +619,7 @@ export default function WeeklyDashboardScreen() {
                 colors={gradients.success}
                 style={styles.totalBox}
               >
-                <Text style={styles.totalLabel}>Final Take Home:</Text>
+                <Text style={styles.totalLabel}>Owner After Pumper Pay:</Text>
                 <Text style={styles.totalValue}>${totals.finalTakeHome.toFixed(2)}</Text>
               </LinearGradient>
             </Card.Content>
