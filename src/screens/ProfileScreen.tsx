@@ -120,14 +120,6 @@ export default function ProfileScreen() {
         <Text style={styles.primaryButtonText}>{hasPumpDetails ? 'Edit profile' : 'Set up my profile'}</Text>
       </TouchableOpacity>
 
-      <TouchableOpacity
-        style={styles.secondaryButton}
-        onPress={() => navigation.navigate('Settings')}
-        accessibilityRole="button"
-      >
-        <Ionicons name="settings-outline" size={20} color={Colors.primary} />
-        <Text style={styles.secondaryButtonText}>Settings</Text>
-      </TouchableOpacity>
     </ScrollView>
   );
 }
@@ -215,14 +207,4 @@ const useStyles = makeStyles((Colors) => ({
     marginBottom: Spacing.sm,
   },
   primaryButtonText: { color: Colors.onPrimary, fontSize: 17, fontWeight: 'bold', marginLeft: 8 },
-  secondaryButton: {
-    minHeight: 52,
-    borderRadius: 12,
-    borderWidth: 2,
-    borderColor: Colors.primary,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  secondaryButtonText: { color: Colors.primary, fontSize: 16, fontWeight: 'bold', marginLeft: 8 },
 }));
