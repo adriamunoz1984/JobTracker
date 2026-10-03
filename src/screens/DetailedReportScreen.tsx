@@ -3,7 +3,7 @@ import React, { useMemo } from 'react';
 import { View, StyleSheet, ScrollView, FlatList } from 'react-native';
 import { Text, Card, Divider, Chip } from 'react-native-paper';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useRoute, useNavigation } from '@react-navigation/native';
+import { useRoute } from '@react-navigation/native';
 import { Job } from '../types';
 import { format, parseISO } from 'date-fns';
 import { Spacing, BorderRadius, Shadows } from '../theme/colors';
@@ -24,7 +24,6 @@ export default function DetailedReportScreen() {
   const { colors: Colors, gradients } = useAppTheme();
   const styles = useStyles();
   const route = useRoute();
-  const navigation = useNavigation();
   const params = route.params as DetailedReportParams;
 
   const { metricType, jobs, timeLabel, isOwner, commissionRate = 50 } = params;
@@ -45,9 +44,6 @@ export default function DetailedReportScreen() {
   const totalIncome = jobs.reduce((sum, job) => sum + (job.amount || 0), 0);
   const ownerPay = calculateOwnerPay(jobs);
   const commission = (totalIncome * commissionRate) / 100;
-  const cashPayments = jobs
-    .filter(j => j.paymentMethod === 'Cash')
-    .reduce((sum, job) => sum + (job.amount || 0), 0);
   const directPayments = jobs
     .filter(j => j.isPaidToMe)
     .reduce((sum, job) => sum + (job.amount || 0), 0);
