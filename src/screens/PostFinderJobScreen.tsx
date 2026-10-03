@@ -12,6 +12,8 @@ import {
   View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import DateTimePicker from '@react-native-community/datetimepicker';
+import { format } from 'date-fns';
 import {
   FINDER_PPE_OPTIONS,
   FinderJobDraft,
@@ -31,7 +33,8 @@ export default function PostFinderJobScreen({ navigation }: any) {
   const { colors: Colors } = useAppTheme();
   const styles = useStyles();
   const [customerName, setCustomerName] = useState('');
-  const [startTime, setStartTime] = useState('');
+  const [startTime, setStartTime] = useState<Date | null>(null);
+  const [showTimePicker, setShowTimePicker] = useState(false);
   const [address, setAddress] = useState('');
   const [yards, setYards] = useState('');
   const [pumpType, setPumpType] = useState('');
@@ -42,6 +45,15 @@ export default function PostFinderJobScreen({ navigation }: any) {
   const [ppeRequired, setPpeRequired] = useState(false);
   const [requiredPpe, setRequiredPpe] = useState<FinderPpeItem[]>([]);
   const [notes, setNotes] = useState('');
+
+  const handleTimeChange = (_event: any, selectedTime?: Date) => {
+    if (Platform.OS !== 'ios') {
+      setShowTimePicker(false);
+    }
+    if (selectedTime) {
+      setStartTime(selectedTime);
+    }
+  };
 
   const togglePpe = (item: FinderPpeItem) => {
     setRequiredPpe((current) =>
@@ -54,7 +66,7 @@ export default function PostFinderJobScreen({ navigation }: any) {
     const psiValue = concretePsi.trim() ? Number(concretePsi) : undefined;
     const hoseValue = extraHoseRequired ? Number(totalHoseFeet) : undefined;
 
-    if (!customerName.trim() || !startTime.trim() || !address.trim() || !yards.trim()) {
+    if (!customerName.trim() || !startTime || !address.trim() || !yards.trim()) {
       Alert.alert('Missing job details', 'Customer, start time, address, and estimated yards are required.');
       return;
     }
@@ -76,7 +88,7 @@ export default function PostFinderJobScreen({ navigation }: any) {
 
     const jobDraft: FinderJobDraft = {
       customerName: customerName.trim(),
-      startTime: startTime.trim(),
+      startTime: format(startTime, 'h:mm a'),
       address: address.trim(),
       yards: yardsValue,
       pumpType: pumpType.trim() || undefined,
@@ -103,7 +115,41 @@ export default function PostFinderJobScreen({ navigation }: any) {
 
         <SectionTitle title="Job details" />
         <Field label="Customer name" value={customerName} onChangeText={setCustomerName} placeholder="Customer or company name" />
-        <Field label="Start time" value={startTime} onChangeText={setStartTime} placeholder="Example: 7:00 AM" />
+
+        <View style={styles.field}>
+          <Text style={styles.label}>Start time</Text>
+          <TouchableOpacity
+            style={styles.timePickerButton}
+            onPress={() => setShowTimePicker(true)}
+            activeOpacity={0.8}
+          >
+            <Ionicons name="time-outline" size={20} color={Colors.primary} />
+            <Text style={[styles.timePickerText, !startTime && styles.timePickerPlaceholder]}>
+              {startTime ? format(startTime, 'h:mm a') : 'Choose start time'}
+            </Text>
+            <Ionicons name="chevron-down" size={18} color={Colors.textSecondary} />
+          </TouchableOpacity>
+
+          {showTimePicker && (
+            <View style={styles.timePickerWrap}>
+              <DateTimePicker
+                value={startTime || new Date()}
+                mode="time"
+                display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                onChange={handleTimeChange}
+              />
+              {Platform.OS === 'ios' && (
+                <TouchableOpacity
+                  style={styles.timePickerDone}
+                  onPress={() => setShowTimePicker(false)}
+                >
+                  <Text style={styles.timePickerDoneText}>Done</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          )}
+        </View>
+
         <Field label="Job address" value={address} onChangeText={setAddress} placeholder="Street address, city" />
         <Field label="Yards" value={yards} onChangeText={setYards} placeholder="Estimated concrete yards" keyboardType="decimal-pad" />
         <Field label="Pump type" value={pumpType} onChangeText={setPumpType} placeholder="Optional — trailer, boom, line pump, etc." />
@@ -291,6 +337,43 @@ const useStyles = makeStyles((Colors) => ({
   helperText: { fontSize: 12, color: Colors.textSecondary, lineHeight: 17, marginTop: -7, marginBottom: 14 },
   inputRow: { position: 'relative' },
   input: { backgroundColor: Colors.surface, borderWidth: 1, borderColor: Colors.borderDark, borderRadius: 10, paddingHorizontal: 13, paddingVertical: 12, fontSize: 16, color: Colors.text },
+  timePickerButton: {
+    minHeight: 50,
+    backgroundColor: Colors.surface,
+    borderWidth: 1,
+    borderColor: Colors.borderDark,
+    borderRadius: 10,
+    paddingHorizontal: 13,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  timePickerText: {
+    flex: 1,
+    fontSize: 16,
+    color: Colors.text,
+  },
+  timePickerPlaceholder: {
+    color: Colors.textLight,
+  },
+  timePickerWrap: {
+    marginTop: 8,
+    backgroundColor: Colors.surface,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    overflow: 'hidden',
+  },
+  timePickerDone: {
+    alignSelf: 'flex-end',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+  },
+  timePickerDoneText: {
+    color: Colors.primary,
+    fontWeight: '700',
+    fontSize: 15,
+  },
   inputWithSuffix: { paddingRight: 48 },
   suffix: { position: 'absolute', right: 14, top: 14, color: Colors.textSecondary, fontWeight: '600' },
   notesInput: { minHeight: 110, marginBottom: 14 },
