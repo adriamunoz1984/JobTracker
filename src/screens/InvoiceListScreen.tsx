@@ -12,7 +12,7 @@ import {
 import { useNavigation } from '@react-navigation/native';
 import { useAuth } from '../context/AuthContext';
 import { Invoice } from '../types';
-import { format } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 import { 
   collection, 
   query, 
@@ -108,11 +108,11 @@ export default function InvoiceListScreen() {
           <View style={styles.invoiceDetails}>
             <View style={styles.detailRow}>
               <Text style={styles.label}>Issued:</Text>
-              <Text style={styles.value}>{format(new Date(item.date), 'MMM d, yyyy')}</Text>
+              <Text style={styles.value}>{format(parseISO(item.date), 'MMM d, yyyy')}</Text>
             </View>
             <View style={styles.detailRow}>
               <Text style={styles.label}>Due:</Text>
-              <Text style={styles.value}>{format(new Date(item.dueDate), 'MMM d, yyyy')}</Text>
+              <Text style={styles.value}>{format(parseISO(item.dueDate), 'MMM d, yyyy')}</Text>
             </View>
             <View style={styles.detailRow}>
               <Text style={styles.label}>Jobs:</Text>
