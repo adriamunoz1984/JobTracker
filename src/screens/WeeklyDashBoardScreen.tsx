@@ -189,6 +189,12 @@ export default function WeeklyDashboardScreen() {
                   <div class="client-name">${job.companyName || job.clientName || 'Job'}</div>
                   <div class="address">${job.address}</div>
                   <div class="city">${job.city}</div>
+                  ${job.jobNumber || job.poNumber ? `
+                    <div class="job-refs">
+                      ${job.jobNumber ? `<span><strong>Job #:</strong> ${job.jobNumber}</span>` : ''}
+                      ${job.poNumber ? `<span><strong>PO #:</strong> ${job.poNumber}</span>` : ''}
+                    </div>
+                  ` : ''}
                   <div class="yards">${job.yards} yards</div>
                 </div>
                 
@@ -265,6 +271,14 @@ export default function WeeklyDashboardScreen() {
             .city {
               font-size: 16px;
               margin-bottom: 8px;
+              color: #333;
+            }
+            .job-refs {
+              display: flex;
+              flex-wrap: wrap;
+              gap: 14px;
+              margin: 6px 0 8px;
+              font-size: 14px;
               color: #333;
             }
             .yards {
