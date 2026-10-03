@@ -7,7 +7,7 @@ export type UserRole = 'owner' | 'employee';
 
 export type JobStatus = 'pending' | 'accepted' | 'in-progress' | 'completed';
 
-export type JobType = 'owner' | 'personal'; // owner = assigned by owner, personal = side hustle
+export type JobType = 'owner' | 'employee' | 'personal'; // owner = assigned by owner, employee = completed by employee, personal = side hustle
 
 export interface User {
   uid: string;
@@ -38,6 +38,8 @@ export interface Employee {
   commissionRate: number;
   invitedAt: string;
   acceptedAt?: string;
+  keepsCash?: boolean;
+  keepsCheck?: boolean;
 }
 
 export interface Job {
@@ -58,6 +60,17 @@ export interface Job {
   setupCharge?: number;
   date: string;
   notes?: string;
+
+  // Owner / employee attribution used for owner reporting
+  ownerId?: string;
+  assignedTo?: string;
+  employeeId?: string;
+  employeeName?: string;
+  employeeCommissionRate?: number;
+  isEmployeeJob?: boolean;
+  isOwnerJob?: boolean;
+  jobType?: JobType;
+  status?: JobStatus;
 
   // Optional customer reference numbers for billing/reporting
   jobNumber?: string | null;
