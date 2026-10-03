@@ -21,6 +21,7 @@ import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 import { Spacing, BorderRadius, Shadows } from '../theme/colors';
 import { useAppTheme, makeStyles, withOpacity } from '../theme';
+import { calculateOwnerPay, getJobPumperName } from '../utils/jobMath';
 
 const screenWidth = Dimensions.get('window').width;
 
@@ -34,6 +35,9 @@ interface ColumnConfig {
   amount: boolean;
   status: boolean;
   checkNumber: boolean;
+  jobNumber: boolean;
+  poNumber: boolean;
+  pumper: boolean;
   notes: boolean;
 }
 
@@ -65,6 +69,9 @@ export default function ReportsScreen() {
     amount: true,
     status: true,
     checkNumber: false,
+    jobNumber: true,
+    poNumber: true,
+    pumper: true,
     notes: false,
   });
 
@@ -120,6 +127,10 @@ export default function ReportsScreen() {
     setFilteredJobs(filtered);
   }, [jobs, dateRange, paymentStatus, customStartDate, customEndDate]);
 
+  const hasJobNumbers = filteredJobs.some(job => Boolean(job.jobNumber));
+  const hasPONumbers = filteredJobs.some(job => Boolean(job.poNumber));
+  const ownerPay = calculateOwnerPay(filteredJobs);
+
   const stats = {
     totalJobs: filteredJobs.length,
     totalYards: filteredJobs.reduce((sum, job) => sum + (job.yards || 0), 0),
@@ -136,19 +147,12 @@ export default function ReportsScreen() {
     chargeCount: filteredJobs.filter(j => j.paymentMethod === 'Charge').length,
     
     paidToMe: filteredJobs.filter(j => j.isPaidToMe).reduce((sum, job) => sum + (job.amount || 0), 0),
-    employeeJobs: filteredJobs.filter(j => (j as any).isEmployeeJob).reduce((sum, job) => sum + (job.amount || 0), 0),
   };
 
-  const calculateNetEarnings = () => {
-    let net = stats.totalCharged;
-    if (user?.role === 'owner') {
-      net -= stats.employeeJobs;
-    }
-    net -= stats.paidToMe;
-    return net;
-  };
-
-  const netEarnings = calculateNetEarnings();
+  const netEarnings =
+    user?.role === 'owner'
+      ? ownerPay.ownerAfterPumperPay
+      : stats.totalCharged - stats.paidToMe;
 
   const pieChartData = [
     {
@@ -193,6 +197,9 @@ export default function ReportsScreen() {
       if (columns.amount) tableHeaders += '<th>Amount</th>';
       if (columns.status) tableHeaders += '<th>Status</th>';
       if (columns.checkNumber) tableHeaders += '<th>Check #</th>';
+      if (columns.jobNumber && hasJobNumbers) tableHeaders += '<th>Job #</th>';
+      if (columns.poNumber && hasPONumbers) tableHeaders += '<th>PO #</th>';
+      if (columns.pumper && user?.role === 'owner') tableHeaders += '<th>Pumper</th>';
       if (columns.notes) tableHeaders += '<th>Notes</th>';
 
       // Build table rows based on selected columns
@@ -210,11 +217,27 @@ export default function ReportsScreen() {
         if (columns.amount) row += `<td>$${job.amount.toFixed(2)}</td>`;
         if (columns.status) row += `<td class="${job.isPaid ? 'paid' : 'unpaid'}">${job.isPaid ? '✓ Paid' : '✗ Unpaid'}</td>`;
         if (columns.checkNumber) row += `<td>${job.checkNumber || '—'}</td>`;
+        if (columns.jobNumber && hasJobNumbers) row += `<td>${job.jobNumber || ''}</td>`;
+        if (columns.poNumber && hasPONumbers) row += `<td>${job.poNumber || ''}</td>`;
+        if (columns.pumper && user?.role === 'owner') {
+          row += `<td>${getJobPumperName(job, user?.displayName || 'Owner')}</td>`;
+        }
         if (columns.notes) row += `<td>${job.notes || '—'}</td>`;
         row += '</tr>';
         return row;
       }).join('');
       
+      const pumperRows = ownerPay.byPumper.map(pumper => `
+        <tr>
+          <td>${pumper.name}</td>
+          <td>${pumper.jobs}</td>
+          <td>$${pumper.revenue.toFixed(2)}</td>
+          <td>$${pumper.grossPay.toFixed(2)}</td>
+          <td>$${pumper.directPayments.toFixed(2)}</td>
+          <td>$${pumper.amountOwed.toFixed(2)}</td>
+        </tr>
+      `).join('');
+
       const htmlContent = `
         <!DOCTYPE html>
         <html>
@@ -326,13 +349,23 @@ export default function ReportsScreen() {
           </div>
           
           ${user?.role === 'owner' ? `
-            <h2>💼 Your Net Earnings</h2>
+            <h2>💼 Owner Earnings</h2>
             <div class="breakdown">
               <p>Total Charged: $${stats.totalCharged.toFixed(2)}</p>
-              <p>- Employee Jobs: -$${stats.employeeJobs.toFixed(2)}</p>
-              <p>- Paid to Me: -$${stats.paidToMe.toFixed(2)}</p>
-              <div class="total">You're Owed: $${netEarnings.toFixed(2)}</div>
+              <p>Pumper Gross Pay: -$${ownerPay.grossPumperPay.toFixed(2)}</p>
+              <p>Direct Payments to Pumpers: $${ownerPay.directPaymentsToPumpers.toFixed(2)}</p>
+              <p>Still Owed to Pumpers: $${ownerPay.amountOwedToPumpers.toFixed(2)}</p>
+              <div class="total">Owner After Pumper Pay: $${netEarnings.toFixed(2)}</div>
             </div>
+            ${pumperRows ? `
+              <h2>Pumper Breakdown</h2>
+              <table>
+                <thead>
+                  <tr><th>Pumper</th><th>Jobs</th><th>Revenue</th><th>Gross Pay</th><th>Direct Payments</th><th>Still Owed</th></tr>
+                </thead>
+                <tbody>${pumperRows}</tbody>
+              </table>
+            ` : ''}
           ` : ''}
           
           <h2>📋 Job Details</h2>
@@ -599,6 +632,35 @@ export default function ReportsScreen() {
 
               <View style={styles.checkboxRow}>
                 <Checkbox
+                  status={columns.jobNumber ? 'checked' : 'unchecked'}
+                  onPress={() => toggleColumn('jobNumber')}
+                  color={Colors.primary}
+                />
+                <Text style={styles.checkboxLabel}>Job Number</Text>
+              </View>
+
+              <View style={styles.checkboxRow}>
+                <Checkbox
+                  status={columns.poNumber ? 'checked' : 'unchecked'}
+                  onPress={() => toggleColumn('poNumber')}
+                  color={Colors.primary}
+                />
+                <Text style={styles.checkboxLabel}>PO Number</Text>
+              </View>
+
+              {user?.role === 'owner' && (
+                <View style={styles.checkboxRow}>
+                  <Checkbox
+                    status={columns.pumper ? 'checked' : 'unchecked'}
+                    onPress={() => toggleColumn('pumper')}
+                    color={Colors.primary}
+                  />
+                  <Text style={styles.checkboxLabel}>Pumper</Text>
+                </View>
+              )}
+
+              <View style={styles.checkboxRow}>
+                <Checkbox
                   status={columns.notes ? 'checked' : 'unchecked'}
                   onPress={() => toggleColumn('notes')}
                   color={Colors.primary}
@@ -702,14 +764,26 @@ export default function ReportsScreen() {
               </View>
               
               <View style={styles.earningsRow}>
-                <Text style={styles.earningsLabel}>- Employee Jobs:</Text>
-                <Text style={styles.earningsValue}>-${stats.employeeJobs.toFixed(2)}</Text>
+                <Text style={styles.earningsLabel}>Pumper Gross Pay:</Text>
+                <Text style={styles.earningsValue}>-${ownerPay.grossPumperPay.toFixed(2)}</Text>
               </View>
               
               <View style={styles.earningsRow}>
-                <Text style={styles.earningsLabel}>- Paid to Me:</Text>
-                <Text style={styles.earningsValue}>-${stats.paidToMe.toFixed(2)}</Text>
+                <Text style={styles.earningsLabel}>Direct Payments to Pumpers:</Text>
+                <Text style={styles.earningsValue}>${ownerPay.directPaymentsToPumpers.toFixed(2)}</Text>
               </View>
+
+              <View style={styles.earningsRow}>
+                <Text style={styles.earningsLabel}>Still Owed to Pumpers:</Text>
+                <Text style={styles.earningsValue}>${ownerPay.amountOwedToPumpers.toFixed(2)}</Text>
+              </View>
+
+              {ownerPay.byPumper.map(pumper => (
+                <View key={pumper.key} style={styles.earningsRow}>
+                  <Text style={styles.earningsLabel}>{pumper.name} ({pumper.jobs} jobs):</Text>
+                  <Text style={styles.earningsValue}>${pumper.grossPay.toFixed(2)}</Text>
+                </View>
+              ))}
               
               <Divider style={styles.divider} />
               
@@ -717,7 +791,7 @@ export default function ReportsScreen() {
                 colors={gradients.success}
                 style={styles.totalBox}
               >
-                <Text style={styles.totalLabel}>You're Owed:</Text>
+                <Text style={styles.totalLabel}>Owner After Pumper Pay:</Text>
                 <Text style={styles.totalValue}>${netEarnings.toFixed(2)}</Text>
               </LinearGradient>
             </Card.Content>
