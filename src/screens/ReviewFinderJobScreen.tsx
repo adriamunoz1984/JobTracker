@@ -1,6 +1,7 @@
 import React from 'react';
 import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { format, parseISO } from 'date-fns';
 import { FinderJobDraft, FINDER_REQUEST_POLICY } from '../types/pumpFinder';
 import { useAppTheme, makeStyles } from '../theme';
 import ThemedHero from '../components/ThemedHero';
@@ -49,6 +50,7 @@ export default function ReviewFinderJobScreen({ navigation, route }: any) {
 
       <ReviewCard title="Job">
         <ReviewRow label="Customer" value={jobDraft.customerName} />
+        <ReviewRow label="Date" value={format(parseISO(jobDraft.jobDate), 'EEEE, MMMM d, yyyy')} />
         <ReviewRow label="Start" value={jobDraft.startTime} />
         <ReviewRow label="Address" value={jobDraft.address} />
         <ReviewRow label="Estimated yards" value={jobDraft.yards ? String(jobDraft.yards) : 'Not entered'} />
