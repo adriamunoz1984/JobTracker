@@ -52,12 +52,23 @@ export default function ReviewFinderJobScreen({ navigation, route }: any) {
         <ReviewRow label="Customer" value={jobDraft.customerName} />
         <ReviewRow label="Date" value={format(parseISO(jobDraft.jobDate), 'EEEE, MMMM d, yyyy')} />
         <ReviewRow label="Start" value={jobDraft.startTime} />
-        <ReviewRow label="Address" value={jobDraft.address} />
+        <ReviewRow label="Public area" value={jobDraft.generalArea} />
+        <ReviewRow label="Exact address" value={jobDraft.exactAddress} />
         <ReviewRow label="Estimated yards" value={jobDraft.yards ? String(jobDraft.yards) : 'Not entered'} />
         <ReviewRow label="Pump type" value={jobDraft.pumpType || 'Any / not specified'} />
         <ReviewRow label="Concrete PSI" value={jobDraft.concretePsi ? `${jobDraft.concretePsi} PSI` : 'Not specified'} />
         <ReviewRow label="Pricing mode" value={pricingLabels[jobDraft.pricingMode]} />
       </ReviewCard>
+
+      <View style={styles.privacyCard}>
+        <Ionicons name="lock-closed-outline" size={23} color={Colors.primary} />
+        <View style={styles.infoTextWrap}>
+          <Text style={styles.infoTitle}>Exact address stays private</Text>
+          <Text style={styles.infoText}>
+            Before award and confirmation, pumpers see only {jobDraft.generalArea}. The exact address is revealed only to the selected pumper after they confirm the awarded job.
+          </Text>
+        </View>
+      </View>
 
       <ReviewCard title="Jobsite requirements">
         <ReviewRow
@@ -166,6 +177,15 @@ const useStyles = makeStyles((Colors) => ({
   rowValue: { flex: 1, textAlign: 'right', fontSize: 13, color: Colors.text, lineHeight: 18 },
   notes: { fontSize: 14, color: Colors.text, lineHeight: 20 },
   infoCard: { flexDirection: 'row', backgroundColor: Colors.primaryBg, borderRadius: 12, padding: 14, marginBottom: 12 },
+  privacyCard: {
+    flexDirection: 'row',
+    backgroundColor: Colors.primaryBg,
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
   warningCard: { flexDirection: 'row', backgroundColor: Colors.warningBg, borderRadius: 12, padding: 14, marginBottom: 16 },
   infoTextWrap: { flex: 1, marginLeft: 10 },
   infoTitle: { fontSize: 14, fontWeight: '800', color: Colors.text },
