@@ -212,6 +212,21 @@ export default function InvoiceScreen() {
       .replace(/"/g, '&quot;')
       .replace(/'/g, '&#039;');
 
+    const jobReferenceRows = (invoice.jobReferences || []).map((ref: any) =>
+      '<tr>' +
+      '<td>' + esc(ref.date || '') + '</td>' +
+      '<td>' + esc(ref.address || '') + '</td>' +
+      '<td>' + esc(ref.jobNumber || '') + '</td>' +
+      '<td>' + esc(ref.poNumber || '') + '</td>' +
+      '</tr>'
+    ).join('');
+
+    const jobReferencesSection = jobReferenceRows
+      ? '<div class="refs-title">Job / PO References</div>' +
+        '<table class="refs"><thead><tr><th>Date</th><th>Job / Site</th><th>Job #</th><th>PO #</th></tr></thead>' +
+        '<tbody>' + jobReferenceRows + '</tbody></table>'
+      : '';
+
     const rows = invoice.lineItems.map((item: InvoiceLineItem) =>
       '<tr>' +
       '<td class="qty">' + esc(item.quantity) + '</td>' +
@@ -242,6 +257,11 @@ export default function InvoiceScreen() {
       '.service-strip td { border-right: 1px solid #111; border-bottom: 2px solid #111; padding: 7px 6px; text-align: center; }' +
       '.service-strip td:last-child { border-right: none; }' +
       '.service-strip strong { display: block; font-size: 10px; text-transform: uppercase; margin-bottom: 3px; }' +
+      '.refs-title { padding: 8px 8px 4px; font-weight: 800; font-size: 11px; text-transform: uppercase; }' +
+      '.refs { width: 100%; border-collapse: collapse; }' +
+      '.refs th, .refs td { border-right: 1px solid #111; border-bottom: 1px solid #111; padding: 6px; text-align: left; }' +
+      '.refs th:last-child, .refs td:last-child { border-right: none; }' +
+      '.refs th { background: #f3f3f3; font-size: 9px; text-transform: uppercase; }' +
       '.charges { width: 100%; border-collapse: collapse; }' +
       '.charges th, .charges td { border-right: 1px solid #111; border-bottom: 1px solid #111; padding: 7px 6px; }' +
       '.charges th:last-child, .charges td:last-child { border-right: none; }' +
@@ -277,6 +297,7 @@ export default function InvoiceScreen() {
       '<td><strong>Start</strong>' + esc(invoice.startTime || '') + '</td>' +
       '<td><strong>Finish</strong>' + esc(invoice.finishTime || '') + '</td>' +
       '</tr></table>' +
+      jobReferencesSection +
       '<table class="charges"><thead><tr><th class="qty">Qty.</th><th>Description</th><th class="money">Unit Price</th><th class="money">Amount</th></tr></thead>' +
       '<tbody>' + rows + '</tbody></table>' +
       '<div class="bottom">' +
@@ -306,6 +327,16 @@ export default function InvoiceScreen() {
       setIsGenerating(true);
       const invoiceNumber = await generateInvoiceNumber();
 
+      const jobReferences = jobs
+        .filter(job => job.jobNumber || job.poNumber)
+        .map(job => ({
+          jobId: job.id,
+          date: job.date,
+          address: [job.address, job.city].filter(Boolean).join(', '),
+          ...(job.jobNumber ? { jobNumber: job.jobNumber } : {}),
+          ...(job.poNumber ? { poNumber: job.poNumber } : {}),
+        }));
+
       const invoice: any = {
         invoiceNumber,
         date: issueDate,
@@ -325,6 +356,10 @@ export default function InvoiceScreen() {
         startTime,
         finishTime,
       };
+
+      if (jobReferences.length > 0) {
+        invoice.jobReferences = jobReferences;
+      }
 
       if (clientEmail.trim()) invoice.clientEmail = clientEmail.trim();
       if (clientAddress.trim()) invoice.clientAddress = clientAddress.trim();
@@ -430,6 +465,27 @@ export default function InvoiceScreen() {
                 multiline
                 style={styles.input}
               />
+
+              {jobs.some(job => job.jobNumber || job.poNumber) && (
+                <View style={styles.referencePreview}>
+                  <Text style={styles.referenceTitle}>Job / PO References</Text>
+                  {jobs
+                    .filter(job => job.jobNumber || job.poNumber)
+                    .map(job => (
+                      <View key={job.id} style={styles.referenceRow}>
+                        <Text style={styles.referenceJob}>
+                          {format(parseISO(job.date), 'MMM d')} · {job.address}
+                        </Text>
+                        <Text style={styles.referenceValue}>
+                          {[
+                            job.jobNumber ? 'Job #: ' + job.jobNumber : '',
+                            job.poNumber ? 'PO #: ' + job.poNumber : '',
+                          ].filter(Boolean).join('   ')}
+                        </Text>
+                      </View>
+                    ))}
+                </View>
+              )}
             </Card.Content>
           </Card>
 
@@ -660,6 +716,33 @@ const useStyles = makeStyles((Colors) => ({
     minWidth: '47%',
     flexGrow: 1,
     marginBottom: 8,
+  },
+  referencePreview: {
+    marginTop: 4,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: Colors.borderLight,
+    borderRadius: 8,
+    backgroundColor: Colors.surfaceDark,
+  },
+  referenceTitle: {
+    fontWeight: '700',
+    color: Colors.text,
+    marginBottom: 8,
+  },
+  referenceRow: {
+    paddingVertical: 6,
+    borderTopWidth: 1,
+    borderTopColor: Colors.borderLight,
+  },
+  referenceJob: {
+    color: Colors.textSecondary,
+    fontSize: 12,
+  },
+  referenceValue: {
+    color: Colors.text,
+    fontWeight: '600',
+    marginTop: 2,
   },
   editableLineItem: {
     borderTopWidth: 1,
