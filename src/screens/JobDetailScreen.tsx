@@ -32,7 +32,11 @@ export default function JobDetailScreen() {
   const handleSaveChanges = async () => {
     try {
       setIsSaving(true);
-      await updateJob(editedJob);
+      await updateJob({
+        ...editedJob,
+        jobNumber: editedJob.jobNumber?.trim() || null,
+        poNumber: editedJob.poNumber?.trim() || null,
+      });
       Alert.alert('Success', 'Job updated successfully');
       setIsEditMode(false);
     } catch (error) {
@@ -200,6 +204,24 @@ export default function JobDetailScreen() {
                   keyboardType="decimal-pad"
                   placeholderTextColor={Colors.textSecondary}
                 />
+
+                <Text style={styles.editLabel}>Job Number</Text>
+                <TextInput
+                  style={styles.textInput}
+                  value={editedJob.jobNumber || ''}
+                  onChangeText={(text) => setEditedJob({...editedJob, jobNumber: text})}
+                  placeholder="Optional job #"
+                  placeholderTextColor={Colors.textSecondary}
+                />
+
+                <Text style={styles.editLabel}>PO Number</Text>
+                <TextInput
+                  style={styles.textInput}
+                  value={editedJob.poNumber || ''}
+                  onChangeText={(text) => setEditedJob({...editedJob, poNumber: text})}
+                  placeholder="Optional PO #"
+                  placeholderTextColor={Colors.textSecondary}
+                />
               </>
             ) : (
               <>
@@ -221,6 +243,20 @@ export default function JobDetailScreen() {
                   <Text style={styles.label}>Yards:</Text>
                   <Text style={styles.value}>{currentJob.yards}</Text>
                 </View>
+
+                {currentJob.jobNumber && (
+                  <View style={styles.row}>
+                    <Text style={styles.label}>Job #:</Text>
+                    <Text style={styles.value}>{currentJob.jobNumber}</Text>
+                  </View>
+                )}
+
+                {currentJob.poNumber && (
+                  <View style={styles.row}>
+                    <Text style={styles.label}>PO #:</Text>
+                    <Text style={styles.value}>{currentJob.poNumber}</Text>
+                  </View>
+                )}
 
                 {currentJob.isFlatRate && (
                   <View style={styles.row}>
