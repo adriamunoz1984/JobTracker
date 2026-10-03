@@ -21,7 +21,7 @@ import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 import { Spacing, BorderRadius, Shadows } from '../theme/colors';
 import { useAppTheme, makeStyles, withOpacity } from '../theme';
-import { calculateOwnerPay, getJobPumperName } from '../utils/jobMath';
+import { calculateOwnerPay, calculateTaxEstimate, getJobPumperName } from '../utils/jobMath';
 
 const screenWidth = Dimensions.get('window').width;
 
@@ -130,6 +130,13 @@ export default function ReportsScreen() {
   const hasJobNumbers = filteredJobs.some(job => Boolean(job.jobNumber));
   const hasPONumbers = filteredJobs.some(job => Boolean(job.poNumber));
   const ownerPay = calculateOwnerPay(filteredJobs);
+  const taxEstimate = calculateTaxEstimate(
+    filteredJobs,
+    user?.role === 'owner' ? 'owner' : 'employee',
+    user?.estimatedTaxRate,
+    user?.includeCashInTaxEstimate !== false,
+    user?.commissionRate || 50
+  );
 
   const stats = {
     totalJobs: filteredJobs.length,
@@ -368,6 +375,18 @@ export default function ReportsScreen() {
             ` : ''}
           ` : ''}
           
+          ${(user?.estimatedTaxRate || 0) > 0 ? `
+            <h2>Tax Estimate</h2>
+            <div class="breakdown">
+              <p>Taxable Share: $${taxEstimate.taxableBase.toFixed(2)}</p>
+              <p>Estimated Tax Reserve (${user?.estimatedTaxRate}%): $${taxEstimate.estimatedTax.toFixed(2)}</p>
+              <p>After Tax Reserve: $${taxEstimate.afterTax.toFixed(2)}</p>
+              ${taxEstimate.excludedCashBase > 0 ? `
+                <p>Cash Excluded From Estimate: $${taxEstimate.excludedCashBase.toFixed(2)}</p>
+              ` : ''}
+            </div>
+          ` : ''}
+
           <h2>📋 Job Details</h2>
           <table>
             <thead>
@@ -729,6 +748,33 @@ export default function ReportsScreen() {
             </View>
           </Card.Content>
         </Card>
+
+        {(user?.estimatedTaxRate || 0) > 0 && (
+          <Card style={styles.card}>
+            <Card.Content>
+              <Text variant="titleMedium" style={styles.sectionTitle}>Tax Estimate</Text>
+              <Divider style={styles.divider} />
+              <View style={styles.breakdownRow}>
+                <Text style={styles.breakdownLabel}>Taxable Share:</Text>
+                <Text style={styles.breakdownValue}>${taxEstimate.taxableBase.toFixed(2)}</Text>
+              </View>
+              <View style={styles.breakdownRow}>
+                <Text style={styles.breakdownLabel}>Estimated Tax Reserve ({user?.estimatedTaxRate}%):</Text>
+                <Text style={styles.breakdownValue}>-${taxEstimate.estimatedTax.toFixed(2)}</Text>
+              </View>
+              <View style={styles.breakdownRow}>
+                <Text style={styles.breakdownLabel}>After Tax Reserve:</Text>
+                <Text style={styles.breakdownValue}>${taxEstimate.afterTax.toFixed(2)}</Text>
+              </View>
+              {taxEstimate.excludedCashBase > 0 && (
+                <View style={styles.breakdownRow}>
+                  <Text style={styles.breakdownLabel}>Cash Excluded:</Text>
+                  <Text style={styles.breakdownValue}>${taxEstimate.excludedCashBase.toFixed(2)}</Text>
+                </View>
+              )}
+            </Card.Content>
+          </Card>
+        )}
 
         {/* Pie Chart */}
         {showGraphs && pieChartData.length > 0 && (
