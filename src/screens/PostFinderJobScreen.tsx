@@ -33,6 +33,8 @@ export default function PostFinderJobScreen({ navigation }: any) {
   const { colors: Colors } = useAppTheme();
   const styles = useStyles();
   const [customerName, setCustomerName] = useState('');
+  const [jobDate, setJobDate] = useState<Date | null>(null);
+  const [showDatePicker, setShowDatePicker] = useState(false);
   const [startTime, setStartTime] = useState<Date | null>(null);
   const [showTimePicker, setShowTimePicker] = useState(false);
   const [address, setAddress] = useState('');
@@ -45,6 +47,15 @@ export default function PostFinderJobScreen({ navigation }: any) {
   const [ppeRequired, setPpeRequired] = useState(false);
   const [requiredPpe, setRequiredPpe] = useState<FinderPpeItem[]>([]);
   const [notes, setNotes] = useState('');
+
+  const handleDateChange = (_event: any, selectedDate?: Date) => {
+    if (Platform.OS !== 'ios') {
+      setShowDatePicker(false);
+    }
+    if (selectedDate) {
+      setJobDate(selectedDate);
+    }
+  };
 
   const handleTimeChange = (_event: any, selectedTime?: Date) => {
     if (Platform.OS !== 'ios') {
@@ -66,8 +77,8 @@ export default function PostFinderJobScreen({ navigation }: any) {
     const psiValue = concretePsi.trim() ? Number(concretePsi) : undefined;
     const hoseValue = extraHoseRequired ? Number(totalHoseFeet) : undefined;
 
-    if (!customerName.trim() || !startTime || !address.trim() || !yards.trim()) {
-      Alert.alert('Missing job details', 'Customer, start time, address, and estimated yards are required.');
+    if (!customerName.trim() || !jobDate || !startTime || !address.trim() || !yards.trim()) {
+      Alert.alert('Missing job details', 'Customer, job date, start time, address, and estimated yards are required.');
       return;
     }
 
@@ -88,6 +99,8 @@ export default function PostFinderJobScreen({ navigation }: any) {
 
     const jobDraft: FinderJobDraft = {
       customerName: customerName.trim(),
+      // Store a local calendar date only so it cannot shift a day because of timezone conversion.
+      jobDate: format(jobDate, 'yyyy-MM-dd'),
       startTime: format(startTime, 'h:mm a'),
       address: address.trim(),
       yards: yardsValue,
@@ -115,6 +128,40 @@ export default function PostFinderJobScreen({ navigation }: any) {
 
         <SectionTitle title="Job details" />
         <Field label="Customer name" value={customerName} onChangeText={setCustomerName} placeholder="Customer or company name" />
+
+        <View style={styles.field}>
+          <Text style={styles.label}>Job date</Text>
+          <TouchableOpacity
+            style={styles.timePickerButton}
+            onPress={() => setShowDatePicker(true)}
+            activeOpacity={0.8}
+          >
+            <Ionicons name="calendar-outline" size={20} color={Colors.primary} />
+            <Text style={[styles.timePickerText, !jobDate && styles.timePickerPlaceholder]}>
+              {jobDate ? format(jobDate, 'EEEE, MMMM d, yyyy') : 'Choose job date'}
+            </Text>
+            <Ionicons name="chevron-down" size={18} color={Colors.textSecondary} />
+          </TouchableOpacity>
+
+          {showDatePicker && (
+            <View style={styles.timePickerWrap}>
+              <DateTimePicker
+                value={jobDate || new Date()}
+                mode="date"
+                display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                onChange={handleDateChange}
+              />
+              {Platform.OS === 'ios' && (
+                <TouchableOpacity
+                  style={styles.timePickerDone}
+                  onPress={() => setShowDatePicker(false)}
+                >
+                  <Text style={styles.timePickerDoneText}>Done</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          )}
+        </View>
 
         <View style={styles.field}>
           <Text style={styles.label}>Start time</Text>
