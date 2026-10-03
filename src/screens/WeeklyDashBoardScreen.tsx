@@ -163,6 +163,8 @@ export default function WeeklyDashboardScreen() {
       timeLabel: `${format(weekStart, 'MMM d')} - ${format(weekEnd, 'MMM d')}`,
       isOwner: user?.role === 'owner',
       commissionRate: user?.commissionRate || 50,
+      estimatedTaxRate: user?.estimatedTaxRate || 0,
+      includeCashInTaxEstimate: user?.includeCashInTaxEstimate !== false,
     });
   };
 
