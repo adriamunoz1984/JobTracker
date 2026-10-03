@@ -222,6 +222,7 @@ export const JobsProvider: React.FC<{ children: React.ReactNode }> = ({ children
                   id: doc.id,
                   ...jobData,
                   isOwnerJob: true,
+                  isEmployeeJob: false,
                 } as Job;
               });
               
@@ -252,6 +253,16 @@ export const JobsProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
             // Set up listeners for each employee's completed jobs
             activeEmployees.forEach((employee: any) => {
+              const employeeName =
+                employee.name ||
+                employee.displayName ||
+                employee.email ||
+                'Employee';
+              const employeeCommissionRate =
+                Number.isFinite(Number(employee.commissionRate))
+                  ? Number(employee.commissionRate)
+                  : 50;
+
               const employeeJobsRef = collection(db, 'users', employee.uid, 'ownerJobs');
               const employeeJobsQuery = query(
                 employeeJobsRef,
@@ -269,12 +280,15 @@ export const JobsProvider: React.FC<{ children: React.ReactNode }> = ({ children
                       id: doc.id,
                       ...data,
                       isEmployeeJob: true,
-                      employeeName: employee.name,
-                      employeeId: employee.uid,
+                      isOwnerJob: false,
+                      employeeName: data.employeeName || employeeName,
+                      employeeId: data.employeeId || employee.uid,
+                      employeeCommissionRate:
+                        data.employeeCommissionRate ?? employeeCommissionRate,
                     } as Job;
                   });
                   
-                  console.log(`👷 Employee ${employee.name} jobs: ${employeeJobs.length}`);
+                  console.log(`👷 Employee ${employeeName} jobs: ${employeeJobs.length}`);
                   updateAllJobs(employeeJobs, employee.uid);
                 },
                 (error) => {
