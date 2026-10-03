@@ -15,6 +15,9 @@ export default function TaxSettingsScreen() {
   const navigation = useNavigation<any>();
   const { user, updateProfile } = useAuth();
 
+  const [taxEnabled, setTaxEnabled] = useState(
+    user?.taxEstimateEnabled === true
+  );
   const [estimatedTaxRate, setEstimatedTaxRate] = useState(
     user?.estimatedTaxRate?.toString() || ''
   );
@@ -25,20 +28,22 @@ export default function TaxSettingsScreen() {
 
   useEffect(() => {
     if (!user) return;
+    setTaxEnabled(user.taxEstimateEnabled === true);
     setEstimatedTaxRate(user.estimatedTaxRate?.toString() || '');
     setIncludeCash(user.includeCashInTaxEstimate !== false);
   }, [user]);
 
   const handleSave = async () => {
     const rate = estimatedTaxRate.trim() === '' ? 0 : Number(estimatedTaxRate);
-    if (!Number.isFinite(rate) || rate < 0 || rate > 100) {
-      Alert.alert('Check tax rate', 'Estimated tax rate must be between 0 and 100.');
+    if (taxEnabled && (!Number.isFinite(rate) || rate <= 0 || rate > 100)) {
+      Alert.alert('Check tax rate', 'When tax estimates are on, enter a rate greater than 0 and no more than 100.');
       return;
     }
 
     try {
       setSaving(true);
       await updateProfile({
+        taxEstimateEnabled: taxEnabled,
         estimatedTaxRate: rate,
         includeCashInTaxEstimate: includeCash,
       });
@@ -61,9 +66,24 @@ export default function TaxSettingsScreen() {
       contentContainerStyle={styles.content}
       keyboardShouldPersistTaps="handled"
     >
-      <Text style={styles.sectionTitle}>Estimated tax reserve</Text>
+      <Text style={styles.sectionTitle}>Tax estimates</Text>
       <View style={styles.card}>
-        <View style={styles.rateRow}>
+        <View style={styles.switchRow}>
+          <View style={styles.switchText}>
+            <Text style={styles.switchLabel}>Enable tax estimates</Text>
+            <Text style={styles.helper}>
+              Turn this on only if you want the app to calculate and display estimated tax reserves.
+            </Text>
+          </View>
+          <Switch value={taxEnabled} onValueChange={setTaxEnabled} color={Colors.primary} />
+        </View>
+      </View>
+
+      {taxEnabled && (
+        <>
+          <Text style={styles.sectionTitle}>Estimated tax reserve</Text>
+          <View style={styles.card}>
+            <View style={styles.rateRow}>
           <TextInput
             label="Estimated tax rate"
             value={estimatedTaxRate}
@@ -77,11 +97,11 @@ export default function TaxSettingsScreen() {
           />
           <Text style={styles.percent}>%</Text>
         </View>
-        <Text style={styles.helper}>{roleExplanation}</Text>
-      </View>
+            <Text style={styles.helper}>{roleExplanation}</Text>
+          </View>
 
-      <Text style={styles.sectionTitle}>Cash jobs</Text>
-      <View style={styles.card}>
+          <Text style={styles.sectionTitle}>Cash jobs</Text>
+          <View style={styles.card}>
         <View style={styles.switchRow}>
           <View style={styles.switchText}>
             <Text style={styles.switchLabel}>Include cash jobs in my tax estimate</Text>
@@ -91,12 +111,14 @@ export default function TaxSettingsScreen() {
           </View>
           <Switch value={includeCash} onValueChange={setIncludeCash} color={Colors.primary} />
         </View>
-      </View>
+          </View>
+        </>
+      )}
 
       <View style={styles.notice}>
         <Text style={styles.noticeTitle}>Estimate only</Text>
         <Text style={styles.noticeText}>
-          Pump Finder is calculating a reserve using the percentage you choose. It is not calculating your actual tax return, deductions, payroll withholding, or tax liability.
+          When enabled, Pump Finder calculates a reserve using the percentage you choose. It is not calculating your actual tax return, deductions, payroll withholding, or tax liability.
         </Text>
       </View>
 
