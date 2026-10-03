@@ -143,6 +143,7 @@ export default function MonthlySummaryScreen() {
       timeLabel: format(adjustedDate, 'MMMM yyyy'),
       isOwner: user?.role === 'owner',
       commissionRate: user?.commissionRate || 50,
+      taxEstimateEnabled: user?.taxEstimateEnabled === true,
       estimatedTaxRate: user?.estimatedTaxRate || 0,
       includeCashInTaxEstimate: user?.includeCashInTaxEstimate !== false,
     });
@@ -288,7 +289,7 @@ export default function MonthlySummaryScreen() {
               <p><strong>Still Owed to Pumpers:</strong> $${ownerPay.amountOwedToPumpers.toFixed(2)}</p>
             `}
             <div class="total">${isOwner ? 'Owner After Pumper Pay' : 'Final Take Home'}: $${totals.finalTakeHome.toFixed(2)}</div>
-            ${(user?.estimatedTaxRate || 0) > 0 ? `
+            ${user?.taxEstimateEnabled === true && (user?.estimatedTaxRate || 0) > 0 ? `
               <p><strong>Taxable Share:</strong> $${taxEstimate.taxableBase.toFixed(2)}</p>
               <p><strong>Estimated Tax Reserve (${user?.estimatedTaxRate}%):</strong> $${taxEstimate.estimatedTax.toFixed(2)}</p>
               <p><strong>After Tax Reserve:</strong> $${taxEstimate.afterTax.toFixed(2)}</p>
@@ -325,7 +326,7 @@ export default function MonthlySummaryScreen() {
             </table>
           ` : ''}
 
-          ${(user?.estimatedTaxRate || 0) > 0 && taxRows ? `
+          ${user?.taxEstimateEnabled === true && (user?.estimatedTaxRate || 0) > 0 && taxRows ? `
             <h2>Tax by Job</h2>
             <table>
               <thead>
@@ -541,7 +542,7 @@ export default function MonthlySummaryScreen() {
           </Card>
         )}
 
-        {(user?.estimatedTaxRate || 0) > 0 && (
+        {user?.taxEstimateEnabled === true && (user?.estimatedTaxRate || 0) > 0 && (
           <Card style={styles.card}>
             <Card.Content>
               <Text variant="titleMedium" style={styles.sectionTitle}>Tax Estimate</Text>
