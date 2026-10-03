@@ -11,7 +11,8 @@ import {
   updateDoc,
   doc,
   deleteDoc,
-  setDoc
+  setDoc,
+  getDocs
 } from 'firebase/firestore';
 
 const db = getFirestore();
@@ -98,6 +99,19 @@ export default function EmployeeInviteChecker() {
       const remaining = pendingInvites.filter(inv => inv.id !== invite.id);
       setPendingInvites(remaining);
 
+      // Preserve any commission/payment settings the owner already set on the invite record.
+      const ownerEmployeesRef = collection(db, 'users', invite.ownerId, 'employees');
+      const existingEmployeeQuery = query(
+        ownerEmployeesRef,
+        where('email', '==', user!.email!.toLowerCase())
+      );
+      const existingEmployeeSnapshot = await getDocs(existingEmployeeQuery);
+      const existingEmployeeData = existingEmployeeSnapshot.docs[0]?.data() as any | undefined;
+
+      const commissionRate = existingEmployeeData?.commissionRate ?? user?.commissionRate ?? 50;
+      const keepsCash = existingEmployeeData?.keepsCash ?? false;
+      const keepsCheck = existingEmployeeData?.keepsCheck ?? false;
+
       // Cast to any to allow setting custom/profile-specific fields not present on User type
       await updateProfile({
         role: 'employee',
@@ -105,6 +119,9 @@ export default function EmployeeInviteChecker() {
         ownerId: invite.ownerId,
         ownerName: invite.ownerName,
         ownerEmail: invite.ownerEmail,
+        commissionRate,
+        keepsCash,
+        keepsCheck,
       } as any);
 
       // Update invite status
@@ -117,10 +134,21 @@ export default function EmployeeInviteChecker() {
       await setDoc(doc(db, 'users', invite.ownerId, 'employees', user!.uid), {
         uid: user!.uid,
         email: user!.email,
+        name: existingEmployeeData?.name || user!.displayName || 'Employee',
         displayName: user!.displayName || 'Employee',
         status: 'active',
+        commissionRate,
+        keepsCash,
+        keepsCheck,
         acceptedAt: new Date().toISOString()
-      });
+      }, { merge: true });
+
+      // Remove any temporary pre-acceptance employee record for the same email.
+      await Promise.all(
+        existingEmployeeSnapshot.docs
+          .filter(snapshot => snapshot.id !== user!.uid)
+          .map(snapshot => deleteDoc(snapshot.ref))
+      );
 
       console.log(`✅ Successfully accepted invitation from ${invite.ownerName}`);
 
