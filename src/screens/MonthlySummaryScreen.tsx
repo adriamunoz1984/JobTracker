@@ -23,7 +23,7 @@ import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 import { Spacing, BorderRadius, Shadows } from '../theme/colors';
 import { useAppTheme, makeStyles, withOpacity } from '../theme';
-import { calculateOwnerPay, calculateTaxEstimate, getJobPumperName } from '../utils/jobMath';
+import { calculateOwnerPay, calculateTaxEstimate, getEstimatedTaxForJob, getJobPumperName, getTaxableShareForJob } from '../utils/jobMath';
 
 const screenWidth = Dimensions.get('window').width;
 
@@ -171,6 +171,35 @@ export default function MonthlySummaryScreen() {
         </tr>
       `).join('');
 
+      const taxRows = monthJobs.map(job => {
+        const cashExcluded =
+          job.paymentMethod === 'Cash' &&
+          user?.includeCashInTaxEstimate === false;
+        const taxableShare = getTaxableShareForJob(
+          job,
+          isOwner ? 'owner' : 'employee',
+          user?.includeCashInTaxEstimate !== false,
+          commissionRate
+        );
+        const jobTax = getEstimatedTaxForJob(
+          job,
+          isOwner ? 'owner' : 'employee',
+          user?.estimatedTaxRate,
+          user?.includeCashInTaxEstimate !== false,
+          commissionRate
+        );
+        return `
+          <tr>
+            <td>${format(parseISO(job.date), 'MMM d')}</td>
+            <td>${job.companyName || job.clientName || 'Job'}</td>
+            ${isOwner ? `<td>${getJobPumperName(job, user?.displayName || 'Owner')}</td>` : ''}
+            <td>$${Number(job.amount || 0).toFixed(2)}</td>
+            <td>${cashExcluded ? 'Cash excluded' : '$' + taxableShare.toFixed(2)}</td>
+            <td>${cashExcluded ? '—' : '$' + jobTax.toFixed(2)}</td>
+          </tr>
+        `;
+      }).join('');
+
       const pumperRows = ownerPay.byPumper.map(pumper => `
         <tr>
           <td>${pumper.name}</td>
@@ -293,6 +322,16 @@ export default function MonthlySummaryScreen() {
                 </tr>
               </thead>
               <tbody>${pumperRows}</tbody>
+            </table>
+          ` : ''}
+
+          ${(user?.estimatedTaxRate || 0) > 0 && taxRows ? `
+            <h2>Tax by Job</h2>
+            <table>
+              <thead>
+                <tr><th>Date</th><th>Client</th>${isOwner ? '<th>Pumper</th>' : ''}<th>Job Total</th><th>Taxable Share</th><th>Est. Tax</th></tr>
+              </thead>
+              <tbody>${taxRows}</tbody>
             </table>
           ` : ''}
 
