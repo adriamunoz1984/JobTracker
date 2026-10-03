@@ -238,7 +238,46 @@ export const JobsProvider: React.FC<{ children: React.ReactNode }> = ({ children
           unsubscribes.push(unsubscribeOwnerJobs);
         }
 
-        // 2. Load employee jobs if user is owner
+        // 2. Employees also load their completed employer-assigned jobs so
+        // weekly/monthly/yearly reports and tax estimates include every job.
+        if (user.role === 'employee') {
+          const assignedJobsRef = collection(db, 'users', user.uid, 'ownerJobs');
+          const assignedJobsQuery = query(
+            assignedJobsRef,
+            where('status', '==', 'completed')
+          );
+
+          const unsubscribeAssignedJobs = onSnapshot(
+            assignedJobsQuery,
+            (snapshot) => {
+              if (!isMounted) return;
+
+              const assignedJobs = snapshot.docs.map(snapshotDoc => {
+                const data = snapshotDoc.data();
+                return {
+                  id: snapshotDoc.id,
+                  ...data,
+                  isEmployeeJob: true,
+                  isOwnerJob: false,
+                  employeeId: data.employeeId || user.uid,
+                  employeeName: data.employeeName || user.displayName || 'Employee',
+                  employeeCommissionRate:
+                    data.employeeCommissionRate ?? user.commissionRate ?? 50,
+                } as Job;
+              });
+
+              updateAllJobs(assignedJobs, 'assigned-completed');
+            },
+            (error) => {
+              if (!isMounted) return;
+              console.error('❌ Assigned jobs listener error:', error);
+            }
+          );
+
+          unsubscribes.push(unsubscribeAssignedJobs);
+        }
+
+        // 3. Load employee jobs if user is owner
         if (user.role === 'owner') {
           try {
             // Get list of employees
