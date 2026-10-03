@@ -23,7 +23,7 @@ import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 import { Spacing, BorderRadius, Shadows } from '../theme/colors';
 import { useAppTheme, makeStyles, withOpacity } from '../theme';
-import { calculateOwnerPay, getJobPumperName } from '../utils/jobMath';
+import { calculateOwnerPay, calculateTaxEstimate, getJobPumperName } from '../utils/jobMath';
 
 const screenWidth = Dimensions.get('window').width;
 
@@ -75,6 +75,13 @@ export default function WeeklyDashboardScreen() {
   const isOwner = user?.role === 'owner';
   const commissionRate = user?.commissionRate || 50;
   const ownerPay = calculateOwnerPay(weekJobs);
+  const taxEstimate = calculateTaxEstimate(
+    weekJobs,
+    isOwner ? 'owner' : 'employee',
+    user?.estimatedTaxRate,
+    user?.includeCashInTaxEstimate !== false,
+    commissionRate
+  );
 
   if (!isOwner) {
     totals.commission = (totals.income * commissionRate) / 100;
@@ -404,6 +411,22 @@ export default function WeeklyDashboardScreen() {
                 <div class="footer-value">$${ownerPay.ownerAfterPumperPay.toFixed(0)}</div>
               </div>
             `}
+            ${(user?.estimatedTaxRate || 0) > 0 ? `
+              <div class="footer-row">
+                <div class="footer-label">Estimated Tax Reserve (${user?.estimatedTaxRate}%)</div>
+                <div class="footer-value">-$${taxEstimate.estimatedTax.toFixed(0)}</div>
+              </div>
+              <div class="footer-row">
+                <div class="footer-label">Taxable Share After Reserve</div>
+                <div class="footer-value">$${taxEstimate.afterTax.toFixed(0)}</div>
+              </div>
+              ${taxEstimate.excludedCashBase > 0 ? `
+                <div class="footer-row">
+                  <div class="footer-label">Cash Excluded From Estimate</div>
+                  <div class="footer-value">$${taxEstimate.excludedCashBase.toFixed(0)}</div>
+                </div>
+              ` : ''}
+            ` : ''}
           </div>
           
           <div class="timestamp">
@@ -622,6 +645,33 @@ export default function WeeklyDashboardScreen() {
                 <Text style={styles.totalLabel}>Owner After Pumper Pay:</Text>
                 <Text style={styles.totalValue}>${totals.finalTakeHome.toFixed(2)}</Text>
               </LinearGradient>
+            </Card.Content>
+          </Card>
+        )}
+
+        {(user?.estimatedTaxRate || 0) > 0 && (
+          <Card style={styles.card}>
+            <Card.Content>
+              <Text variant="titleMedium" style={styles.sectionTitle}>Tax Estimate</Text>
+              <Divider style={styles.divider} />
+              <View style={styles.earningsRow}>
+                <Text style={styles.earningsLabel}>Taxable Share:</Text>
+                <Text style={styles.earningsValue}>${taxEstimate.taxableBase.toFixed(2)}</Text>
+              </View>
+              <View style={styles.earningsRow}>
+                <Text style={styles.earningsLabel}>Estimated Tax Reserve ({user?.estimatedTaxRate}%):</Text>
+                <Text style={styles.earningsValue}>-${taxEstimate.estimatedTax.toFixed(2)}</Text>
+              </View>
+              <View style={styles.earningsRow}>
+                <Text style={styles.earningsLabel}>After Tax Reserve:</Text>
+                <Text style={styles.earningsValue}>${taxEstimate.afterTax.toFixed(2)}</Text>
+              </View>
+              {taxEstimate.excludedCashBase > 0 && (
+                <View style={styles.earningsRow}>
+                  <Text style={styles.earningsLabel}>Cash Excluded:</Text>
+                  <Text style={styles.earningsValue}>${taxEstimate.excludedCashBase.toFixed(2)}</Text>
+                </View>
+              )}
             </Card.Content>
           </Card>
         )}
