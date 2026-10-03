@@ -28,6 +28,7 @@ import ProfileScreen from './src/screens/ProfileScreen';
 import SettingsScreen from './src/screens/SettingsScreen';
 import AppearanceSettingsScreen from './src/screens/AppearanceSettingsScreen';
 import PaymentSettingsScreen from './src/screens/PaymentSettingsScreen';
+import TaxSettingsScreen from './src/screens/TaxSettingsScreen';
 import { Provider as PaperProvider, ActivityIndicator, Text, FAB } from 'react-native-paper';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { StatusBar }              from 'expo-status-bar';
@@ -186,6 +187,11 @@ function AppNavigatorWithFAB({ user }: { user: any }) {
               name="PaymentSettings"
               component={PaymentSettingsScreen}
               options={{ headerShown: true, title: 'Payment settings' }}
+            />
+            <Stack.Screen
+              name="TaxSettings"
+              component={TaxSettingsScreen}
+              options={{ headerShown: true, title: 'Tax estimate' }}
             />
             <Stack.Screen 
               name="Dashboard" 
