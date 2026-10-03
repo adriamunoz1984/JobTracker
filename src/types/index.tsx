@@ -171,6 +171,18 @@ export interface Invoice {
   createdAt: string;
   updatedAt?: string;
 
+  // Snapshot of the invoice presentation so reopening a stored invoice can
+  // reproduce the same document that was generated/sent.
+  issuerName?: string;
+  issuerEmail?: string;
+  jobAddress?: string;
+  rmc?: string;
+  dueTime?: string;
+  arriveTime?: string;
+  startTime?: string;
+  finishTime?: string;
+  renderedHtml?: string;
+
   // Snapshot of per-job references included on this invoice
   jobReferences?: Array<{
     jobId: string;
