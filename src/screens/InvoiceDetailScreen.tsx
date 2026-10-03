@@ -25,6 +25,8 @@ import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 import { Spacing, BorderRadius, Shadows } from '../theme/colors';
 import { useAppTheme, makeStyles } from '../theme';
+import InvoicePaperPreview from '../components/InvoicePaperPreview';
+import { buildConcretePumpInvoiceHtml } from '../utils/invoiceTemplate';
 
 const db = getFirestore();
 
@@ -61,9 +63,29 @@ export default function InvoiceDetailScreen() {
 
   const calculateTotals = (items: InvoiceLineItem[]) => {
     const subtotal = items.reduce((sum, item) => sum + item.amount, 0);
+    const tax = Number(initialInvoice.tax || 0);
     return {
       subtotal,
-      total: subtotal,
+      total: subtotal + tax,
+    };
+  };
+
+  const buildCurrentInvoice = (): Invoice => {
+    const { subtotal, total } = calculateTotals(lineItems);
+    return {
+      ...initialInvoice,
+      clientName: clientName.trim(),
+      clientEmail: clientEmail.trim() || undefined,
+      clientPhone: clientPhone.trim() || undefined,
+      clientAddress: clientAddress.trim() || undefined,
+      dueDate,
+      terms: terms.trim() || undefined,
+      notes: notes.trim() || undefined,
+      lineItems,
+      subtotal,
+      total,
+      issuerName: initialInvoice.issuerName || user?.displayName || 'Concrete Pumping',
+      issuerEmail: initialInvoice.issuerEmail || user?.email || '',
     };
   };
 
@@ -71,20 +93,26 @@ export default function InvoiceDetailScreen() {
     try {
       setIsUpdating(true);
       
-      const { subtotal, total } = calculateTotals(lineItems);
+      const editedInvoice = buildCurrentInvoice();
+      const renderedHtml = buildConcretePumpInvoiceHtml(
+        editedInvoice,
+        editedInvoice.issuerName,
+        editedInvoice.issuerEmail
+      );
       
       const invoiceRef = doc(db, 'invoices', initialInvoice.id);
       await updateDoc(invoiceRef, {
-        clientName: clientName.trim(),
-        clientEmail: clientEmail.trim(),
-        clientPhone: clientPhone.trim(),
-        clientAddress: clientAddress.trim(),
-        dueDate,
-        terms: terms.trim(),
-        notes: notes.trim(),
-        lineItems,
-        subtotal,
-        total,
+        clientName: editedInvoice.clientName,
+        clientEmail: editedInvoice.clientEmail || '',
+        clientPhone: editedInvoice.clientPhone || '',
+        clientAddress: editedInvoice.clientAddress || '',
+        dueDate: editedInvoice.dueDate,
+        terms: editedInvoice.terms || '',
+        notes: editedInvoice.notes || '',
+        lineItems: editedInvoice.lineItems,
+        subtotal: editedInvoice.subtotal,
+        total: editedInvoice.total,
+        renderedHtml,
         updatedAt: new Date().toISOString(),
       });
       
@@ -183,166 +211,15 @@ export default function InvoiceDetailScreen() {
   };
 
   const generatePDF = async () => {
-    const htmlContent = `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <meta charset="UTF-8">
-        <style>
-          body { 
-            font-family: Arial, sans-serif; 
-            padding: 40px;
-            line-height: 1.6;
-          }
-          .header {
-            display: flex;
-            justify-content: space-between;
-            margin-bottom: 40px;
-            padding-bottom: 20px;
-            border-bottom: 3px solid #B8461A;
-          }
-          .company-info {
-            flex: 1;
-          }
-          .invoice-info {
-            text-align: right;
-          }
-          .invoice-number {
-            font-size: 24px;
-            font-weight: bold;
-            color: #B8461A;
-            margin-bottom: 10px;
-          }
-          .bill-to {
-            margin: 30px 0;
-            padding: 20px;
-            background-color: #f5f5f5;
-            border-radius: 8px;
-          }
-          .bill-to h3 {
-            margin: 0 0 10px 0;
-            color: #333;
-          }
-          table {
-            width: 100%;
-            border-collapse: collapse;
-            margin: 30px 0;
-          }
-          th {
-            background-color: #B8461A;
-            color: white;
-            padding: 12px;
-            text-align: left;
-          }
-          td {
-            padding: 12px;
-            border-bottom: 1px solid #ddd;
-          }
-          .totals {
-            margin-top: 30px;
-            text-align: right;
-          }
-          .totals table {
-            margin-left: auto;
-            width: 300px;
-          }
-          .totals td {
-            border: none;
-            padding: 8px;
-          }
-          .total-row {
-            font-size: 18px;
-            font-weight: bold;
-            color: #B8461A;
-          }
-          .status-badge {
-            display: inline-block;
-            padding: 8px 16px;
-            border-radius: 20px;
-            font-weight: bold;
-            margin-top: 20px;
-          }
-        </style>
-      </head>
-      <body>
-        <div class="header">
-          <div class="company-info">
-            <h1 style="margin: 0; color: #B8461A;">🚚 ${user?.displayName || 'Invoice'}</h1>
-            <p style="margin: 5px 0;">${user?.email || ''}</p>
-          </div>
-          <div class="invoice-info">
-            <div class="invoice-number">${initialInvoice.invoiceNumber}</div>
-            <p><strong>Date:</strong> ${format(new Date(initialInvoice.date), 'MMM d, yyyy')}</p>
-            <p><strong>Due:</strong> ${format(new Date(dueDate), 'MMM d, yyyy')}</p>
-            <div class="status-badge" style="background-color: ${getStatusColor(initialInvoice.status)}20; color: ${getStatusColor(initialInvoice.status)};">
-              ${initialInvoice.status.toUpperCase()}
-            </div>
-          </div>
-        </div>
-
-        <div class="bill-to">
-          <h3>Bill To:</h3>
-          <p style="margin: 5px 0;"><strong>${clientName}</strong></p>
-          ${clientAddress ? `<p style="margin: 5px 0;">${clientAddress}</p>` : ''}
-          ${clientEmail ? `<p style="margin: 5px 0;">📧 ${clientEmail}</p>` : ''}
-          ${clientPhone ? `<p style="margin: 5px 0;">📞 ${clientPhone}</p>` : ''}
-        </div>
-
-        <table>
-          <thead>
-            <tr>
-              <th>Description</th>
-              <th style="text-align: center;">Qty</th>
-              <th style="text-align: right;">Rate</th>
-              <th style="text-align: right;">Amount</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${lineItems.map(item => `
-              <tr>
-                <td>${item.description}</td>
-                <td style="text-align: center;">${item.quantity}</td>
-                <td style="text-align: right;">$${item.rate.toFixed(2)}</td>
-                <td style="text-align: right;">$${item.amount.toFixed(2)}</td>
-              </tr>
-            `).join('')}
-          </tbody>
-        </table>
-
-        <div class="totals">
-          <table>
-            <tr>
-              <td>Subtotal:</td>
-              <td style="text-align: right;">$${calculateTotals(lineItems).subtotal.toFixed(2)}</td>
-            </tr>
-            <tr class="total-row">
-              <td>Total:</td>
-              <td style="text-align: right;">$${calculateTotals(lineItems).total.toFixed(2)}</td>
-            </tr>
-          </table>
-        </div>
-
-        ${terms ? `
-          <div style="margin-top: 40px; padding: 20px; background-color: #f9f9f9; border-left: 4px solid #B8461A;">
-            <h4 style="margin: 0 0 10px 0;">Payment Terms:</h4>
-            <p style="margin: 0;">${terms}</p>
-          </div>
-        ` : ''}
-
-        ${notes ? `
-          <div style="margin-top: 20px; padding: 20px; background-color: #f9f9f9; border-left: 4px solid #B8461A;">
-            <h4 style="margin: 0 0 10px 0;">Notes:</h4>
-            <p style="margin: 0;">${notes}</p>
-          </div>
-        ` : ''}
-
-        <div style="margin-top: 60px; padding-top: 20px; border-top: 1px solid #ddd; text-align: center; color: #666; font-size: 12px;">
-          <p>Thank you for your business!</p>
-          <p>Generated on ${format(new Date(), 'MMM d, yyyy h:mm a')}</p>
-        </div>
-      </body>
-      </html>
-    `;
+    const invoiceForRender = buildCurrentInvoice();
+    const htmlContent =
+      !isEditMode && initialInvoice.renderedHtml
+        ? initialInvoice.renderedHtml
+        : buildConcretePumpInvoiceHtml(
+            invoiceForRender,
+            invoiceForRender.issuerName,
+            invoiceForRender.issuerEmail
+          );
 
     return await Print.printToFileAsync({ html: htmlContent });
   };
@@ -395,6 +272,20 @@ export default function InvoiceDetailScreen() {
       </LinearGradient>
 
       <View style={styles.content}>
+        {!isEditMode && (
+          <>
+            <Text variant="titleMedium" style={styles.previewTitle}>Stored Invoice Copy</Text>
+            <Text style={styles.previewSubtitle}>
+              This is the saved invoice layout used for the client copy.
+            </Text>
+            <InvoicePaperPreview
+              invoice={initialInvoice}
+              fallbackIssuerName={user?.displayName || 'Concrete Pumping'}
+              fallbackIssuerEmail={user?.email || ''}
+            />
+          </>
+        )}
+
         {/* Client Info */}
         <Card style={styles.card}>
           <Card.Content>
@@ -654,15 +545,17 @@ export default function InvoiceDetailScreen() {
             </>
           ) : (
             <>
-              <Button
-                mode="contained"
-                onPress={() => setIsEditMode(true)}
-                style={styles.button}
-                icon="pencil"
-                buttonColor={Colors.primary}
-              >
-                Edit Invoice
-              </Button>
+              {initialInvoice.status === 'draft' && (
+                <Button
+                  mode="contained"
+                  onPress={() => setIsEditMode(true)}
+                  style={styles.button}
+                  icon="pencil"
+                  buttonColor={Colors.primary}
+                >
+                  Edit Draft
+                </Button>
+              )}
 
               <Button
                 mode="contained"
@@ -671,7 +564,7 @@ export default function InvoiceDetailScreen() {
                 icon="file-pdf-box"
                 buttonColor={Colors.secondary}
               >
-                View/Download PDF
+                View/Share Exact PDF
               </Button>
 
               <Button
@@ -728,6 +621,17 @@ const useStyles = makeStyles((Colors) => ({
   },
   content: {
     padding: Spacing.md,
+  },
+  previewTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: Colors.text,
+    marginBottom: 4,
+  },
+  previewSubtitle: {
+    fontSize: 13,
+    color: Colors.textSecondary,
+    marginBottom: Spacing.md,
   },
   card: {
     marginBottom: Spacing.md,
