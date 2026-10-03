@@ -37,7 +37,8 @@ export default function PostFinderJobScreen({ navigation }: any) {
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [startTime, setStartTime] = useState<Date | null>(null);
   const [showTimePicker, setShowTimePicker] = useState(false);
-  const [address, setAddress] = useState('');
+  const [generalArea, setGeneralArea] = useState('');
+  const [exactAddress, setExactAddress] = useState('');
   const [yards, setYards] = useState('');
   const [pumpType, setPumpType] = useState('');
   const [concretePsi, setConcretePsi] = useState('');
@@ -77,8 +78,18 @@ export default function PostFinderJobScreen({ navigation }: any) {
     const psiValue = concretePsi.trim() ? Number(concretePsi) : undefined;
     const hoseValue = extraHoseRequired ? Number(totalHoseFeet) : undefined;
 
-    if (!customerName.trim() || !jobDate || !startTime || !address.trim() || !yards.trim()) {
-      Alert.alert('Missing job details', 'Customer, job date, start time, address, and estimated yards are required.');
+    if (
+      !customerName.trim() ||
+      !jobDate ||
+      !startTime ||
+      !generalArea.trim() ||
+      !exactAddress.trim() ||
+      !yards.trim()
+    ) {
+      Alert.alert(
+        'Missing job details',
+        'Customer, job date, start time, general area, exact address, and estimated yards are required.'
+      );
       return;
     }
 
@@ -102,7 +113,8 @@ export default function PostFinderJobScreen({ navigation }: any) {
       // Store a local calendar date only so it cannot shift a day because of timezone conversion.
       jobDate: format(jobDate, 'yyyy-MM-dd'),
       startTime: format(startTime, 'h:mm a'),
-      address: address.trim(),
+      generalArea: generalArea.trim(),
+      exactAddress: exactAddress.trim(),
       yards: yardsValue,
       pumpType: pumpType.trim() || undefined,
       concretePsi: psiValue,
@@ -197,7 +209,29 @@ export default function PostFinderJobScreen({ navigation }: any) {
           )}
         </View>
 
-        <Field label="Job address" value={address} onChangeText={setAddress} placeholder="Street address, city" />
+        <Field
+          label="General area shown to pumpers"
+          value={generalArea}
+          onChangeText={setGeneralArea}
+          placeholder="Example: Palmdale, CA"
+        />
+        <Text style={styles.locationHelper}>
+          Pumpers can see this area while deciding whether to request the job.
+        </Text>
+
+        <Field
+          label="Exact job address"
+          value={exactAddress}
+          onChangeText={setExactAddress}
+          placeholder="Street address, city"
+        />
+        <View style={styles.privateLocationNote}>
+          <Ionicons name="lock-closed-outline" size={18} color={Colors.primary} />
+          <Text style={styles.privateLocationText}>
+            Private until the poster awards the job and the selected pumper confirms it.
+          </Text>
+        </View>
+
         <Field label="Yards" value={yards} onChangeText={setYards} placeholder="Estimated concrete yards" keyboardType="decimal-pad" />
         <Field label="Pump type" value={pumpType} onChangeText={setPumpType} placeholder="Optional — trailer, boom, line pump, etc." />
         <Field label="Concrete PSI" value={concretePsi} onChangeText={setConcretePsi} placeholder="Optional — example: 4000" keyboardType="number-pad" />
@@ -382,6 +416,30 @@ const useStyles = makeStyles((Colors) => ({
   field: { marginBottom: 14 },
   label: { fontSize: 14, fontWeight: '600', color: Colors.text, marginBottom: 6 },
   helperText: { fontSize: 12, color: Colors.textSecondary, lineHeight: 17, marginTop: -7, marginBottom: 14 },
+  locationHelper: {
+    fontSize: 12,
+    color: Colors.textSecondary,
+    lineHeight: 17,
+    marginTop: -9,
+    marginBottom: 14,
+  },
+  privateLocationNote: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: Colors.primaryBg,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    marginTop: -8,
+    marginBottom: 14,
+  },
+  privateLocationText: {
+    flex: 1,
+    fontSize: 12,
+    color: Colors.textSecondary,
+    lineHeight: 17,
+  },
   inputRow: { position: 'relative' },
   input: { backgroundColor: Colors.surface, borderWidth: 1, borderColor: Colors.borderDark, borderRadius: 10, paddingHorizontal: 13, paddingVertical: 12, fontSize: 16, color: Colors.text },
   timePickerButton: {
