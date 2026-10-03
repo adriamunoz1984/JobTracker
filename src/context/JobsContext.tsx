@@ -171,7 +171,7 @@ export const JobsProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     let unsubscribes: Array<() => void> = [];
     let isMounted = true;
-    let allJobsMap: { [key: string]: Job } = {}; // Move outside initializeJobs
+    let jobsBySource: Record<string, Job[]> = {};
 
     const initializeJobs = async () => {
       setIsLoading(true);
@@ -183,14 +183,13 @@ export const JobsProvider: React.FC<{ children: React.ReactNode }> = ({ children
         // Helper to merge jobs from different sources
         const updateAllJobs = (newJobs: Job[], source: string) => {
           if (!isMounted) return;
-          
-          // Update jobs from this source
-          newJobs.forEach(job => {
-            allJobsMap[job.id] = job;
-          });
-          
-          // Combine all jobs and update state
-          const combinedJobs = Object.values(allJobsMap)
+
+          // Replace this source's snapshot so removed/reclassified jobs do not stay stale.
+          jobsBySource[source] = newJobs;
+
+          // Combine all active sources and update state.
+          const combinedJobs = Object.values(jobsBySource)
+            .flat()
             .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
           
           setJobs(combinedJobs);
@@ -373,55 +372,67 @@ export const JobsProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
   }, [user?.uid]); // ONLY depend on user.uid
 
-  const updateJob = async (updatedJob: Job) => {
-  // Update local state
+  const getJobDocRef = (job: Job) => {
+  if (!user?.uid) return null;
+
+  if (job.isEmployeeJob) {
+    if (user.role === 'owner' && job.employeeId) {
+      return doc(db, 'users', job.employeeId, 'ownerJobs', job.id);
+    }
+    if (user.role === 'employee') {
+      return doc(db, 'users', user.uid, 'ownerJobs', job.id);
+    }
+  }
+
+  const jobsCollection = getUserJobsCollection();
+  return jobsCollection ? doc(jobsCollection, job.id) : null;
+};
+
+const updateJob = async (updatedJob: Job) => {
   const updatedJobs = jobs.map((job) =>
     job.id === updatedJob.id
       ? { ...updatedJob, updatedAt: new Date().toISOString() }
       : job
   );
-  
+
   setJobs(updatedJobs);
-  
-  // Update only THIS job in Firebase (not all jobs)
+
   if (user?.uid && user.uid !== 'test-user-id') {
-    const jobsCollection = getUserJobsCollection();
-    if (jobsCollection) {
+    const jobDocRef = getJobDocRef(updatedJob);
+    if (jobDocRef) {
       const cleanJob = removeUndefined(updatedJob);
-      
-      await setDoc(doc(jobsCollection, updatedJob.id), {
+
+      await setDoc(jobDocRef, {
         ...cleanJob,
         updatedAt: new Date().toISOString(),
         lastModified: serverTimestamp(),
-      });
-      
+      }, { merge: true });
+
       console.log(`☁️ Updated job in Firebase: ${updatedJob.id}`);
     }
   }
-  
-  // Update AsyncStorage
+
   await AsyncStorage.setItem('jobs', JSON.stringify(updatedJobs));
   console.log(`✅ Updated job: ${updatedJob.id}`);
 };
 
   const deleteJob = async (id: string) => {
+    const jobToDelete = jobs.find(job => job.id === id);
     const updatedJobs = jobs.filter((job) => job.id !== id);
     setJobs(updatedJobs);
-    
-    // Delete from Firebase if user is logged in
-    if (user?.uid) {
+
+    if (user?.uid && jobToDelete) {
       try {
-        const jobsCollection = getUserJobsCollection();
-        if (jobsCollection) {
-          await deleteDoc(doc(jobsCollection, id));
+        const jobDocRef = getJobDocRef(jobToDelete);
+        if (jobDocRef) {
+          await deleteDoc(jobDocRef);
           console.log(`☁️ Deleted job from Firebase: ${id}`);
         }
       } catch (error) {
         console.error('❌ Error deleting from Firebase:', error);
       }
     }
-    
-    // Update AsyncStorage
+
     await AsyncStorage.setItem('jobs', JSON.stringify(updatedJobs));
     console.log(`✅ Deleted job: ${id}`);
   };
