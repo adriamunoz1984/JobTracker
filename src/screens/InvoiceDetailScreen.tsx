@@ -286,6 +286,8 @@ export default function InvoiceDetailScreen() {
           </>
         )}
 
+        {isEditMode && (
+          <>
         {/* Client Info */}
         <Card style={styles.card}>
           <Card.Content>
@@ -476,6 +478,10 @@ export default function InvoiceDetailScreen() {
             )}
           </Card.Content>
         </Card>
+
+
+          </>
+        )}
 
         {/* Status Update */}
         {!isEditMode && (
