@@ -163,6 +163,7 @@ export default function WeeklyDashboardScreen() {
       timeLabel: `${format(weekStart, 'MMM d')} - ${format(weekEnd, 'MMM d')}`,
       isOwner: user?.role === 'owner',
       commissionRate: user?.commissionRate || 50,
+      taxEstimateEnabled: user?.taxEstimateEnabled === true,
       estimatedTaxRate: user?.estimatedTaxRate || 0,
       includeCashInTaxEstimate: user?.includeCashInTaxEstimate !== false,
     });
@@ -208,7 +209,7 @@ export default function WeeklyDashboardScreen() {
                     </div>
                   ` : ''}
                   <div class="yards">${job.yards} yards</div>
-                  ${(user?.estimatedTaxRate || 0) > 0 ? `
+                  ${user?.taxEstimateEnabled === true && (user?.estimatedTaxRate || 0) > 0 ? `
                     <div class="pumper"><strong>Est. tax:</strong> ${
                       job.paymentMethod === 'Cash' && user?.includeCashInTaxEstimate === false
                         ? 'Cash excluded'
@@ -426,7 +427,7 @@ export default function WeeklyDashboardScreen() {
                 <div class="footer-value">$${ownerPay.ownerAfterPumperPay.toFixed(0)}</div>
               </div>
             `}
-            ${(user?.estimatedTaxRate || 0) > 0 ? `
+            ${user?.taxEstimateEnabled === true && (user?.estimatedTaxRate || 0) > 0 ? `
               <div class="footer-row">
                 <div class="footer-label">Estimated Tax Reserve (${user?.estimatedTaxRate}%)</div>
                 <div class="footer-value">-$${taxEstimate.estimatedTax.toFixed(0)}</div>
@@ -664,7 +665,7 @@ export default function WeeklyDashboardScreen() {
           </Card>
         )}
 
-        {(user?.estimatedTaxRate || 0) > 0 && (
+        {user?.taxEstimateEnabled === true && (user?.estimatedTaxRate || 0) > 0 && (
           <Card style={styles.card}>
             <Card.Content>
               <Text variant="titleMedium" style={styles.sectionTitle}>Tax Estimate</Text>
