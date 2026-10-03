@@ -8,6 +8,7 @@ import { Job } from '../types';
 import { format, parseISO } from 'date-fns';
 import { Spacing, BorderRadius, Shadows } from '../theme/colors';
 import { useAppTheme, makeStyles } from '../theme';
+import { calculateOwnerPay, getJobPumperName } from '../utils/jobMath';
 
 type MetricType = 'income' | 'takeHome' | 'paid' | 'unpaid' | 'yards' | 'avgJob';
 
@@ -42,6 +43,7 @@ export default function DetailedReportScreen() {
 
   // Calculate metrics
   const totalIncome = jobs.reduce((sum, job) => sum + (job.amount || 0), 0);
+  const ownerPay = calculateOwnerPay(jobs);
   const commission = (totalIncome * commissionRate) / 100;
   const cashPayments = jobs
     .filter(j => j.paymentMethod === 'Cash')
@@ -49,7 +51,7 @@ export default function DetailedReportScreen() {
   const directPayments = jobs
     .filter(j => j.isPaidToMe)
     .reduce((sum, job) => sum + (job.amount || 0), 0);
-  const takeHome = commission - directPayments;
+  const takeHome = isOwner ? ownerPay.ownerAfterPumperPay : commission - directPayments;
   const paidAmount = jobs.filter(j => j.isPaid).reduce((sum, job) => sum + (job.amount || 0), 0);
   const unpaidAmount = jobs.filter(j => !j.isPaid).reduce((sum, job) => sum + (job.amount || 0), 0);
   const totalYards = jobs.reduce((sum, job) => sum + (job.yards || 0), 0);
@@ -99,17 +101,46 @@ export default function DetailedReportScreen() {
               <Text style={styles.breakdownLabel}>Total Income:</Text>
               <Text style={styles.breakdownValue}>${totalIncome.toFixed(2)}</Text>
             </View>
-            <View style={styles.breakdownRow}>
-              <Text style={styles.breakdownLabel}>Commission ({commissionRate}%):</Text>
-              <Text style={styles.breakdownValue}>${commission.toFixed(2)}</Text>
-            </View>
-            <View style={styles.breakdownRow}>
-              <Text style={styles.breakdownLabel}>- Cash Payments:</Text>
-              <Text style={styles.breakdownValue}>-${cashPayments.toFixed(2)}</Text>
-            </View>
+
+            {isOwner ? (
+              <>
+                <View style={styles.breakdownRow}>
+                  <Text style={styles.breakdownLabel}>Pumper Gross Pay:</Text>
+                  <Text style={styles.breakdownValue}>-${ownerPay.grossPumperPay.toFixed(2)}</Text>
+                </View>
+                <View style={styles.breakdownRow}>
+                  <Text style={styles.breakdownLabel}>Direct Payments to Pumpers:</Text>
+                  <Text style={styles.breakdownValue}>${ownerPay.directPaymentsToPumpers.toFixed(2)}</Text>
+                </View>
+                <View style={styles.breakdownRow}>
+                  <Text style={styles.breakdownLabel}>Still Owed to Pumpers:</Text>
+                  <Text style={styles.breakdownValue}>${ownerPay.amountOwedToPumpers.toFixed(2)}</Text>
+                </View>
+                {ownerPay.byPumper.map(pumper => (
+                  <View key={pumper.key} style={styles.breakdownRow}>
+                    <Text style={styles.breakdownLabel}>{pumper.name} ({pumper.jobs} jobs):</Text>
+                    <Text style={styles.breakdownValue}>${pumper.grossPay.toFixed(2)}</Text>
+                  </View>
+                ))}
+              </>
+            ) : (
+              <>
+                <View style={styles.breakdownRow}>
+                  <Text style={styles.breakdownLabel}>Commission ({commissionRate}%):</Text>
+                  <Text style={styles.breakdownValue}>${commission.toFixed(2)}</Text>
+                </View>
+                <View style={styles.breakdownRow}>
+                  <Text style={styles.breakdownLabel}>- Direct Payments:</Text>
+                  <Text style={styles.breakdownValue}>-${directPayments.toFixed(2)}</Text>
+                </View>
+              </>
+            )}
+
             <Divider style={styles.divider} />
             <View style={styles.breakdownRow}>
-              <Text style={[styles.breakdownLabel, styles.bold]}>Your Take Home:</Text>
+              <Text style={[styles.breakdownLabel, styles.bold]}>
+                {isOwner ? 'Owner After Pumper Pay:' : 'Your Take Home:'}
+              </Text>
               <Text style={[styles.breakdownValue, styles.bold, { color: Colors.success }]}>
                 ${takeHome.toFixed(2)}
               </Text>
@@ -244,6 +275,19 @@ export default function DetailedReportScreen() {
         <Text style={styles.jobMeta}>
           {format(parseISO(item.date), 'MMM d')} • {item.city}
         </Text>
+        {isOwner && (
+          <Text style={styles.jobMeta}>
+            Pumper: {getJobPumperName(item, 'Owner')}
+          </Text>
+        )}
+        {(item.jobNumber || item.poNumber) && (
+          <Text style={styles.jobMeta}>
+            {[
+              item.jobNumber ? 'Job #: ' + item.jobNumber : '',
+              item.poNumber ? 'PO #: ' + item.poNumber : '',
+            ].filter(Boolean).join('   ')}
+          </Text>
+        )}
       </View>
       <Text style={styles.jobAmount}>${item.amount.toFixed(0)}</Text>
     </View>
