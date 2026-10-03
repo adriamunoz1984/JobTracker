@@ -8,6 +8,7 @@ import { Job } from '../types';
 import { format, parseISO } from 'date-fns';
 import { Spacing, BorderRadius, Shadows } from '../theme/colors';
 import { useAppTheme, makeStyles } from '../theme';
+import { useAuth } from '../context/AuthContext';
 import { calculateOwnerPay, calculateTaxEstimate, getEstimatedTaxForJob, getJobPumperName } from '../utils/jobMath';
 
 type MetricType = 'income' | 'takeHome' | 'paid' | 'unpaid' | 'yards' | 'avgJob';
@@ -25,6 +26,7 @@ interface DetailedReportParams {
 export default function DetailedReportScreen() {
   const { colors: Colors, gradients } = useAppTheme();
   const styles = useStyles();
+  const { user } = useAuth();
   const route = useRoute();
   const params = route.params as DetailedReportParams;
 
@@ -33,9 +35,9 @@ export default function DetailedReportScreen() {
     jobs,
     timeLabel,
     isOwner,
-    commissionRate = 50,
-    estimatedTaxRate = 0,
-    includeCashInTaxEstimate = true,
+    commissionRate = user?.commissionRate || 50,
+    estimatedTaxRate = user?.estimatedTaxRate || 0,
+    includeCashInTaxEstimate = user?.includeCashInTaxEstimate !== false,
   } = params;
 
   // Filter jobs based on metric type
