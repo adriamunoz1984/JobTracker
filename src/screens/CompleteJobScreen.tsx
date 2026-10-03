@@ -23,6 +23,8 @@ interface OwnerJob {
   address: string;
   city: string;
   notes?: string;
+  jobNumber?: string;
+  poNumber?: string;
   ownerId: string;
   assignedTo: string;
   status: string;
@@ -168,6 +170,20 @@ export default function CompleteJobScreen() {
 
           <Text style={styles.label}>Location:</Text>
           <Text style={styles.value}>{job.address}, {job.city}</Text>
+
+          {job.jobNumber && (
+            <>
+              <Text style={styles.label}>Job #:</Text>
+              <Text style={styles.value}>{job.jobNumber}</Text>
+            </>
+          )}
+
+          {job.poNumber && (
+            <>
+              <Text style={styles.label}>PO #:</Text>
+              <Text style={styles.value}>{job.poNumber}</Text>
+            </>
+          )}
         </View>
 
         <Divider style={styles.divider} />
