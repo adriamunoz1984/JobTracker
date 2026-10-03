@@ -1,7 +1,7 @@
 // src/screens/MonthlySummaryScreen.tsx
 import React, { useState, useEffect } from 'react';
 import { View, StyleSheet, ScrollView, Dimensions, TouchableOpacity } from 'react-native';
-import { Card, Text, Button, Divider, ActivityIndicator } from 'react-native-paper';
+import { Card, Text, Button, Divider, ActivityIndicator, SegmentedButtons } from 'react-native-paper';
 import { BarChart } from 'react-native-chart-kit';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useNavigation } from '@react-navigation/native';
@@ -35,6 +35,7 @@ export default function MonthlySummaryScreen() {
   const { user } = useAuth();
   const [isExporting, setIsExporting] = useState(false);
   const [monthOffset, setMonthOffset] = useState(0);
+  const [ownerTakeHomeMode, setOwnerTakeHomeMode] = useState<'paid' | 'all'>('paid');
 
   const currentDate = new Date();
   const adjustedDate = addMonths(currentDate, monthOffset);
@@ -66,6 +67,8 @@ export default function MonthlySummaryScreen() {
   const isOwner = user?.role === 'owner';
   const commissionRate = user?.commissionRate || 50;
   const ownerPay = calculateOwnerPay(monthJobs);
+  const ownerPaidPay = calculateOwnerPay(monthJobs.filter(job => job.isPaid));
+  const ownerTakeHomePay = ownerTakeHomeMode === 'paid' ? ownerPaidPay : ownerPay;
   const taxEstimate = calculateTaxEstimate(
     monthJobs,
     isOwner ? 'owner' : 'employee',
@@ -77,10 +80,12 @@ export default function MonthlySummaryScreen() {
 
   if (!isOwner) {
     totals.commission = (totals.income * commissionRate) / 100;
+    // Take Home is the employee's earned commission across all jobs.
+    // Direct payments only reduce what the employer still owes them.
     totals.yourPay = totals.commission - totals.paidToMeAmount;
-    totals.finalTakeHome = totals.yourPay;
+    totals.finalTakeHome = totals.commission;
   } else {
-    totals.finalTakeHome = ownerPay.ownerAfterPumperPay;
+    totals.finalTakeHome = ownerTakeHomePay.ownerAfterPumperPay;
   }
 
   // Get weekly breakdown
@@ -137,9 +142,14 @@ export default function MonthlySummaryScreen() {
   };
 
   const handleMetricPress = (metricType: any) => {
+    const detailJobs =
+      isOwner && metricType === 'takeHome' && ownerTakeHomeMode === 'paid'
+        ? monthJobs.filter(job => job.isPaid)
+        : monthJobs;
+
     (navigation as any).navigate('DetailedReport', {
       metricType,
-      jobs: monthJobs,
+      jobs: detailJobs,
       timeLabel: format(adjustedDate, 'MMMM yyyy'),
       isOwner: user?.role === 'owner',
       commissionRate: user?.commissionRate || 50,
@@ -283,12 +293,13 @@ export default function MonthlySummaryScreen() {
             ${!isOwner ? `
               <p><strong>Commission (${commissionRate}%):</strong> $${totals.commission.toFixed(2)}</p>
               <p><strong>Direct Payments:</strong> $${totals.paidToMeAmount.toFixed(2)}</p>
+              <p><strong>Still Owed by Employer:</strong> $${totals.yourPay.toFixed(2)}</p>
             ` : `
               <p><strong>Pumper Gross Pay:</strong> $${ownerPay.grossPumperPay.toFixed(2)}</p>
               <p><strong>Direct Payments to Pumpers:</strong> $${ownerPay.directPaymentsToPumpers.toFixed(2)}</p>
               <p><strong>Still Owed to Pumpers:</strong> $${ownerPay.amountOwedToPumpers.toFixed(2)}</p>
             `}
-            <div class="total">${isOwner ? 'Owner After Pumper Pay' : 'Final Take Home'}: $${totals.finalTakeHome.toFixed(2)}</div>
+            <div class="total">${isOwner ? `Owner Take Home (${ownerTakeHomeMode === 'paid' ? 'Paid Jobs' : 'All Jobs'})` : 'Take Home'}: $${totals.finalTakeHome.toFixed(2)}</div>
             ${user?.taxEstimateEnabled === true && (user?.estimatedTaxRate || 0) > 0 ? `
               <p><strong>Taxable Share:</strong> $${taxEstimate.taxableBase.toFixed(2)}</p>
               <p><strong>Estimated Tax Reserve (${user?.estimatedTaxRate}%):</strong> $${taxEstimate.estimatedTax.toFixed(2)}</p>
@@ -413,7 +424,11 @@ export default function MonthlySummaryScreen() {
                 onPress={() => handleMetricPress('takeHome')}
                 activeOpacity={0.7}
               >
-                <Text style={styles.metricLabelInverse}>Take Home</Text>
+                <Text style={styles.metricLabelInverse}>
+                  {isOwner
+                    ? `Take Home (${ownerTakeHomeMode === 'paid' ? 'Paid' : 'All'})`
+                    : 'Take Home'}
+                </Text>
                 <Text style={styles.metricValueInverse}>${totals.finalTakeHome.toLocaleString()}</Text>
               </TouchableOpacity>
             </View>
@@ -488,7 +503,7 @@ export default function MonthlySummaryScreen() {
                 colors={gradients.success}
                 style={styles.totalBox}
               >
-                <Text style={styles.totalLabel}>Your Pay:</Text>
+                <Text style={styles.totalLabel}>Amount Still Owed:</Text>
                 <Text style={styles.totalValue}>${totals.yourPay.toFixed(2)}</Text>
               </LinearGradient>
             </Card.Content>
@@ -501,6 +516,17 @@ export default function MonthlySummaryScreen() {
             <Card.Content>
               <Text variant="titleMedium" style={styles.sectionTitle}>💼 Owner Earnings</Text>
               <Divider style={styles.divider} />
+
+              <Text style={styles.earningsLabel}>Take Home Basis</Text>
+              <SegmentedButtons
+                value={ownerTakeHomeMode}
+                onValueChange={(value) => setOwnerTakeHomeMode(value as 'paid' | 'all')}
+                buttons={[
+                  { value: 'paid', label: 'Paid jobs' },
+                  { value: 'all', label: 'All jobs' },
+                ]}
+                style={{ marginBottom: 12 }}
+              />
 
               <View style={styles.earningsRow}>
                 <Text style={styles.earningsLabel}>Total Income:</Text>
@@ -535,7 +561,9 @@ export default function MonthlySummaryScreen() {
                 colors={gradients.success}
                 style={styles.totalBox}
               >
-                <Text style={styles.totalLabel}>Owner After Pumper Pay:</Text>
+                <Text style={styles.totalLabel}>
+                  Owner Take Home ({ownerTakeHomeMode === 'paid' ? 'Paid Jobs' : 'All Jobs'}):
+                </Text>
                 <Text style={styles.totalValue}>${totals.finalTakeHome.toFixed(2)}</Text>
               </LinearGradient>
             </Card.Content>
