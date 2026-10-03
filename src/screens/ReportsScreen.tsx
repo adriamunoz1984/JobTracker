@@ -209,7 +209,7 @@ export default function ReportsScreen() {
       if (columns.jobNumber && hasJobNumbers) tableHeaders += '<th>Job #</th>';
       if (columns.poNumber && hasPONumbers) tableHeaders += '<th>PO #</th>';
       if (columns.pumper && user?.role === 'owner') tableHeaders += '<th>Pumper</th>';
-      if (columns.estimatedTax && (user?.estimatedTaxRate || 0) > 0) tableHeaders += '<th>Est. Tax</th>';
+      if (columns.estimatedTax && user?.taxEstimateEnabled === true && (user?.estimatedTaxRate || 0) > 0) tableHeaders += '<th>Est. Tax</th>';
       if (columns.notes) tableHeaders += '<th>Notes</th>';
 
       // Build table rows based on selected columns
@@ -232,7 +232,7 @@ export default function ReportsScreen() {
         if (columns.pumper && user?.role === 'owner') {
           row += `<td>${getJobPumperName(job, user?.displayName || 'Owner')}</td>`;
         }
-        if (columns.estimatedTax && (user?.estimatedTaxRate || 0) > 0) {
+        if (columns.estimatedTax && user?.taxEstimateEnabled === true && (user?.estimatedTaxRate || 0) > 0) {
           const cashExcluded =
             job.paymentMethod === 'Cash' &&
             user?.includeCashInTaxEstimate === false;
@@ -392,7 +392,7 @@ export default function ReportsScreen() {
             ` : ''}
           ` : ''}
           
-          ${(user?.estimatedTaxRate || 0) > 0 ? `
+          ${user?.taxEstimateEnabled === true && (user?.estimatedTaxRate || 0) > 0 ? `
             <h2>Tax Estimate</h2>
             <div class="breakdown">
               <p>Taxable Share: $${taxEstimate.taxableBase.toFixed(2)}</p>
@@ -695,7 +695,7 @@ export default function ReportsScreen() {
                 </View>
               )}
 
-              {(user?.estimatedTaxRate || 0) > 0 && (
+              {user?.taxEstimateEnabled === true && (user?.estimatedTaxRate || 0) > 0 && (
                 <View style={styles.checkboxRow}>
                   <Checkbox
                     status={columns.estimatedTax ? 'checked' : 'unchecked'}
@@ -777,7 +777,7 @@ export default function ReportsScreen() {
           </Card.Content>
         </Card>
 
-        {(user?.estimatedTaxRate || 0) > 0 && (
+        {user?.taxEstimateEnabled === true && (user?.estimatedTaxRate || 0) > 0 && (
           <Card style={styles.card}>
             <Card.Content>
               <Text variant="titleMedium" style={styles.sectionTitle}>Tax Estimate</Text>
