@@ -5,7 +5,7 @@ import { format, parseISO } from 'date-fns';
 import { useNavigation } from '@react-navigation/native';
 import { useJobs } from '../context/JobsContext';
 import { useAuth } from '../context/AuthContext';
-import { getJobPumperName } from '../utils/payroll';
+import { getJobPumperName } from '../utils/jobMath';
 import { Spacing, BorderRadius, Shadows, Typography } from '../theme/colors';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAppTheme, makeStyles } from '../theme';
