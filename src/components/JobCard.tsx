@@ -97,10 +97,11 @@ const JobCard: React.FC<JobCardProps> = ({ job, onDelete, onTogglePaid }) => {
     user?.role === 'owner'
       ? getJobPumperName(job as any, user.displayName || 'Owner')
       : null;
+  const taxEnabled = user?.taxEstimateEnabled === true;
   const taxRate = user?.estimatedTaxRate || 0;
   const includeCashInTaxEstimate = user?.includeCashInTaxEstimate !== false;
   const estimatedTax =
-    user && taxRate > 0
+    user && taxEnabled && taxRate > 0
       ? getEstimatedTaxForJob(
           job as any,
           user.role,
@@ -110,7 +111,7 @@ const JobCard: React.FC<JobCardProps> = ({ job, onDelete, onTogglePaid }) => {
         )
       : 0;
   const cashExcludedFromTax =
-    taxRate > 0 &&
+    taxEnabled && taxRate > 0 &&
     job.paymentMethod === 'Cash' &&
     !includeCashInTaxEstimate;
   
@@ -256,7 +257,7 @@ const JobCard: React.FC<JobCardProps> = ({ job, onDelete, onTogglePaid }) => {
             </View>
           ) : null}
 
-          {taxRate > 0 && (
+          {taxEnabled && taxRate > 0 && (
             <View style={styles.taxRow}>
               <Text style={styles.taxText}>
                 {cashExcludedFromTax
