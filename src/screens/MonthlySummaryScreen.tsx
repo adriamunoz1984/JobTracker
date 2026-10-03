@@ -156,7 +156,7 @@ export default function MonthlySummaryScreen() {
         <tr>
           <td>${format(parseISO(job.date), 'MMM d, yyyy')}</td>
           <td>${job.companyName || job.clientName || 'Job'}</td>
-          <td>${isOwner ? getJobPumperName(job, user?.displayName || 'Owner') : ''}</td>
+          ${isOwner ? `<td>${getJobPumperName(job, user?.displayName || 'Owner')}</td>` : ''}
           <td>${job.jobNumber || ''}</td>
           <td>${job.poNumber || ''}</td>
         </tr>
