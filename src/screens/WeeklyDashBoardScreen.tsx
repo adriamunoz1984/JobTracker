@@ -86,10 +86,10 @@ export default function WeeklyDashboardScreen() {
   if (!isOwner) {
     totals.commission = (totals.income * commissionRate) / 100;
 
-    // Only money explicitly marked as a Direct Payment reduces the end-of-week check.
-    // Payment method (Cash, Check, Zelle, etc.) is informational and must not deduct by itself.
+    // Take Home is the employee's full earned commission.
+    // Direct payments only reduce the amount the employer still owes.
     totals.yourPay = totals.commission - totals.paidToMeAmount;
-    totals.finalTakeHome = totals.yourPay;
+    totals.finalTakeHome = totals.commission;
   } else {
     totals.finalTakeHome = ownerPay.ownerAfterPumperPay;
   }
@@ -611,7 +611,7 @@ export default function WeeklyDashboardScreen() {
                 colors={gradients.success}
                 style={styles.totalBox}
               >
-                <Text style={styles.totalLabel}>Your Pay:</Text>
+                <Text style={styles.totalLabel}>Amount Still Owed:</Text>
                 <Text style={styles.totalValue}>${totals.yourPay.toFixed(2)}</Text>
               </LinearGradient>
             </Card.Content>
