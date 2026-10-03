@@ -97,3 +97,105 @@ export const calculateOwnerPay = (jobs: Job[]): OwnerPaySummary => {
     byPumper: Array.from(grouped.values()).sort((a, b) => a.name.localeCompare(b.name)),
   };
 };
+
+
+export interface TaxEstimateSummary {
+  taxableBase: number;
+  estimatedTax: number;
+  afterTax: number;
+  excludedCashBase: number;
+}
+
+const normalizedTaxRate = (rate?: number): number => {
+  const value = Number(rate || 0);
+  if (!Number.isFinite(value)) return 0;
+  return Math.min(100, Math.max(0, value));
+};
+
+export const getTaxableShareForJob = (
+  job: Job,
+  role: 'owner' | 'employee',
+  includeCash = true,
+  employeeFallbackCommissionRate = 50
+): number => {
+  const amount = Number(job.amount || 0);
+  if (amount <= 0) return 0;
+  if (!includeCash && job.paymentMethod === 'Cash') return 0;
+
+  if (role === 'owner') {
+    if (!isEmployeeJob(job)) return amount;
+    return Math.max(0, amount - getJobPumperGrossPay(job));
+  }
+
+  if (isEmployeeJob(job)) {
+    const snapshotRate = Number(job.employeeCommissionRate);
+    const rate = Number.isFinite(snapshotRate)
+      ? snapshotRate
+      : employeeFallbackCommissionRate;
+    return Math.max(0, amount * Math.min(100, Math.max(0, rate)) / 100);
+  }
+
+  // A pumper's own/personal job is fully theirs for this estimate.
+  return amount;
+};
+
+export const getEstimatedTaxForJob = (
+  job: Job,
+  role: 'owner' | 'employee',
+  taxRate?: number,
+  includeCash = true,
+  employeeFallbackCommissionRate = 50
+): number => {
+  const taxableShare = getTaxableShareForJob(
+    job,
+    role,
+    includeCash,
+    employeeFallbackCommissionRate
+  );
+  return taxableShare * normalizedTaxRate(taxRate) / 100;
+};
+
+export const calculateTaxEstimate = (
+  jobs: Job[],
+  role: 'owner' | 'employee',
+  taxRate?: number,
+  includeCash = true,
+  employeeFallbackCommissionRate = 50
+): TaxEstimateSummary => {
+  const taxableBase = jobs.reduce(
+    (sum, job) =>
+      sum +
+      getTaxableShareForJob(
+        job,
+        role,
+        includeCash,
+        employeeFallbackCommissionRate
+      ),
+    0
+  );
+
+  const excludedCashBase = includeCash
+    ? 0
+    : jobs
+        .filter(job => job.paymentMethod === 'Cash')
+        .reduce(
+          (sum, job) =>
+            sum +
+            getTaxableShareForJob(
+              job,
+              role,
+              true,
+              employeeFallbackCommissionRate
+            ),
+          0
+        );
+
+  const estimatedTax = taxableBase * normalizedTaxRate(taxRate) / 100;
+
+  return {
+    taxableBase,
+    estimatedTax,
+    afterTax: taxableBase - estimatedTax,
+    excludedCashBase,
+  };
+};
