@@ -5,7 +5,7 @@ import { format, parseISO } from 'date-fns';
 import { useNavigation } from '@react-navigation/native';
 import { useJobs } from '../context/JobsContext';
 import { useAuth } from '../context/AuthContext';
-import { getJobPumperName } from '../utils/jobMath';
+import { getEstimatedTaxForJob, getJobPumperName } from '../utils/jobMath';
 import { Spacing, BorderRadius, Shadows, Typography } from '../theme/colors';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAppTheme, makeStyles } from '../theme';
@@ -97,6 +97,22 @@ const JobCard: React.FC<JobCardProps> = ({ job, onDelete, onTogglePaid }) => {
     user?.role === 'owner'
       ? getJobPumperName(job as any, user.displayName || 'Owner')
       : null;
+  const taxRate = user?.estimatedTaxRate || 0;
+  const includeCashInTaxEstimate = user?.includeCashInTaxEstimate !== false;
+  const estimatedTax =
+    user && taxRate > 0
+      ? getEstimatedTaxForJob(
+          job as any,
+          user.role,
+          taxRate,
+          includeCashInTaxEstimate,
+          user.commissionRate || 50
+        )
+      : 0;
+  const cashExcludedFromTax =
+    taxRate > 0 &&
+    job.paymentMethod === 'Cash' &&
+    !includeCashInTaxEstimate;
   
   return (
     <Card 
@@ -239,6 +255,16 @@ const JobCard: React.FC<JobCardProps> = ({ job, onDelete, onTogglePaid }) => {
               ) : null}
             </View>
           ) : null}
+
+          {taxRate > 0 && (
+            <View style={styles.taxRow}>
+              <Text style={styles.taxText}>
+                {cashExcludedFromTax
+                  ? 'Tax estimate: cash excluded'
+                  : `Est. tax reserve: $${estimatedTax.toFixed(2)}`}
+              </Text>
+            </View>
+          )}
 
           {/* Notes */}
           {expanded && job.notes && (
@@ -421,6 +447,14 @@ sequenceBadgeText: {
     marginTop: Spacing.sm,
   },
   referenceText: {
+    fontSize: 12,
+    color: Colors.textSecondary,
+    fontWeight: '600',
+  },
+  taxRow: {
+    marginTop: Spacing.sm,
+  },
+  taxText: {
     fontSize: 12,
     color: Colors.textSecondary,
     fontWeight: '600',
