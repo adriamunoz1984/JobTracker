@@ -26,6 +26,8 @@ interface PendingJob {
   address: string;
   city: string;
   notes?: string;
+  jobNumber?: string;
+  poNumber?: string;
   ownerId: string;
   assignedTo: string;
   status: 'pending' | 'accepted' | 'in-progress' | 'completed';
@@ -159,6 +161,13 @@ export default function PendingJobsScreen() {
         <Paragraph style={styles.address}>
           {job.address}, {job.city}
         </Paragraph>
+
+        {(job.jobNumber || job.poNumber) && (
+          <View style={styles.referenceRow}>
+            {job.jobNumber && <Text style={styles.referenceText}>Job #: {job.jobNumber}</Text>}
+            {job.poNumber && <Text style={styles.referenceText}>PO #: {job.poNumber}</Text>}
+          </View>
+        )}
 
         {job.notes && (
           <>
@@ -353,6 +362,17 @@ const useStyles = makeStyles((Colors) => ({
   address: {
     fontSize: 14,
     color: Colors.text,
+  },
+  referenceRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+    marginTop: 6,
+  },
+  referenceText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: Colors.textSecondary,
   },
   divider: {
     marginVertical: 12,
