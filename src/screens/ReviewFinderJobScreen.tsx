@@ -2,7 +2,7 @@ import React from 'react';
 import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { format, parseISO } from 'date-fns';
-import { FinderJobDraft, FINDER_REQUEST_POLICY } from '../types/pumpFinder';
+import { FinderJobDraft } from '../types/pumpFinder';
 import { useAppTheme, makeStyles } from '../theme';
 import ThemedHero from '../components/ThemedHero';
 
@@ -113,8 +113,7 @@ export default function ReviewFinderJobScreen({ navigation, route }: any) {
         <View style={styles.infoTextWrap}>
           <Text style={styles.infoTitle}>Marketplace safeguards</Text>
           <Text style={styles.infoText}>
-            V1 policy: up to {FINDER_REQUEST_POLICY.maxPendingRequestsPerPumper} pending requests per pumper,
-            overlapping awarded jobs are blocked, and replacement recommendations still require poster approval.
+            The poster chooses the pumper. Overlapping awarded jobs are blocked, an awarded pumper cannot transfer the job on their own, and any replacement still requires poster approval.
           </Text>
         </View>
       </View>
