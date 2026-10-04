@@ -1,16 +1,16 @@
 // src/components/NotificationBell.tsx
-import React, { useState, useEffect } from 'react';
-import { TouchableOpacity, View, StyleSheet } from 'react-native';
-import { IconButton, Badge } from 'react-native-paper';
+import React, { useEffect, useState } from 'react';
+import { TouchableOpacity, View } from 'react-native';
+import { Badge, IconButton } from 'react-native-paper';
 import { useNavigation } from '@react-navigation/native';
-import { useAuth } from '../context/AuthContext';
-import { 
-  getFirestore, 
-  collection, 
-  query, 
-  where, 
-  onSnapshot 
+import {
+  collection,
+  getFirestore,
+  onSnapshot,
+  query,
+  where,
 } from 'firebase/firestore';
+import { useAuth } from '../context/AuthContext';
 import { useAppTheme, makeStyles } from '../theme';
 
 const db = getFirestore();
@@ -18,49 +18,81 @@ const db = getFirestore();
 export default function NotificationBell() {
   const { colors: Colors } = useAppTheme();
   const styles = useStyles();
-  const navigation = useNavigation();
+  const navigation = useNavigation<any>();
   const { user } = useAuth();
-  const [pendingCount, setPendingCount] = useState(0);
+  const [pendingJobCount, setPendingJobCount] = useState(0);
+  const [pendingInviteCount, setPendingInviteCount] = useState(0);
 
   useEffect(() => {
     if (!user?.uid || user.role !== 'employee') {
-      setPendingCount(0);
+      setPendingJobCount(0);
       return;
     }
 
-    // Real-time listener for pending jobs
     const jobsRef = collection(db, 'users', user.uid, 'ownerJobs');
-    const q = query(jobsRef, where('status', '==', 'pending'));
-
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      setPendingCount(snapshot.size);
-      console.log(`🔔 Pending jobs notification count: ${snapshot.size}`);
-    });
-
-    return () => unsubscribe();
+    return onSnapshot(
+      jobsRef,
+      snapshot => {
+        const count = snapshot.docs.filter(
+          snapshotDoc => snapshotDoc.data().status === 'pending'
+        ).length;
+        setPendingJobCount(count);
+      },
+      error => console.error('Error loading job notification count:', error)
+    );
   }, [user?.uid, user?.role]);
 
-  // Only show for employees
-  if (user?.role !== 'employee') {
+  useEffect(() => {
+    if (!user?.email || user.role !== 'employee') {
+      setPendingInviteCount(0);
+      return;
+    }
+
+    const invitesRef = collection(db, 'employeeInvites');
+    const q = query(
+      invitesRef,
+      where('employeeEmail', '==', user.email.toLowerCase())
+    );
+
+    return onSnapshot(
+      q,
+      snapshot => {
+        const count = snapshot.docs.filter(
+          snapshotDoc => snapshotDoc.data().status === 'pending'
+        ).length;
+        setPendingInviteCount(count);
+      },
+      error => console.error('Error loading invite notification count:', error)
+    );
+  }, [user?.email, user?.role]);
+
+  if (!user) {
     return null;
   }
 
-  const handlePress = () => {
-    navigation.navigate('PendingJobs' as never);
-  };
+  const notificationCount = pendingJobCount + pendingInviteCount;
 
   return (
-    <TouchableOpacity onPress={handlePress} style={styles.container}>
+    <TouchableOpacity
+      onPress={() => navigation.navigate('Notifications')}
+      style={styles.container}
+      accessibilityRole="button"
+      accessibilityLabel={
+        notificationCount > 0
+          ? `Notifications, ${notificationCount} new`
+          : 'Notifications'
+      }
+    >
       <View>
-        <IconButton 
-          icon="bell-outline" 
-          size={24} 
+        <IconButton
+          icon={notificationCount > 0 ? 'bell' : 'bell-outline'}
+          size={24}
           iconColor={Colors.onHeader}
           style={styles.iconButton}
         />
-        {pendingCount > 0 && (
+        {notificationCount > 0 && (
           <Badge style={styles.badge}>
-            {pendingCount}
+            {notificationCount > 99 ? '99+' : notificationCount}
           </Badge>
         )}
       </View>
