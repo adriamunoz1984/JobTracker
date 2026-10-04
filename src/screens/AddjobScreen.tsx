@@ -94,37 +94,50 @@ export default function AddJobScreen() {
   const [billingPO, setBillingPO] = useState(editingJob?.billingPO || '');
 
   useEffect(() => {
-    if (!user?.uid) return;
+    if (!user?.uid) {
+      setClients([]);
+      return;
+    }
 
-    const loadClients = async () => {
-      try {
-        let ownerId = user.uid;
-        
-        if (user.role === 'employee' && user.ownerId) {
-          ownerId = user.ownerId;
-        }
+    // Keep the Firestore listener directly inside the effect so React receives
+    // the unsubscribe function. The previous async wrapper returned cleanup
+    // from the inner function instead, leaving the listener alive after logout.
+    // Once Firebase Auth signed out, that stale listener tried to read the
+    // former owner's clients and correctly hit the security rules.
+    let ownerId = user.uid;
+    if (user.role === 'employee' && user.ownerId) {
+      ownerId = user.ownerId;
+    }
 
-        const clientsRef = collection(db, 'users', ownerId, 'clients');
-        
-        const unsubscribe = onSnapshot(clientsRef, (snapshot) => {
-          const loadedClients = snapshot.docs.map(doc => ({
-            id: doc.id,
-            ...doc.data()
-          } as Client));
+    const clientsRef = collection(db, 'users', ownerId, 'clients');
+    let active = true;
 
-          setClients(loadedClients.sort((a, b) => a.name.localeCompare(b.name)));
-          console.log(`📋 Loaded ${loadedClients.length} clients for ${user.role}`);
-        }, (error) => {
+    const unsubscribe = onSnapshot(
+      clientsRef,
+      (snapshot) => {
+        if (!active) return;
+
+        const loadedClients = snapshot.docs.map(clientDoc => ({
+          id: clientDoc.id,
+          ...clientDoc.data()
+        } as Client));
+
+        setClients(loadedClients.sort((a, b) => a.name.localeCompare(b.name)));
+        console.log(`📋 Loaded ${loadedClients.length} clients for ${user.role}`);
+      },
+      (error) => {
+        // If auth changed while this screen is being torn down, cleanup will
+        // stop the listener. Only report genuine errors while it is active.
+        if (active) {
           console.error('Error loading clients:', error);
-        });
-
-        return () => unsubscribe();
-      } catch (error) {
-        console.error('Error setting up clients listener:', error);
+        }
       }
-    };
+    );
 
-    loadClients();
+    return () => {
+      active = false;
+      unsubscribe();
+    };
   }, [user?.uid, user?.role, user?.ownerId]);
 
   const handleCompanyNameChange = (text: string) => {
