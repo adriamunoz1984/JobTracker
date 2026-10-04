@@ -17,6 +17,7 @@ import ClientManagementScreen from './src/screens/ClientManagementScreen';
 import AddClientScreen from './src/screens/AddClientScreen';
 import CompleteJobScreen from './src/screens/CompleteJobScreen';
 import PendingJobsScreen from './src/screens/PendingJobsScreen';
+import NotificationsScreen from './src/screens/NotificationsScreen';
 import AssignJobScreen from './src/screens/AssignJobScreen';
 import React, { useEffect } from 'react';
 import { View } from 'react-native';
@@ -242,6 +243,16 @@ function AppNavigatorWithFAB({ user }: { user: any }) {
               }}
             />
     
+            <Stack.Screen
+              name="Notifications"
+              component={NotificationsScreen}
+              options={{
+                headerShown: true,
+                title: 'Notifications',
+                headerTitleAlign: 'center'
+              }}
+            />
+
             <Stack.Screen 
               name="PendingJobs" 
               component={PendingJobsScreen}
