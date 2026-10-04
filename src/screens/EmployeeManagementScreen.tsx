@@ -101,6 +101,8 @@ export default function EmployeeManagementScreen() {
         keepsCash: false,
         keepsCheck: false,
         invitedAt: new Date().toISOString(),
+        ownerId: user!.uid,
+        inviteId: employeeId,
       };
 
       // Save to owner's employees collection
@@ -111,6 +113,7 @@ export default function EmployeeManagementScreen() {
 
       // Create pending request for employee to see
       await setDoc(doc(db, 'employeeInvites', employeeId), {
+        inviteId: employeeId,
         ownerId: user!.uid,
         ownerEmail: user!.email,
         ownerName: user!.displayName || 'Owner',
