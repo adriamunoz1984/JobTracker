@@ -103,11 +103,17 @@ export default function CompleteJobScreen() {
         amount: parseFloat(amount),
         paymentMethod,
         isPaidToMe,
-        isPaid: false, // Add this - job starts as unpaid
+        // A direct payment means the employee actually received the money.
+        // Keep this consistent with normal JobTracker job entry.
+        isPaid: isPaidToMe,
         status: 'completed',
         completedAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
-        jobType: 'employee', // Add this - marks it as employee job
+
+        // Do not rewrite jobType here. Assigned jobs are created as
+        // jobType: 'owner' and Firestore intentionally protects ownership /
+        // assignment fields from employee edits. Reporting already derives
+        // employee attribution from ownerJobs + employeeId/status.
       };
 
       if (paymentMethod === 'Check' && checkNumber.trim()) {
