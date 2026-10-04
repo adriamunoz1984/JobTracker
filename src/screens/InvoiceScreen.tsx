@@ -17,8 +17,12 @@ import {
   collection,
   addDoc,
   doc,
+  getDoc,
+  getDocs,
+  query,
   runTransaction,
   updateDoc,
+  where,
 } from 'firebase/firestore';
 import { db } from '../firebase/config';
 import * as Print from 'expo-print';
@@ -199,12 +203,35 @@ export default function InvoiceScreen() {
     const year = new Date().getFullYear();
     const counterRef = doc(db, 'users', user.uid, 'invoiceCounters', year.toString());
 
+    // Existing installs used one global counter. When this user's private
+    // counter is created for the first time, seed it from their own saved
+    // invoices so an upgrade cannot reuse one of their old invoice numbers.
+    let existingMax = 0;
+    const existingCounter = await getDoc(counterRef);
+
+    if (!existingCounter.exists()) {
+      const invoicesSnapshot = await getDocs(
+        query(collection(db, 'invoices'), where('createdBy', '==', user.uid))
+      );
+
+      const prefix = 'INV-' + year + '-';
+      invoicesSnapshot.forEach((invoiceDoc) => {
+        const invoiceNumber = String(invoiceDoc.data().invoiceNumber || '');
+        if (!invoiceNumber.startsWith(prefix)) return;
+
+        const parsed = Number(invoiceNumber.slice(prefix.length));
+        if (Number.isInteger(parsed) && parsed > existingMax) {
+          existingMax = parsed;
+        }
+      });
+    }
+
     const count = await runTransaction(db, async (transaction) => {
       const counterDoc = await transaction.get(counterRef);
       const currentCount = counterDoc.exists()
         ? Number(counterDoc.data().count || 0)
-        : 0;
-      const nextCount = currentCount + 1;
+        : existingMax;
+      const nextCount = Math.max(currentCount, existingMax) + 1;
 
       transaction.set(
         counterRef,
