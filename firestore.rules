@@ -17,11 +17,14 @@ service cloud.firestore {
     }
 
     function activeEmployee(ownerUid, employeeUid) {
+      // The relationship document itself lives under the owner's protected
+      // employees collection and is keyed by the employee's authenticated UID.
+      // Older JobTracker employee records predate the ownerId field, so do not
+      // require that newer metadata for established active relationships.
       return signedIn()
         && exists(/databases/$(database)/documents/users/$(ownerUid)/employees/$(employeeUid))
         && get(/databases/$(database)/documents/users/$(ownerUid)/employees/$(employeeUid)).data.status == 'active'
-        && get(/databases/$(database)/documents/users/$(ownerUid)/employees/$(employeeUid)).data.uid == employeeUid
-        && get(/databases/$(database)/documents/users/$(ownerUid)/employees/$(employeeUid)).data.ownerId == ownerUid;
+        && get(/databases/$(database)/documents/users/$(ownerUid)/employees/$(employeeUid)).data.uid == employeeUid;
     }
 
     function validEmployeeAcceptance(ownerUid, employeeUid) {
