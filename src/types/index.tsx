@@ -45,6 +45,11 @@ export interface Employee {
   acceptedAt?: string;
   keepsCash?: boolean;
   keepsCheck?: boolean;
+
+  // Security linkage for owner/employee relationships. The active employee
+  // record points back to the invitation that authorized the connection.
+  ownerId?: string;
+  inviteId?: string;
 }
 
 export interface Job {
