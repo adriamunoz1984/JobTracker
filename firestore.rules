@@ -46,6 +46,23 @@ service cloud.firestore {
         );
     }
 
+    function canDeleteAcceptedInvitePlaceholder(ownerUid) {
+      return signedIn()
+        && resource.data.status == 'invited'
+        && resource.data.ownerId == ownerUid
+        && resource.data.inviteId is string
+        && authEmailMatches(resource.data.email)
+        && getAfter(
+          /databases/$(database)/documents/employeeInvites/$(resource.data.inviteId)
+        ).data.status == 'accepted'
+        && getAfter(
+          /databases/$(database)/documents/employeeInvites/$(resource.data.inviteId)
+        ).data.ownerId == ownerUid
+        && getAfter(
+          /databases/$(database)/documents/employeeInvites/$(resource.data.inviteId)
+        ).data.acceptedByUid == request.auth.uid;
+    }
+
     // Private user profile data.
     match /users/{uid}/profile/{profileId} {
       allow read, write: if isSelf(uid);
@@ -89,8 +106,12 @@ service cloud.firestore {
       allow create: if isSelf(ownerUid)
         || validEmployeeAcceptance(ownerUid, employeeId);
 
-      // Commission/payment settings remain owner-controlled.
-      allow update, delete: if isSelf(ownerUid);
+      // Commission/payment settings remain owner-controlled. The invited
+      // employee may delete only the temporary invited row while accepting
+      // that same invitation atomically.
+      allow update: if isSelf(ownerUid);
+      allow delete: if isSelf(ownerUid)
+        || canDeleteAcceptedInvitePlaceholder(ownerUid);
     }
 
     // Jobs assigned by an owner live under the employee's account.
