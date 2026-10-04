@@ -111,18 +111,6 @@ export default function EmployeeInviteChecker() {
       const keepsCash = existingEmployeeData?.keepsCash ?? false;
       const keepsCheck = existingEmployeeData?.keepsCheck ?? false;
 
-      // Cast to any to allow setting custom/profile-specific fields not present on User type
-      await updateProfile({
-        role: 'employee',
-        ownerStatus: 'active',
-        ownerId: invite.ownerId,
-        ownerName: invite.ownerName,
-        ownerEmail: invite.ownerEmail,
-        commissionRate,
-        keepsCash,
-        keepsCheck,
-      } as any);
-
       // Atomically mark the invitation accepted and create the active
       // owner/employee relationship that future Firestore rules can verify.
       const acceptedAt = new Date().toISOString();
@@ -151,14 +139,29 @@ export default function EmployeeInviteChecker() {
         acceptedAt,
       }, { merge: true });
 
+      // Delete the temporary invited row in the same atomic write. Previously
+      // this cleanup ran afterward as a separate delete, which correctly
+      // failed under the release security rules because only the owner could
+      // delete employee records.
+      existingEmployeeSnapshot.docs
+        .filter(snapshot => snapshot.id !== user!.uid)
+        .forEach(snapshot => batch.delete(snapshot.ref));
+
       await batch.commit();
 
-      // Remove any temporary pre-acceptance employee record for the same email.
-      await Promise.all(
-        existingEmployeeSnapshot.docs
-          .filter(snapshot => snapshot.id !== user!.uid)
-          .map(snapshot => deleteDoc(snapshot.ref))
-      );
+      // Update the employee's own profile only after the owner relationship
+      // has been committed successfully, so a failed acceptance cannot leave
+      // the profile claiming an active connection that does not exist.
+      await updateProfile({
+        role: 'employee',
+        ownerStatus: 'active',
+        ownerId: invite.ownerId,
+        ownerName: invite.ownerName,
+        ownerEmail: invite.ownerEmail,
+        commissionRate,
+        keepsCash,
+        keepsCheck,
+      } as any);
 
       console.log(`✅ Successfully accepted invitation from ${invite.ownerName}`);
 
