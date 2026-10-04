@@ -82,6 +82,11 @@ export interface Job {
   jobType?: JobType;
   status?: JobStatus;
 
+  // Provenance for shared ownerJobs. Employee-entered jobs can be edited or
+  // deleted by that employee; owner-assigned jobs remain owner-controlled.
+  createdByUid?: string;
+  entrySource?: 'employee-entry';
+
   // Optional customer reference numbers for billing/reporting
   jobNumber?: string | null;
   poNumber?: string | null;
