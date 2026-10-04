@@ -1,0 +1,215 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function isSelf(uid) {
+      return signedIn() && request.auth.uid == uid;
+    }
+
+    function authEmailMatches(email) {
+      return signedIn()
+        && request.auth.token.email != null
+        && email == request.auth.token.email;
+    }
+
+    function activeEmployee(ownerUid, employeeUid) {
+      return signedIn()
+        && exists(/databases/$(database)/documents/users/$(ownerUid)/employees/$(employeeUid))
+        && get(/databases/$(database)/documents/users/$(ownerUid)/employees/$(employeeUid)).data.status == 'active'
+        && get(/databases/$(database)/documents/users/$(ownerUid)/employees/$(employeeUid)).data.uid == employeeUid
+        && get(/databases/$(database)/documents/users/$(ownerUid)/employees/$(employeeUid)).data.ownerId == ownerUid;
+    }
+
+    function validEmployeeAcceptance(ownerUid, employeeUid) {
+      return signedIn()
+        && request.auth.uid == employeeUid
+        && request.resource.data.status == 'active'
+        && request.resource.data.ownerId == ownerUid
+        && request.resource.data.inviteId is string
+        && getAfter(
+          /databases/$(database)/documents/employeeInvites/$(request.resource.data.inviteId)
+        ).data.status == 'accepted'
+        && getAfter(
+          /databases/$(database)/documents/employeeInvites/$(request.resource.data.inviteId)
+        ).data.ownerId == ownerUid
+        && getAfter(
+          /databases/$(database)/documents/employeeInvites/$(request.resource.data.inviteId)
+        ).data.acceptedByUid == employeeUid
+        && authEmailMatches(
+          getAfter(
+            /databases/$(database)/documents/employeeInvites/$(request.resource.data.inviteId)
+          ).data.employeeEmail
+        );
+    }
+
+    // Private user profile data.
+    match /users/{uid}/profile/{profileId} {
+      allow read, write: if isSelf(uid);
+    }
+
+    // A user's own JobTracker jobs.
+    match /users/{uid}/jobs/{jobId} {
+      allow read, create, update, delete: if isSelf(uid);
+    }
+
+    // Client records belong to the business owner. Active employees may use
+    // them because JobTracker currently lets employees select saved clients
+    // and update billing information while completing work.
+    match /users/{ownerUid}/clients/{clientId} {
+      allow read, create, update, delete: if isSelf(ownerUid)
+        || (signedIn() && activeEmployee(ownerUid, request.auth.uid));
+    }
+
+    // Per-user invoice counter. This replaces the old shared global counter.
+    match /users/{uid}/invoiceCounters/{year} {
+      allow read, create, update: if isSelf(uid);
+      allow delete: if false;
+    }
+
+    // Owner/employee relationship records.
+    match /users/{ownerUid}/employees/{employeeId} {
+      // Owners manage their own team. An invited employee may read only their
+      // matching record (including the temporary pre-acceptance record).
+      allow read: if isSelf(ownerUid)
+        || (
+          signedIn()
+          && (
+            employeeId == request.auth.uid
+            || authEmailMatches(resource.data.email)
+          )
+        );
+
+      // Owners can create invitation placeholders. The invited employee can
+      // create their own active relationship only when the accepted invite in
+      // the same atomic write proves that the connection is legitimate.
+      allow create: if isSelf(ownerUid)
+        || validEmployeeAcceptance(ownerUid, employeeId);
+
+      // Commission/payment settings remain owner-controlled.
+      allow update, delete: if isSelf(ownerUid);
+    }
+
+    // Jobs assigned by an owner live under the employee's account.
+    match /users/{employeeUid}/ownerJobs/{jobId} {
+      // Only an active owner/employee relationship may create an assignment.
+      allow create: if signedIn()
+        && activeEmployee(request.auth.uid, employeeUid)
+        && request.resource.data.ownerId == request.auth.uid
+        && request.resource.data.assignedTo == employeeUid;
+
+      // The employee can read their assigned jobs. The owner named on an
+      // existing job can continue reading it even after the employee leaves,
+      // preserving the business's historical records.
+      allow read: if isSelf(employeeUid)
+        || (signedIn() && resource.data.ownerId == request.auth.uid);
+
+      // Employees may complete/update their assigned work but cannot rewrite
+      // the fields that establish who owns and receives the assignment.
+      allow update: if (
+          isSelf(employeeUid)
+          && request.resource.data
+            .diff(resource.data)
+            .affectedKeys()
+            .hasAny([
+              'ownerId',
+              'assignedTo',
+              'employeeId',
+              'employeeCommissionRate',
+              'employeeName',
+              'jobType',
+              'createdAt'
+            ]) == false
+        )
+        || (
+          signedIn()
+          && resource.data.ownerId == request.auth.uid
+          && request.resource.data.ownerId == resource.data.ownerId
+        );
+
+      // Assigned work is a business record. Only its owner may delete it.
+      allow delete: if signedIn() && resource.data.ownerId == request.auth.uid;
+    }
+
+    // Employee invitations are visible only to the owner who created them or
+    // the authenticated email address they were sent to.
+    match /employeeInvites/{inviteId} {
+      allow create: if signedIn()
+        && request.resource.data.ownerId == request.auth.uid
+        && request.resource.data.inviteId == inviteId
+        && request.resource.data.status == 'pending';
+
+      allow read: if signedIn()
+        && (
+          resource.data.ownerId == request.auth.uid
+          || authEmailMatches(resource.data.employeeEmail)
+        );
+
+      // The recipient may only transition a pending invitation to accepted
+      // and stamp their own authenticated UID/email. The owner and recipient
+      // identities cannot be rewritten during acceptance.
+      allow update: if signedIn()
+        && authEmailMatches(resource.data.employeeEmail)
+        && resource.data.status == 'pending'
+        && request.resource.data.status == 'accepted'
+        && request.resource.data.ownerId == resource.data.ownerId
+        && request.resource.data.employeeEmail == resource.data.employeeEmail
+        && request.resource.data.inviteId == resource.data.inviteId
+        && request.resource.data.acceptedByUid == request.auth.uid
+        && request.resource.data.acceptedByEmail == request.auth.token.email
+        && request.resource.data
+          .diff(resource.data)
+          .affectedKeys()
+          .hasOnly([
+            'status',
+            'acceptedAt',
+            'acceptedByUid',
+            'acceptedByEmail'
+          ]);
+
+      allow delete: if signedIn()
+        && (
+          resource.data.ownerId == request.auth.uid
+          || (
+            resource.data.status == 'pending'
+            && authEmailMatches(resource.data.employeeEmail)
+          )
+        );
+    }
+
+    // Legacy registration request path. It is restricted to the employee who
+    // owns the document; no cross-user access is granted.
+    match /employeeRequests/{employeeUid} {
+      allow create: if isSelf(employeeUid)
+        && request.resource.data.employeeEmail == request.auth.token.email;
+      allow read, delete: if isSelf(employeeUid);
+      allow update: if false;
+    }
+
+    // Invoices remain in the existing top-level collection but are private to
+    // the account that created them.
+    match /invoices/{invoiceId} {
+      allow create: if signedIn()
+        && request.resource.data.createdBy == request.auth.uid;
+
+      allow read, delete: if signedIn()
+        && resource.data.createdBy == request.auth.uid;
+
+      allow update: if signedIn()
+        && resource.data.createdBy == request.auth.uid
+        && request.resource.data.createdBy == resource.data.createdBy;
+    }
+
+    // Pump Finder is intentionally not enabled in the JobTracker v1 release.
+    // Its future collections receive no allow rule here. The deny-by-default
+    // fallback below prevents app code or a direct client from exposing them.
+
+    // Deny every collection/path that was not explicitly approved above.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
