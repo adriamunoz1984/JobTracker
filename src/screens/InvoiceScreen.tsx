@@ -17,8 +17,7 @@ import {
   collection,
   addDoc,
   doc,
-  getDoc,
-  setDoc,
+  runTransaction,
   updateDoc,
 } from 'firebase/firestore';
 import { db } from '../firebase/config';
@@ -193,16 +192,32 @@ export default function InvoiceScreen() {
   };
 
   const generateInvoiceNumber = async (): Promise<string> => {
-    const year = new Date().getFullYear();
-    const counterRef = doc(db, 'invoiceCounters', year.toString());
-    const counterDoc = await getDoc(counterRef);
-    let count = 1;
-
-    if (counterDoc.exists()) {
-      count = (counterDoc.data().count || 0) + 1;
+    if (!user?.uid) {
+      throw new Error('You must be signed in to create an invoice.');
     }
 
-    await setDoc(counterRef, { count });
+    const year = new Date().getFullYear();
+    const counterRef = doc(db, 'users', user.uid, 'invoiceCounters', year.toString());
+
+    const count = await runTransaction(db, async (transaction) => {
+      const counterDoc = await transaction.get(counterRef);
+      const currentCount = counterDoc.exists()
+        ? Number(counterDoc.data().count || 0)
+        : 0;
+      const nextCount = currentCount + 1;
+
+      transaction.set(
+        counterRef,
+        {
+          count: nextCount,
+          updatedAt: new Date().toISOString(),
+        },
+        { merge: true }
+      );
+
+      return nextCount;
+    });
+
     return 'INV-' + year + '-' + String(count).padStart(4, '0');
   };
 
