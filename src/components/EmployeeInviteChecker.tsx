@@ -8,11 +8,10 @@ import {
   query, 
   where, 
   onSnapshot,
-  updateDoc,
   doc,
   deleteDoc,
-  setDoc,
-  getDocs
+  getDocs,
+  writeBatch
 } from 'firebase/firestore';
 
 const db = getFirestore();
@@ -124,24 +123,35 @@ export default function EmployeeInviteChecker() {
         keepsCheck,
       } as any);
 
-      // Update invite status
-      await updateDoc(doc(db, 'employeeInvites', invite.id), {
+      // Atomically mark the invitation accepted and create the active
+      // owner/employee relationship that future Firestore rules can verify.
+      const acceptedAt = new Date().toISOString();
+      const inviteRef = doc(db, 'employeeInvites', invite.id);
+      const activeEmployeeRef = doc(db, 'users', invite.ownerId, 'employees', user!.uid);
+      const batch = writeBatch(db);
+
+      batch.update(inviteRef, {
         status: 'accepted',
-        acceptedAt: new Date().toISOString()
+        acceptedAt,
+        acceptedByUid: user!.uid,
+        acceptedByEmail: user!.email?.toLowerCase() || null,
       });
 
-      // Add to owner's employees collection
-      await setDoc(doc(db, 'users', invite.ownerId, 'employees', user!.uid), {
+      batch.set(activeEmployeeRef, {
         uid: user!.uid,
-        email: user!.email,
+        email: user!.email?.toLowerCase() || '',
         name: existingEmployeeData?.name || user!.displayName || 'Employee',
         displayName: user!.displayName || 'Employee',
         status: 'active',
         commissionRate,
         keepsCash,
         keepsCheck,
-        acceptedAt: new Date().toISOString()
+        ownerId: invite.ownerId,
+        inviteId: invite.id,
+        acceptedAt,
       }, { merge: true });
+
+      await batch.commit();
 
       // Remove any temporary pre-acceptance employee record for the same email.
       await Promise.all(
