@@ -141,25 +141,53 @@ export const JobsProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const addJob = async (jobData: Omit<Job, 'id' | 'createdAt' | 'updatedAt'>): Promise<string> => {
     const now = new Date().toISOString();
     const jobId = `job_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-    
+
+    // Once an employee has accepted an owner's invitation, every new job they
+    // enter belongs in the shared ownerJobs stream. Older jobs remain in their
+    // private jobs collection, so accepting an invitation never exposes history.
+    const isConnectedEmployee =
+      user?.role === 'employee' &&
+      user?.ownerStatus === 'active' &&
+      !!user?.ownerId;
+
     const newJob: Job = {
       ...jobData,
       id: jobId,
       createdAt: now,
       updatedAt: now,
-      jobType: 'owner',
+      jobType: isConnectedEmployee ? 'employee' : 'owner',
+      ...(isConnectedEmployee
+        ? {
+            ownerId: user!.ownerId!,
+            assignedTo: user!.uid,
+            employeeId: user!.uid,
+            employeeName: user!.displayName || 'Employee',
+            employeeCommissionRate: user!.commissionRate ?? 50,
+            status: 'completed' as const,
+            createdByUid: user!.uid,
+            entrySource: 'employee-entry' as const,
+          }
+        : {}),
     };
 
-    // Save directly to Firestore only
     if (user?.uid && user.uid !== 'test-user-id') {
-      const jobsCollection = getUserJobsCollection();
-      if (jobsCollection) {
-        const cleanJob = removeUndefined(newJob);
-        
-        await setDoc(doc(jobsCollection, jobId), {
+      const cleanJob = removeUndefined(newJob);
+
+      if (isConnectedEmployee) {
+        // Security rules independently verify that this active owner/employee
+        // relationship exists, so profile fields alone cannot grant access.
+        await setDoc(doc(db, 'users', user.uid, 'ownerJobs', jobId), {
           ...cleanJob,
           lastModified: serverTimestamp(),
         });
+      } else {
+        const jobsCollection = getUserJobsCollection();
+        if (jobsCollection) {
+          await setDoc(doc(jobsCollection, jobId), {
+            ...cleanJob,
+            lastModified: serverTimestamp(),
+          });
+        }
       }
     }
     
@@ -276,70 +304,96 @@ export const JobsProvider: React.FC<{ children: React.ReactNode }> = ({ children
           unsubscribes.push(unsubscribeAssignedJobs);
         }
 
-        // 3. Load employee jobs if user is owner
+        // 3. Owners listen to the employee relationship collection in real time.
+        // When a new invitation is accepted, the owner begins receiving that
+        // employee's completed/newly-entered jobs without needing to relaunch.
         if (user.role === 'owner') {
-          try {
-            // Get list of employees
-            const employeesRef = collection(db, 'users', user.uid, 'employees');
-            const employeesSnapshot = await getDocs(employeesRef);
-            
-            const activeEmployees = employeesSnapshot.docs
-              .map(doc => ({ uid: doc.id, ...doc.data() }))
-              .filter((emp: any) => emp.status === 'active');
-            
-            console.log(`👥 Found ${activeEmployees.length} active employees`);
+          const employeesRef = collection(db, 'users', user.uid, 'employees');
+          const employeeJobUnsubscribes = new Map<string, () => void>();
 
-            // Set up listeners for each employee's completed jobs
-            activeEmployees.forEach((employee: any) => {
-              const employeeName =
-                employee.name ||
-                employee.displayName ||
-                employee.email ||
-                'Employee';
-              const employeeCommissionRate =
-                Number.isFinite(Number(employee.commissionRate))
-                  ? Number(employee.commissionRate)
-                  : 50;
+          const unsubscribeEmployees = onSnapshot(
+            employeesRef,
+            (employeesSnapshot) => {
+              if (!isMounted) return;
 
-              const employeeJobsRef = collection(db, 'users', employee.uid, 'ownerJobs');
-              const employeeJobsQuery = query(
-                employeeJobsRef,
-                where('ownerId', '==', user.uid),
-                where('status', '==', 'completed')
-              );
-              
-              const unsubscribeEmployeeJobs = onSnapshot(employeeJobsQuery,
-                (snapshot) => {
-                  if (!isMounted) return;
-                  
-                  const employeeJobs = snapshot.docs.map(doc => {
-                    const data = doc.data();
-                    return {
-                      id: doc.id,
-                      ...data,
-                      isEmployeeJob: true,
-                      isOwnerJob: false,
-                      employeeName: data.employeeName || employeeName,
-                      employeeId: data.employeeId || employee.uid,
-                      employeeCommissionRate:
-                        data.employeeCommissionRate ?? employeeCommissionRate,
-                    } as Job;
-                  });
-                  
-                  console.log(`👷 Employee ${employeeName} jobs: ${employeeJobs.length}`);
-                  updateAllJobs(employeeJobs, employee.uid);
-                },
-                (error) => {
-                  if (!isMounted) return;
-                  console.error(`❌ Employee ${employee.name} jobs listener error:`, error);
+              const activeEmployees = employeesSnapshot.docs
+                .map(employeeDoc => ({ uid: employeeDoc.id, ...employeeDoc.data() }))
+                .filter((emp: any) => emp.status === 'active');
+
+              const activeIds = new Set(activeEmployees.map((emp: any) => emp.uid));
+              console.log(`👥 Found ${activeEmployees.length} active employees`);
+
+              // Stop listening to employees who are no longer active.
+              employeeJobUnsubscribes.forEach((unsubscribeEmployeeJobs, employeeUid) => {
+                if (!activeIds.has(employeeUid)) {
+                  unsubscribeEmployeeJobs();
+                  employeeJobUnsubscribes.delete(employeeUid);
+                  updateAllJobs([], employeeUid);
                 }
-              );
-              
-              unsubscribes.push(unsubscribeEmployeeJobs);
-            });
-          } catch (error) {
-            console.error('❌ Error loading employee jobs:', error);
-          }
+              });
+
+              activeEmployees.forEach((employee: any) => {
+                if (employeeJobUnsubscribes.has(employee.uid)) return;
+
+                const employeeName =
+                  employee.name ||
+                  employee.displayName ||
+                  employee.email ||
+                  'Employee';
+                const employeeCommissionRate =
+                  Number.isFinite(Number(employee.commissionRate))
+                    ? Number(employee.commissionRate)
+                    : 50;
+
+                const employeeJobsRef = collection(db, 'users', employee.uid, 'ownerJobs');
+                const employeeJobsQuery = query(
+                  employeeJobsRef,
+                  where('ownerId', '==', user.uid),
+                  where('status', '==', 'completed')
+                );
+
+                const unsubscribeEmployeeJobs = onSnapshot(
+                  employeeJobsQuery,
+                  (snapshot) => {
+                    if (!isMounted) return;
+
+                    const employeeJobs = snapshot.docs.map(jobDoc => {
+                      const data = jobDoc.data();
+                      return {
+                        id: jobDoc.id,
+                        ...data,
+                        isEmployeeJob: true,
+                        isOwnerJob: false,
+                        employeeName: data.employeeName || employeeName,
+                        employeeId: data.employeeId || employee.uid,
+                        employeeCommissionRate:
+                          data.employeeCommissionRate ?? employeeCommissionRate,
+                      } as Job;
+                    });
+
+                    console.log(`👷 Employee ${employeeName} jobs: ${employeeJobs.length}`);
+                    updateAllJobs(employeeJobs, employee.uid);
+                  },
+                  (error) => {
+                    if (!isMounted) return;
+                    console.error(`❌ Employee ${employeeName} jobs listener error:`, error);
+                  }
+                );
+
+                employeeJobUnsubscribes.set(employee.uid, unsubscribeEmployeeJobs);
+              });
+            },
+            (error) => {
+              if (!isMounted) return;
+              console.error('❌ Employee relationship listener error:', error);
+            }
+          );
+
+          unsubscribes.push(() => {
+            unsubscribeEmployees();
+            employeeJobUnsubscribes.forEach(unsubscribeEmployeeJobs => unsubscribeEmployeeJobs());
+            employeeJobUnsubscribes.clear();
+          });
         }
         
       } else if (!user) {
