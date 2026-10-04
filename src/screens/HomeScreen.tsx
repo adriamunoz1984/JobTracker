@@ -254,8 +254,13 @@ export default function HomeScreen() {
                 >
                   Week ending {format(weekEndDate, 'MMM dd')}
                 </ScaledText>
-                <ScaledText style={styles.weekTotalText}>
-                  ${displayAmount.toFixed(0)}
+                <ScaledText
+                  style={styles.weekTotalText}
+                  numberOfLines={1}
+                  adjustsFontSizeToFit
+                  minimumFontScale={0.72}
+                >
+                  ${Math.round(displayAmount).toLocaleString()}
                 </ScaledText>
               </View>
             </LinearGradient>
@@ -429,17 +434,18 @@ const useStyles = makeStyles((Colors) => ({
   },
   weekHeaderGradient: {
     paddingVertical: Spacing.md,
-    paddingHorizontal: 0,
+    paddingHorizontal: Spacing.sm,
   },
   weekHeaderContent: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: Spacing.sm,
     paddingVertical: Spacing.md,
+    columnGap: Spacing.sm,
   },
   weekChevron: {
-    width: 72,
-    marginLeft: -2,
+    width: 36,
+    marginLeft: 0,
     flexShrink: 0,
   },
   weekEndText: {
@@ -454,8 +460,10 @@ const useStyles = makeStyles((Colors) => ({
     fontSize: 18,
     fontWeight: 'bold',
     color: Colors.textInverse,
-    width: 72,
-    flexShrink: 0,
+    minWidth: 92,
+    maxWidth: '34%',
+    flexShrink: 1,
     textAlign: 'right',
+    paddingRight: Spacing.xs,
   },
 }));
