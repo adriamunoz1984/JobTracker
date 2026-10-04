@@ -119,11 +119,26 @@ service cloud.firestore {
 
     // Jobs assigned by an owner live under the employee's account.
     match /users/{employeeUid}/ownerJobs/{jobId} {
-      // Only an active owner/employee relationship may create an assignment.
-      allow create: if signedIn()
-        && activeEmployee(request.auth.uid, employeeUid)
-        && request.resource.data.ownerId == request.auth.uid
-        && request.resource.data.assignedTo == employeeUid;
+      // Owners may assign work to an active employee. Connected employees may
+      // also enter their own completed jobs into this shared stream, but only
+      // while a real active relationship exists with the named owner.
+      allow create: if (
+          signedIn()
+          && activeEmployee(request.auth.uid, employeeUid)
+          && request.resource.data.ownerId == request.auth.uid
+          && request.resource.data.assignedTo == employeeUid
+        )
+        || (
+          isSelf(employeeUid)
+          && request.resource.data.ownerId is string
+          && activeEmployee(request.resource.data.ownerId, employeeUid)
+          && request.resource.data.assignedTo == employeeUid
+          && request.resource.data.employeeId == employeeUid
+          && request.resource.data.createdByUid == employeeUid
+          && request.resource.data.entrySource == 'employee-entry'
+          && request.resource.data.jobType == 'employee'
+          && request.resource.data.status == 'completed'
+        );
 
       // The employee can read their assigned jobs. The owner named on an
       // existing job can continue reading it even after the employee leaves,
@@ -145,7 +160,9 @@ service cloud.firestore {
               'employeeCommissionRate',
               'employeeName',
               'jobType',
-              'createdAt'
+              'createdAt',
+              'createdByUid',
+              'entrySource'
             ]) == false
         )
         || (
@@ -154,8 +171,17 @@ service cloud.firestore {
           && request.resource.data.ownerId == resource.data.ownerId
         );
 
-      // Assigned work is a business record. Only its owner may delete it.
-      allow delete: if signedIn() && resource.data.ownerId == request.auth.uid;
+      // Owners can delete shared business records. Employees may delete only
+      // jobs they personally entered after becoming connected; they cannot
+      // delete work that the owner assigned to them.
+      allow delete: if (
+          signedIn() && resource.data.ownerId == request.auth.uid
+        )
+        || (
+          isSelf(employeeUid)
+          && resource.data.createdByUid == employeeUid
+          && resource.data.entrySource == 'employee-entry'
+        );
     }
 
     // Employee invitations are visible only to the owner who created them or
