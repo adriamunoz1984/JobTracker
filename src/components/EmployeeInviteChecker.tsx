@@ -10,6 +10,7 @@ import {
   onSnapshot,
   doc,
   deleteDoc,
+  getDoc,
   getDocs,
   writeBatch
 } from 'firebase/firestore';
@@ -98,24 +99,53 @@ export default function EmployeeInviteChecker() {
       const remaining = pendingInvites.filter(inv => inv.id !== invite.id);
       setPendingInvites(remaining);
 
-      // Preserve any commission/payment settings the owner already set on the invite record.
+      // Preserve the owner's settings from this specific invitation placeholder.
+      // There can be stale rows from older test invitations with the same email,
+      // so do not use the first email match blindly.
       const ownerEmployeesRef = collection(db, 'users', invite.ownerId, 'employees');
       const existingEmployeeQuery = query(
         ownerEmployeesRef,
         where('email', '==', user!.email!.toLowerCase())
       );
       const existingEmployeeSnapshot = await getDocs(existingEmployeeQuery);
-      const existingEmployeeData = existingEmployeeSnapshot.docs[0]?.data() as any | undefined;
+      const invitePlaceholder = existingEmployeeSnapshot.docs.find(snapshot => {
+        const data = snapshot.data() as any;
+        return snapshot.id !== user!.uid && data.inviteId === invite.id;
+      });
+      const invitePlaceholderData = invitePlaceholder?.data() as any | undefined;
 
-      const commissionRate = existingEmployeeData?.commissionRate ?? user?.commissionRate ?? 50;
-      const keepsCash = existingEmployeeData?.keepsCash ?? false;
-      const keepsCheck = existingEmployeeData?.keepsCheck ?? false;
+      const activeEmployeeRef = doc(db, 'users', invite.ownerId, 'employees', user!.uid);
+      const activeEmployeeSnapshot = await getDoc(activeEmployeeRef);
+      const activeEmployeeData = activeEmployeeSnapshot.exists()
+        ? activeEmployeeSnapshot.data() as any
+        : undefined;
+
+      if (
+        activeEmployeeData &&
+        (activeEmployeeData.status !== 'active' || activeEmployeeData.ownerId !== invite.ownerId)
+      ) {
+        throw new Error('An unexpected employee relationship already exists for this owner.');
+      }
+
+      const commissionRate =
+        activeEmployeeData?.commissionRate ??
+        invitePlaceholderData?.commissionRate ??
+        user?.commissionRate ??
+        50;
+      const keepsCash =
+        activeEmployeeData?.keepsCash ??
+        invitePlaceholderData?.keepsCash ??
+        false;
+      const keepsCheck =
+        activeEmployeeData?.keepsCheck ??
+        invitePlaceholderData?.keepsCheck ??
+        false;
 
       // Atomically mark the invitation accepted and create the active
-      // owner/employee relationship that future Firestore rules can verify.
+      // relationship only when it does not already exist. This makes accepting
+      // a replacement/duplicate invite safe after a previous partial test.
       const acceptedAt = new Date().toISOString();
       const inviteRef = doc(db, 'employeeInvites', invite.id);
-      const activeEmployeeRef = doc(db, 'users', invite.ownerId, 'employees', user!.uid);
       const batch = writeBatch(db);
 
       batch.update(inviteRef, {
@@ -125,27 +155,28 @@ export default function EmployeeInviteChecker() {
         acceptedByEmail: user!.email?.toLowerCase() || null,
       });
 
-      batch.set(activeEmployeeRef, {
-        uid: user!.uid,
-        email: user!.email?.toLowerCase() || '',
-        name: existingEmployeeData?.name || user!.displayName || 'Employee',
-        displayName: user!.displayName || 'Employee',
-        status: 'active',
-        commissionRate,
-        keepsCash,
-        keepsCheck,
-        ownerId: invite.ownerId,
-        inviteId: invite.id,
-        acceptedAt,
-      }, { merge: true });
+      if (!activeEmployeeSnapshot.exists()) {
+        batch.set(activeEmployeeRef, {
+          uid: user!.uid,
+          email: user!.email?.toLowerCase() || '',
+          name: invitePlaceholderData?.name || user!.displayName || 'Employee',
+          displayName: user!.displayName || 'Employee',
+          status: 'active',
+          commissionRate,
+          keepsCash,
+          keepsCheck,
+          ownerId: invite.ownerId,
+          inviteId: invite.id,
+          acceptedAt,
+        });
+      }
 
-      // Delete the temporary invited row in the same atomic write. Previously
-      // this cleanup ran afterward as a separate delete, which correctly
-      // failed under the release security rules because only the owner could
-      // delete employee records.
-      existingEmployeeSnapshot.docs
-        .filter(snapshot => snapshot.id !== user!.uid)
-        .forEach(snapshot => batch.delete(snapshot.ref));
+      // Delete only the temporary row belonging to this invitation. Deleting
+      // every row with the same email can touch stale invitations and cause
+      // the entire Firestore batch to be rejected by the security rules.
+      if (invitePlaceholder) {
+        batch.delete(invitePlaceholder.ref);
+      }
 
       await batch.commit();
 
