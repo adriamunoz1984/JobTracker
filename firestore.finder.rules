@@ -359,12 +359,20 @@ service cloud.firestore {
           && request.resource.data.jobId == jobId
           && request.resource.data.pumperId == pumperUid
           && request.resource.data.status == 'pending'
+          && request.resource.data.pumperName is string
+          && request.resource.data.businessName is string
+          && request.resource.data.pumpType is string
+          && request.resource.data.serviceArea is string
           && request.resource.data.createdAt == request.time
           && request.resource.data.updatedAt == request.time
           && request.resource.data.keys().hasOnly([
             'jobId',
             'pumperId',
             'status',
+            'pumperName',
+            'businessName',
+            'pumpType',
+            'serviceArea',
             'createdAt',
             'updatedAt'
           ]);
