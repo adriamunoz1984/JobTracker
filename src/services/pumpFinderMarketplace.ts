@@ -2,6 +2,7 @@ import {
   collection,
   doc,
   getDoc,
+  getDocs,
   onSnapshot,
   query,
   serverTimestamp,
@@ -13,6 +14,7 @@ import {
 import { auth, db } from '../firebase/config';
 import {
   FinderJobDraft,
+  FinderJobRequest,
   FinderPublicJob,
   FinderRequestStatus,
 } from '../types/pumpFinder';
@@ -23,19 +25,15 @@ function cleanOptionalString(value?: string) {
 }
 
 /**
- * Creates the first Pump Finder marketplace record as two documents in one batch:
+ * Creates a Pump Finder marketplace job as two documents in one atomic batch:
  *
  * finderJobs/{jobId}
  *   Browseable/matchable job data only. Never stores the exact address,
  *   customer name, access codes, or other private contact/access information.
  *
  * finderJobPrivate/{jobId}
- *   Poster-only/private details. Later, Firestore rules will also allow the
- *   awarded pumper to read this document only after that pumper confirms.
- *
- * The production JobTracker rules still deny these collections. This service is
- * intentionally staged on the Pump Finder development branch until the Finder
- * rules are tested and deliberately deployed.
+ *   Poster-only/private details. Finder rules also allow the selected pumper
+ *   to read this document only after that pumper confirms the award.
  */
 export async function createFinderJob(draft: FinderJobDraft) {
   const currentUser = auth.currentUser;
@@ -112,9 +110,7 @@ export function subscribeAvailableFinderJobs(
           id: snapshotDoc.id,
           ...(snapshotDoc.data() as Omit<FinderPublicJob, 'id'>),
         }))
-        // Posters should not see their own jobs in the pumper availability feed.
         .filter(job => job.posterId !== currentUser.uid)
-        // Local calendar dates sort correctly in yyyy-MM-dd form.
         .sort((a, b) => {
           const dateCompare = a.jobDate.localeCompare(b.jobDate);
           if (dateCompare !== 0) return dateCompare;
@@ -129,6 +125,80 @@ export function subscribeAvailableFinderJobs(
   );
 }
 
+export function subscribeMyPostedFinderJobs(
+  onJobs: (jobs: FinderPublicJob[]) => void,
+  onError?: (error: Error) => void
+): Unsubscribe {
+  const currentUser = auth.currentUser;
+
+  if (!currentUser) {
+    throw new Error('You must be signed in to view your posted Pump Finder jobs.');
+  }
+
+  const myJobsQuery = query(
+    collection(db, 'finderJobs'),
+    where('posterId', '==', currentUser.uid)
+  );
+
+  return onSnapshot(
+    myJobsQuery,
+    snapshot => {
+      const jobs = snapshot.docs
+        .map(snapshotDoc => ({
+          id: snapshotDoc.id,
+          ...(snapshotDoc.data() as Omit<FinderPublicJob, 'id'>),
+        }))
+        .sort((a, b) => {
+          const dateCompare = b.jobDate.localeCompare(a.jobDate);
+          if (dateCompare !== 0) return dateCompare;
+          return b.startTime.localeCompare(a.startTime);
+        });
+
+      onJobs(jobs);
+    },
+    error => onError?.(error)
+  );
+}
+
+export function subscribeFinderJob(
+  jobId: string,
+  onJob: (job: FinderPublicJob | null) => void,
+  onError?: (error: Error) => void
+): Unsubscribe {
+  return onSnapshot(
+    doc(db, 'finderJobs', jobId),
+    snapshot => {
+      onJob(
+        snapshot.exists()
+          ? {
+              id: snapshot.id,
+              ...(snapshot.data() as Omit<FinderPublicJob, 'id'>),
+            }
+          : null
+      );
+    },
+    error => onError?.(error)
+  );
+}
+
+export function subscribeFinderJobRequests(
+  jobId: string,
+  onRequests: (requests: FinderJobRequest[]) => void,
+  onError?: (error: Error) => void
+): Unsubscribe {
+  return onSnapshot(
+    collection(db, 'finderJobs', jobId, 'requests'),
+    snapshot => {
+      const requests = snapshot.docs.map(snapshotDoc => ({
+        id: snapshotDoc.id,
+        ...(snapshotDoc.data() as Omit<FinderJobRequest, 'id'>),
+      }));
+      onRequests(requests);
+    },
+    error => onError?.(error)
+  );
+}
+
 export async function requestFinderJob(jobId: string) {
   const currentUser = auth.currentUser;
 
@@ -138,10 +208,12 @@ export async function requestFinderJob(jobId: string) {
 
   const jobRef = doc(db, 'finderJobs', jobId);
   const requestRef = doc(db, 'finderJobs', jobId, 'requests', currentUser.uid);
+  const profileRef = doc(db, 'users', currentUser.uid, 'profile', 'data');
 
-  const [jobSnapshot, requestSnapshot] = await Promise.all([
+  const [jobSnapshot, requestSnapshot, profileSnapshot] = await Promise.all([
     getDoc(jobRef),
     getDoc(requestRef),
+    getDoc(profileRef),
   ]);
 
   if (!jobSnapshot.exists()) {
@@ -172,10 +244,17 @@ export async function requestFinderJob(jobId: string) {
     throw new Error('You already responded to this job.');
   }
 
+  const profile = profileSnapshot.exists() ? (profileSnapshot.data() as any) : {};
+  const finderProfile = profile?.pumpFinderProfile || {};
+
   await setDoc(requestRef, {
     jobId,
     pumperId: currentUser.uid,
     status: 'pending',
+    pumperName: profile?.displayName || currentUser.displayName || 'Pumper',
+    businessName: profile?.businessName || '',
+    pumpType: finderProfile?.pumpType || '',
+    serviceArea: finderProfile?.serviceArea || '',
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
   });
@@ -202,4 +281,61 @@ export async function getMyFinderRequestStatuses(jobIds: string[]) {
   );
 
   return result;
+}
+
+export async function awardFinderPumper(jobId: string, pumperId: string) {
+  const currentUser = auth.currentUser;
+
+  if (!currentUser) {
+    throw new Error('You must be signed in to award a Pump Finder job.');
+  }
+
+  const jobRef = doc(db, 'finderJobs', jobId);
+  const jobSnapshot = await getDoc(jobRef);
+
+  if (!jobSnapshot.exists()) {
+    throw new Error('This Pump Finder job no longer exists.');
+  }
+
+  const job = jobSnapshot.data() as any;
+
+  if (job.posterId !== currentUser.uid) {
+    throw new Error('Only the original poster can award this job.');
+  }
+
+  if (job.status !== 'unassigned') {
+    throw new Error('This job has already moved past the request stage.');
+  }
+
+  const requestsSnapshot = await getDocs(
+    collection(db, 'finderJobs', jobId, 'requests')
+  );
+
+  const selectedRequest = requestsSnapshot.docs.find(
+    requestDoc => requestDoc.id === pumperId
+  );
+
+  if (!selectedRequest || selectedRequest.data().status !== 'pending') {
+    throw new Error('That pumper is no longer waiting for an award.');
+  }
+
+  const batch = writeBatch(db);
+
+  batch.update(jobRef, {
+    status: 'award-pending',
+    awardedPumperId: pumperId,
+    awardedAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  });
+
+  requestsSnapshot.docs.forEach(requestDoc => {
+    if (requestDoc.data().status !== 'pending') return;
+
+    batch.update(requestDoc.ref, {
+      status: requestDoc.id === pumperId ? 'awarded' : 'declined',
+      updatedAt: serverTimestamp(),
+    });
+  });
+
+  await batch.commit();
 }
