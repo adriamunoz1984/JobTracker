@@ -472,21 +472,38 @@ const updateJob = async (updatedJob: Job) => {
 
   const deleteJob = async (id: string) => {
     const jobToDelete = jobs.find(job => job.id === id);
-    const updatedJobs = jobs.filter((job) => job.id !== id);
-    setJobs(updatedJobs);
+    if (!jobToDelete) return;
 
-    if (user?.uid && jobToDelete) {
-      try {
-        const jobDocRef = getJobDocRef(jobToDelete);
-        if (jobDocRef) {
+    // An employee may remove a shared job only when they personally entered it.
+    // Owner-assigned work remains a business record controlled by the owner.
+    if (
+      user?.role === 'employee' &&
+      jobToDelete.isEmployeeJob &&
+      !(
+        (jobToDelete as any).createdByUid === user.uid &&
+        (jobToDelete as any).entrySource === 'employee-entry'
+      )
+    ) {
+      throw new Error('Only the owner can delete an owner-assigned job.');
+    }
+
+    // Delete remotely first. If Firestore rejects the operation, leave the
+    // local copy intact so the UI never pretends a job was deleted when it was not.
+    if (user?.uid && user.uid !== 'test-user-id') {
+      const jobDocRef = getJobDocRef(jobToDelete);
+      if (jobDocRef) {
+        try {
           await deleteDoc(jobDocRef);
           console.log(`☁️ Deleted job from Firebase: ${id}`);
+        } catch (error) {
+          setSyncStatus('error');
+          throw error;
         }
-      } catch (error) {
-        console.error('❌ Error deleting from Firebase:', error);
       }
     }
 
+    const updatedJobs = jobs.filter((job) => job.id !== id);
+    setJobs(updatedJobs);
     await AsyncStorage.setItem('jobs', JSON.stringify(updatedJobs));
     console.log(`✅ Deleted job: ${id}`);
   };
