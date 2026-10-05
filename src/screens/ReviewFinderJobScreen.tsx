@@ -1,8 +1,9 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { format, parseISO } from 'date-fns';
 import { FinderJobDraft } from '../types/pumpFinder';
+import { createFinderJob } from '../services/pumpFinderMarketplace';
 import { useAppTheme, makeStyles } from '../theme';
 import ThemedHero from '../components/ThemedHero';
 
@@ -16,6 +17,7 @@ export default function ReviewFinderJobScreen({ navigation, route }: any) {
   const { colors: Colors } = useAppTheme();
   const styles = useStyles();
   const jobDraft: FinderJobDraft | undefined = route?.params?.jobDraft;
+  const [isPosting, setIsPosting] = useState(false);
 
   if (!jobDraft) {
     return (
@@ -29,15 +31,32 @@ export default function ReviewFinderJobScreen({ navigation, route }: any) {
     );
   }
 
-  const handlePost = () => {
-    Alert.alert(
-      'Job draft is ready',
-      'The Finder backend is staged on the development branch. Live posting stays disabled until the public/private Firestore rules pass emulator testing, so no marketplace data is exposed early.',
-      [
-        { text: 'Keep Editing', style: 'cancel', onPress: () => navigation.goBack() },
-        { text: 'OK' },
-      ]
-    );
+  const handlePost = async () => {
+    if (isPosting) return;
+
+    try {
+      setIsPosting(true);
+      const jobId = await createFinderJob(jobDraft);
+
+      Alert.alert(
+        'Test job posted',
+        `Pump Finder created the public job and private address record together. Job ID: ${jobId}`,
+        [
+          {
+            text: 'Back to Pump Finder',
+            onPress: () => navigation.navigate('MainApp', { screen: 'Finder' }),
+          },
+        ]
+      );
+    } catch (error: any) {
+      console.error('Pump Finder post failed:', error);
+      Alert.alert(
+        'Could not post job',
+        error?.message || 'The Pump Finder test job could not be saved.'
+      );
+    } finally {
+      setIsPosting(false);
+    }
   };
 
   return (
@@ -134,14 +153,24 @@ export default function ReviewFinderJobScreen({ navigation, route }: any) {
         </View>
       </View>
 
-      <TouchableOpacity style={styles.editButton} onPress={() => navigation.goBack()} activeOpacity={0.8}>
+      <TouchableOpacity
+        style={styles.editButton}
+        onPress={() => navigation.goBack()}
+        activeOpacity={0.8}
+        disabled={isPosting}
+      >
         <Ionicons name="create-outline" size={20} color={Colors.primary} />
         <Text style={styles.editButtonText}>Edit Job</Text>
       </TouchableOpacity>
 
-      <TouchableOpacity style={styles.primaryButton} onPress={handlePost} activeOpacity={0.8}>
-        <Text style={styles.primaryButtonText}>Post Job</Text>
-        <Ionicons name="send" size={19} color={Colors.onPrimary} />
+      <TouchableOpacity
+        style={[styles.primaryButton, isPosting && styles.primaryButtonDisabled]}
+        onPress={handlePost}
+        activeOpacity={0.8}
+        disabled={isPosting}
+      >
+        <Text style={styles.primaryButtonText}>{isPosting ? 'Posting…' : 'Post Test Job'}</Text>
+        <Ionicons name={isPosting ? 'hourglass-outline' : 'send'} size={19} color={Colors.onPrimary} />
       </TouchableOpacity>
     </ScrollView>
   );
@@ -200,6 +229,7 @@ const useStyles = makeStyles((Colors) => ({
   editButton: { minHeight: 50, borderRadius: 12, borderWidth: 1, borderColor: Colors.primary, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, marginBottom: 10, backgroundColor: Colors.surface },
   editButtonText: { color: Colors.primary, fontSize: 16, fontWeight: '700' },
   primaryButton: { minHeight: 52, borderRadius: 12, backgroundColor: Colors.primary, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
+  primaryButtonDisabled: { opacity: 0.65 },
   primaryButtonText: { color: Colors.onPrimary, fontSize: 17, fontWeight: '800' },
   empty: { flex: 1, backgroundColor: Colors.background, alignItems: 'center', justifyContent: 'center', padding: 24 },
   emptyTitle: { fontSize: 20, fontWeight: '800', color: Colors.text, marginTop: 10, marginBottom: 20 },
