@@ -7,10 +7,15 @@ import { useAppTheme, makeStyles } from '../theme';
 
 const { width, height } = Dimensions.get('window');
 
-const DraggableFAB: React.FC = () => {
+interface DraggableFABProps {
+  variant?: 'default' | 'invoice';
+}
+
+const DraggableFAB: React.FC<DraggableFABProps> = ({ variant = 'default' }) => {
   const styles = useStyles();
   const { colors: Colors } = useAppTheme();
-  const navigation = useNavigation();
+  const navigation = useNavigation<any>();
+  const isInvoiceVariant = variant === 'invoice';
   
   // Initial position at bottom center of screen
   const position = useRef(new Animated.ValueXY({
@@ -131,9 +136,12 @@ const DraggableFAB: React.FC = () => {
       {...panResponder.panHandlers}
     >
       <FAB
-        style={styles.fab}
-        icon="briefcase-plus"
-        color={Colors.textInverse}
+        style={[
+          styles.fab,
+          isInvoiceVariant && styles.invoiceFab,
+        ]}
+        icon={isInvoiceVariant ? 'briefcase-plus' : 'plus'}
+        color={isInvoiceVariant ? Colors.primary : Colors.textInverse}
         customSize={52}
         accessibilityLabel="Add Job"
       />
@@ -154,6 +162,11 @@ const useStyles = makeStyles((Colors) => ({
     shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.24,
     shadowRadius: 5,
+  },
+  invoiceFab: {
+    backgroundColor: Colors.surface,
+    borderWidth: 2,
+    borderColor: Colors.primary,
   },
 }));
 
