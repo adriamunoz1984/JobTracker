@@ -419,11 +419,11 @@ export default function WeeklyDashboardScreen() {
                 <div class="footer-value">$${ownerPay.directPaymentsToPumpers.toFixed(0)}</div>
               </div>
               <div class="footer-row">
-                <div class="footer-label">Still Owed to Pumpers</div>
+                <div class="footer-label">Amount Owed to Pumpers</div>
                 <div class="footer-value">$${ownerPay.amountOwedToPumpers.toFixed(0)}</div>
               </div>
               <div class="footer-row footer-total">
-                <div class="footer-label">Owner After Pumper Pay</div>
+                <div class="footer-label">Take Home</div>
                 <div class="footer-value">$${ownerPay.ownerAfterPumperPay.toFixed(0)}</div>
               </div>
             `}
@@ -611,7 +611,7 @@ export default function WeeklyDashboardScreen() {
                 colors={gradients.success}
                 style={styles.totalBox}
               >
-                <Text style={styles.totalLabel}>Amount Still Owed:</Text>
+                <Text style={styles.totalLabel}>Amount Owed:</Text>
                 <Text style={styles.totalValue}>${totals.yourPay.toFixed(2)}</Text>
               </LinearGradient>
             </Card.Content>
@@ -622,7 +622,7 @@ export default function WeeklyDashboardScreen() {
         {isOwner && (
           <Card style={styles.card}>
             <Card.Content>
-              <Text variant="titleMedium" style={styles.sectionTitle}>💼 Owner Earnings</Text>
+              <Text variant="titleMedium" style={styles.sectionTitle}>💼 Earnings</Text>
               <Divider style={styles.divider} />
 
               <View style={styles.earningsRow}>
@@ -641,7 +641,7 @@ export default function WeeklyDashboardScreen() {
               </View>
 
               <View style={styles.earningsRow}>
-                <Text style={styles.earningsLabel}>Still Owed to Pumpers:</Text>
+                <Text style={styles.earningsLabel}>Amount Owed to Pumpers:</Text>
                 <Text style={styles.earningsValue}>${ownerPay.amountOwedToPumpers.toFixed(2)}</Text>
               </View>
 
@@ -658,7 +658,7 @@ export default function WeeklyDashboardScreen() {
                 colors={gradients.success}
                 style={styles.totalBox}
               >
-                <Text style={styles.totalLabel}>Owner After Pumper Pay:</Text>
+                <Text style={styles.totalLabel}>Take Home:</Text>
                 <Text style={styles.totalValue}>${totals.finalTakeHome.toFixed(2)}</Text>
               </LinearGradient>
             </Card.Content>
