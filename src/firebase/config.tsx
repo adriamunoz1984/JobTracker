@@ -3,7 +3,7 @@ import { initializeApp } from 'firebase/app';
 import { initializeAuth, getReactNativePersistence } from 'firebase/auth';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getStorage } from 'firebase/storage';
-import { getFirestore } from 'firebase/firestore'; // Add this import
+import { connectFirestoreEmulator, getFirestore } from 'firebase/firestore';
 
 // Your Firebase config
 const firebaseConfig = {
@@ -28,6 +28,27 @@ const auth = initializeAuth(app, {
 const storage = getStorage(app);
 
 // Initialize Firestore
-const db = getFirestore(app); // Add this line
+const db = getFirestore(app);
 
-export { app, auth, storage, db }; // Add db to exports
+// Pump Finder development can be pointed at the local Firestore emulator
+// without changing production firebase.json or deploying Finder rules.
+// On a physical Android device, use:
+//   adb reverse tcp:8080 tcp:8080
+// and leave the host as 127.0.0.1.
+const useFirestoreEmulator =
+  __DEV__ && process.env.EXPO_PUBLIC_USE_FIRESTORE_EMULATOR === 'true';
+
+if (useFirestoreEmulator) {
+  const emulatorHost =
+    process.env.EXPO_PUBLIC_FIRESTORE_EMULATOR_HOST || '127.0.0.1';
+  const emulatorPort = Number(
+    process.env.EXPO_PUBLIC_FIRESTORE_EMULATOR_PORT || '8080'
+  );
+
+  connectFirestoreEmulator(db, emulatorHost, emulatorPort);
+  console.log(
+    `🧪 Firestore emulator enabled at ${emulatorHost}:${emulatorPort}`
+  );
+}
+
+export { app, auth, storage, db };
