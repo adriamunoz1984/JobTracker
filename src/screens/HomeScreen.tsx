@@ -32,6 +32,10 @@ export default function HomeScreen() {
   const [sortNewestFirst, setSortNewestFirst] = useState(true);
   const [collapsedWeeks, setCollapsedWeeks] = useState<Set<string>>(new Set());
   const [allCollapsed, setAllCollapsed] = useState(false);
+  const [ownerJobFilter, setOwnerJobFilter] = useState<'all' | 'mine' | 'employees'>(
+    showEmployeeJobs ? 'all' : 'mine'
+  );
+  const [selectedEmployeeKey, setSelectedEmployeeKey] = useState<string>('all');
   
   // Function to group jobs by date and assign sequence numbers
   const processJobs = (jobsList: Job[]): {jobsWithSequence: Job[], jobsByDate: Record<string, Job[]>} => {
@@ -96,9 +100,41 @@ export default function HomeScreen() {
       )
     : jobs;
 
-  // Filter jobs based on employee toggle
-  const filteredJobs = (user?.role === 'owner' && !showEmployeeJobs)
-    ? searchFilteredJobs.filter(job => !(job as any).isEmployeeJob)
+  const employeeKeyForJob = (job: Job) =>
+    job.employeeId || job.employeeName || 'unknown-employee';
+
+  const employeeChoices = Array.from(
+    jobs
+      .filter(job => job.isEmployeeJob)
+      .reduce((map, job) => {
+        const key = employeeKeyForJob(job);
+        if (!map.has(key)) {
+          map.set(key, {
+            key,
+            name: job.employeeName || 'Employee',
+          });
+        }
+        return map;
+      }, new Map<string, { key: string; name: string }>())
+      .values()
+  ).sort((a, b) => a.name.localeCompare(b.name));
+
+  // Owners can view all work, only their own jobs, all employee jobs, or one
+  // specific employee. Employee accounts continue to see their own feed.
+  const filteredJobs = user?.role === 'owner'
+    ? searchFilteredJobs.filter(job => {
+        if (ownerJobFilter === 'mine') {
+          return !job.isEmployeeJob;
+        }
+
+        if (ownerJobFilter === 'employees') {
+          if (!job.isEmployeeJob) return false;
+          return selectedEmployeeKey === 'all'
+            || employeeKeyForJob(job) === selectedEmployeeKey;
+        }
+
+        return true;
+      })
     : searchFilteredJobs;
 
   const { jobsWithSequence, jobsByDate } = processJobs(filteredJobs);
@@ -320,22 +356,95 @@ export default function HomeScreen() {
         />
       </View>
       
-      <View style={styles.filterContainer}>
-        {user?.role === 'owner' && (
-          <Chip
-            mode={showEmployeeJobs ? 'flat' : 'outlined'}
-            onPress={() => setShowEmployeeJobs(!showEmployeeJobs)}
-            icon={showEmployeeJobs ? 'account-group' : 'account'}
-            style={[
-              styles.filterChip,
-              showEmployeeJobs && styles.filterChipActive
-            ]}
-            textStyle={showEmployeeJobs ? styles.filterChipActiveText : styles.filterChipText}
-          >
-            {showEmployeeJobs ? 'All Jobs' : 'My Jobs'}
-          </Chip>
-        )}
-      </View>
+      {user?.role === 'owner' && (
+        <View style={styles.filterArea}>
+          <View style={styles.filterContainer}>
+            <Chip
+              mode={ownerJobFilter === 'all' ? 'flat' : 'outlined'}
+              onPress={() => {
+                setOwnerJobFilter('all');
+                setSelectedEmployeeKey('all');
+                setShowEmployeeJobs(true);
+              }}
+              icon="account-group"
+              style={[
+                styles.filterChip,
+                ownerJobFilter === 'all' && styles.filterChipActive
+              ]}
+              textStyle={ownerJobFilter === 'all' ? styles.filterChipActiveText : styles.filterChipText}
+            >
+              All Jobs
+            </Chip>
+
+            <Chip
+              mode={ownerJobFilter === 'mine' ? 'flat' : 'outlined'}
+              onPress={() => {
+                setOwnerJobFilter('mine');
+                setSelectedEmployeeKey('all');
+                setShowEmployeeJobs(false);
+              }}
+              icon="account"
+              style={[
+                styles.filterChip,
+                ownerJobFilter === 'mine' && styles.filterChipActive
+              ]}
+              textStyle={ownerJobFilter === 'mine' ? styles.filterChipActiveText : styles.filterChipText}
+            >
+              My Jobs
+            </Chip>
+
+            <Chip
+              mode={ownerJobFilter === 'employees' ? 'flat' : 'outlined'}
+              onPress={() => {
+                setOwnerJobFilter('employees');
+                setSelectedEmployeeKey('all');
+                setShowEmployeeJobs(true);
+              }}
+              icon="account-hard-hat"
+              style={[
+                styles.filterChip,
+                ownerJobFilter === 'employees' && styles.filterChipActive
+              ]}
+              textStyle={ownerJobFilter === 'employees' ? styles.filterChipActiveText : styles.filterChipText}
+            >
+              Employee Jobs
+            </Chip>
+          </View>
+
+          {ownerJobFilter === 'employees' && employeeChoices.length > 1 && (
+            <View style={styles.employeeFilterContainer}>
+              <Chip
+                compact
+                mode={selectedEmployeeKey === 'all' ? 'flat' : 'outlined'}
+                onPress={() => setSelectedEmployeeKey('all')}
+                style={[
+                  styles.employeeFilterChip,
+                  selectedEmployeeKey === 'all' && styles.filterChipActive
+                ]}
+                textStyle={selectedEmployeeKey === 'all' ? styles.filterChipActiveText : styles.filterChipText}
+              >
+                All Employees
+              </Chip>
+
+              {employeeChoices.map(employee => (
+                <Chip
+                  key={employee.key}
+                  compact
+                  mode={selectedEmployeeKey === employee.key ? 'flat' : 'outlined'}
+                  onPress={() => setSelectedEmployeeKey(employee.key)}
+                  style={[
+                    styles.employeeFilterChip,
+                    selectedEmployeeKey === employee.key && styles.filterChipActive
+                  ]}
+                  textStyle={selectedEmployeeKey === employee.key ? styles.filterChipActiveText : styles.filterChipText}
+                >
+                  {employee.name}
+                </Chip>
+              ))}
+            </View>
+          )}
+        </View>
+      )}
 
       <FlatList
         data={flatListData}
@@ -403,13 +512,29 @@ const useStyles = makeStyles((Colors) => ({
     marginLeft: 0,
     marginRight: 4,
   },
+  filterArea: {
+    paddingBottom: Spacing.xs,
+  },
   filterContainer: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.sm,
+    paddingTop: Spacing.sm,
+    paddingBottom: Spacing.xs,
     gap: Spacing.sm,
   },
+  employeeFilterContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    paddingHorizontal: Spacing.md,
+    paddingTop: Spacing.xs,
+    paddingBottom: Spacing.sm,
+    gap: Spacing.xs,
+  },
   filterChip: {
+    borderColor: Colors.primary,
+  },
+  employeeFilterChip: {
     borderColor: Colors.primary,
   },
   filterChipActive: {
