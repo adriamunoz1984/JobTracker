@@ -7,6 +7,7 @@ import ThemedHero from '../components/ThemedHero';
 const finderActions = [
   { key: 'PostJob', title: 'Post a Job', subtitle: 'Find an available concrete pumping business', icon: 'add-circle-outline' },
   { key: 'AvailableJobs', title: 'Available Jobs', subtitle: 'Browse matching jobs in your service area', icon: 'search-outline' },
+  { key: 'MyPostedJobs', title: 'My Posted Jobs', subtitle: 'See requests and choose a pumper for jobs you posted', icon: 'people-outline' },
   { key: 'ActiveJobs', title: 'Active Jobs', subtitle: 'Track confirmed and in-progress Finder jobs', icon: 'construct-outline' },
   { key: 'Messages', title: 'Messages', subtitle: 'Keep job conversations and pumper recommendations in one place', icon: 'chatbubbles-outline' },
   { key: 'BusinessProfile', title: 'Business Profile', subtitle: 'Set pump, hose, PSI, PPE, service area, and pricing details', icon: 'business-outline' },
