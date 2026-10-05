@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, FlatList, TouchableOpacity } from 'react-native';
+import { View, StyleSheet, FlatList, TouchableOpacity, Alert } from 'react-native';
 import ScaledText from '../components/ScaledText';
 import { FAB, Searchbar, IconButton, Button, Divider, Chip, Menu } from 'react-native-paper';
 import { useNavigation } from '@react-navigation/native';
@@ -250,7 +250,16 @@ export default function HomeScreen() {
   };
   
   const handleDeleteJob = async (jobId: string) => {
-    await deleteJob(jobId);
+    try {
+      await deleteJob(jobId);
+    } catch (error: any) {
+      const message =
+        error?.message === 'Only the owner can delete an owner-assigned job.'
+          ? error.message
+          : 'The job could not be deleted. Please make sure your app and Firestore rules are up to date, then try again.';
+
+      Alert.alert('Could not delete job', message);
+    }
   };
 
   const renderItem = ({ item }: { item: any }) => {
