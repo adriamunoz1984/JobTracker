@@ -48,6 +48,7 @@ export default function PostFinderJobScreen({ navigation }: any) {
   const [ppeRequired, setPpeRequired] = useState(false);
   const [requiredPpe, setRequiredPpe] = useState<FinderPpeItem[]>([]);
   const [notes, setNotes] = useState('');
+  const [privateNotes, setPrivateNotes] = useState('');
 
   const handleDateChange = (_event: any, selectedDate?: Date) => {
     if (Platform.OS !== 'ios') {
@@ -124,6 +125,7 @@ export default function PostFinderJobScreen({ navigation }: any) {
       ppeRequired,
       requiredPpe: ppeRequired ? requiredPpe : [],
       notes: notes.trim() || undefined,
+      privateNotes: privateNotes.trim() || undefined,
     };
 
     navigation.navigate('ReviewJob', { jobDraft });
@@ -320,14 +322,28 @@ export default function PostFinderJobScreen({ navigation }: any) {
           </View>
         )}
 
-        <Text style={styles.label}>Special requests / jobsite details</Text>
+        <Text style={styles.label}>Public jobsite details</Text>
         <Text style={styles.helperText}>
-          Include anything the pumper should know before requesting the job — difficult access, steep driveway, special fittings, limited parking, gate codes, unusual mix details, or other site requirements.
+          Share useful details pumpers can see before requesting the job — difficult access, steep driveway, special fittings, limited parking, unusual mix details, or other job requirements. Do not include the exact address, gate/access codes, phone numbers, or private contact information here.
         </Text>
         <TextInput
           value={notes}
           onChangeText={setNotes}
           placeholder="Add any details that do not fit the options above"
+          placeholderTextColor={Colors.textLight}
+          multiline
+          textAlignVertical="top"
+          style={[styles.input, styles.notesInput]}
+        />
+
+        <Text style={styles.label}>Private access notes</Text>
+        <Text style={styles.helperText}>
+          Optional details such as a gate code, contact-on-arrival instructions, or private access directions. These stay hidden until the selected pumper confirms the awarded job.
+        </Text>
+        <TextInput
+          value={privateNotes}
+          onChangeText={setPrivateNotes}
+          placeholder="Optional private access instructions"
           placeholderTextColor={Colors.textLight}
           multiline
           textAlignVertical="top"
