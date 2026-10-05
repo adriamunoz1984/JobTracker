@@ -95,7 +95,9 @@ const JobCard: React.FC<JobCardProps> = ({ job, onDelete, onTogglePaid }) => {
   const shouldIndent = showSequenceBadge && job.sequenceNumber && job.sequenceNumber > 1;
   const pumperLabel =
     user?.role === 'owner'
-      ? getJobPumperName(job as any, user.displayName || 'Owner')
+      ? job.isEmployeeJob
+        ? `Pumper: ${getJobPumperName(job as any, 'Employee')}`
+        : 'My Job'
       : null;
   const taxEnabled = user?.taxEstimateEnabled === true;
   const taxRate = user?.estimatedTaxRate || 0;
@@ -141,10 +143,13 @@ const JobCard: React.FC<JobCardProps> = ({ job, onDelete, onTogglePaid }) => {
           )}
               
               {pumperLabel && (
-                <Chip 
-                  icon="account-hard-hat" 
+                <Chip
+                  icon={job.isEmployeeJob ? 'account-hard-hat' : 'account'}
                   compact
-                  style={styles.employeeBadge}
+                  style={[
+                    styles.employeeBadge,
+                    !job.isEmployeeJob && styles.ownerJobBadge,
+                  ]}
                   textStyle={styles.employeeBadgeText}
                 >
                   {pumperLabel}
@@ -369,12 +374,19 @@ sequenceBadgeText: {
   textAlign: 'center',
 },
   employeeBadge: {
-    height: 24,
-    backgroundColor: Colors.infoBg,
+    minHeight: 28,
+    backgroundColor: Colors.primaryBg,
+    borderWidth: 1,
+    borderColor: Colors.primary,
+  },
+  ownerJobBadge: {
+    backgroundColor: Colors.surfaceDark,
+    borderColor: Colors.border,
   },
   employeeBadgeText: {
-    fontSize: 11,
-    color: Colors.info,
+    fontSize: 12,
+    fontWeight: '700',
+    color: Colors.primary,
   },
   amount: {
     fontSize: 24,
