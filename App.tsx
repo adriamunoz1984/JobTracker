@@ -58,11 +58,12 @@ import ReviewFinderJobScreen from './src/screens/ReviewFinderJobScreen';
 import FinderBusinessProfileScreen from './src/screens/FinderBusinessProfileScreen';
 import FinderPlaceholderScreen from './src/screens/FinderPlaceholderScreen';
 import AvailableFinderJobsScreen from './src/screens/AvailableFinderJobsScreen';
+import MyPostedFinderJobsScreen from './src/screens/MyPostedFinderJobsScreen';
+import InterestedFinderPumpersScreen from './src/screens/InterestedFinderPumpersScreen';
 
 // Pump Finder pages that are still placeholders: route name -> title + description
 const FINDER_PLACEHOLDERS: { name: string; title: string; description: string }[] = [
   { name: 'FinderJobDetail', title: 'Job Details', description: 'Review job requirements, yards, hose, PSI, timing, and the general area. The exact street address stays private until award and confirmation.' },
-  { name: 'InterestedPumpers', title: 'Interested Pumpers', description: 'Compare pumpers who requested this job. The original poster chooses who receives it.' },
   { name: 'Messages', title: 'Messages', description: 'V1 keeps conversations tied to jobs, with private pumper-to-pumper messaging available for recommendations and coverage.' },
   { name: 'RecommendPumper', title: 'Recommend a Pumper', description: 'A pumper can recommend another qualified pumper, but the original poster must approve any replacement.' },
   { name: 'SelectPumper', title: 'Select Pumper', description: 'Award the job to one requester. Conflicting awarded jobs will be blocked before confirmation.' },
@@ -342,6 +343,16 @@ function AppNavigatorWithFAB({ user }: { user: any }) {
               name="AvailableJobs"
               component={AvailableFinderJobsScreen}
               options={{ headerShown: true, title: 'Available Jobs' }}
+            />
+            <Stack.Screen
+              name="MyPostedJobs"
+              component={MyPostedFinderJobsScreen}
+              options={{ headerShown: true, title: 'My Posted Jobs' }}
+            />
+            <Stack.Screen
+              name="InterestedPumpers"
+              component={InterestedFinderPumpersScreen}
+              options={{ headerShown: true, title: 'Interested Pumpers' }}
             />
             {FINDER_PLACEHOLDERS.map(p => (
               <Stack.Screen
