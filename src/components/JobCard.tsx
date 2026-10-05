@@ -116,6 +116,15 @@ const JobCard: React.FC<JobCardProps> = ({ job, onDelete, onTogglePaid }) => {
     taxEnabled && taxRate > 0 &&
     job.paymentMethod === 'Cash' &&
     !includeCashInTaxEstimate;
+
+  const canDeleteJob =
+    user?.role === 'owner' ||
+    !(job as any).isEmployeeJob ||
+    (
+      user?.role === 'employee' &&
+      (job as any).createdByUid === user.uid &&
+      (job as any).entrySource === 'employee-entry'
+    );
   
   return (
     <Card 
@@ -193,13 +202,17 @@ const JobCard: React.FC<JobCardProps> = ({ job, onDelete, onTogglePaid }) => {
                 title={job.isPaid ? "Mark as Unpaid" : "Mark as Paid"} 
                 leadingIcon={job.isPaid ? "close-circle" : "check-circle"}
               />
-              <Divider />
-              <Menu.Item 
-                onPress={handleDelete} 
-                title="Delete" 
-                leadingIcon="delete"
-                titleStyle={{ color: Colors.error }}
-              />
+              {canDeleteJob && (
+                <>
+                  <Divider />
+                  <Menu.Item
+                    onPress={handleDelete}
+                    title="Delete"
+                    leadingIcon="delete"
+                    titleStyle={{ color: Colors.error }}
+                  />
+                </>
+              )}
             </Menu>
           </View>
         </View>
