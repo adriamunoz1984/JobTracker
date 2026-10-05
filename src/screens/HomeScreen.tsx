@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { View, StyleSheet, FlatList, TouchableOpacity } from 'react-native';
 import ScaledText from '../components/ScaledText';
-import { FAB, Searchbar, IconButton, Button, Divider, Chip } from 'react-native-paper';
+import { FAB, Searchbar, IconButton, Button, Divider, Chip, Menu } from 'react-native-paper';
 import { useNavigation } from '@react-navigation/native';
 import { format, endOfWeek, startOfWeek, isSameDay, parseISO } from 'date-fns';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -36,6 +36,8 @@ export default function HomeScreen() {
     showEmployeeJobs ? 'all' : 'mine'
   );
   const [selectedEmployeeKey, setSelectedEmployeeKey] = useState<string>('all');
+  const [filterMenuVisible, setFilterMenuVisible] = useState(false);
+  const [employeeMenuVisible, setEmployeeMenuVisible] = useState(false);
   
   // Function to group jobs by date and assign sequence numbers
   const processJobs = (jobsList: Job[]): {jobsWithSequence: Job[], jobsByDate: Record<string, Job[]>} => {
@@ -121,6 +123,9 @@ export default function HomeScreen() {
 
   // Owners can view all work, only their own jobs, all employee jobs, or one
   // specific employee. Employee accounts continue to see their own feed.
+  const selectedEmployeeName =
+    employeeChoices.find(employee => employee.key === selectedEmployeeKey)?.name || 'All Employees';
+
   const filteredJobs = user?.role === 'owner'
     ? searchFilteredJobs.filter(job => {
         if (ownerJobFilter === 'mine') {
@@ -357,91 +362,94 @@ export default function HomeScreen() {
       </View>
       
       {user?.role === 'owner' && (
-        <View style={styles.filterArea}>
-          <View style={styles.filterContainer}>
-            <Chip
-              mode={ownerJobFilter === 'all' ? 'flat' : 'outlined'}
+        <View style={styles.filterBar}>
+          <Menu
+            visible={filterMenuVisible}
+            onDismiss={() => setFilterMenuVisible(false)}
+            anchor={
+              <Button
+                compact
+                mode="outlined"
+                icon="filter-variant"
+                onPress={() => setFilterMenuVisible(true)}
+                style={styles.compactFilterButton}
+                textColor={Colors.primary}
+              >
+                {ownerJobFilter === 'all'
+                  ? 'All Jobs'
+                  : ownerJobFilter === 'mine'
+                    ? 'My Jobs'
+                    : 'Employee Jobs'}
+              </Button>
+            }
+          >
+            <Menu.Item
+              leadingIcon="account-group"
+              title="All Jobs"
               onPress={() => {
                 setOwnerJobFilter('all');
                 setSelectedEmployeeKey('all');
                 setShowEmployeeJobs(true);
+                setFilterMenuVisible(false);
               }}
-              icon="account-group"
-              style={[
-                styles.filterChip,
-                ownerJobFilter === 'all' && styles.filterChipActive
-              ]}
-              textStyle={ownerJobFilter === 'all' ? styles.filterChipActiveText : styles.filterChipText}
-            >
-              All Jobs
-            </Chip>
-
-            <Chip
-              mode={ownerJobFilter === 'mine' ? 'flat' : 'outlined'}
+            />
+            <Menu.Item
+              leadingIcon="account"
+              title="My Jobs"
               onPress={() => {
                 setOwnerJobFilter('mine');
                 setSelectedEmployeeKey('all');
                 setShowEmployeeJobs(false);
+                setFilterMenuVisible(false);
               }}
-              icon="account"
-              style={[
-                styles.filterChip,
-                ownerJobFilter === 'mine' && styles.filterChipActive
-              ]}
-              textStyle={ownerJobFilter === 'mine' ? styles.filterChipActiveText : styles.filterChipText}
-            >
-              My Jobs
-            </Chip>
-
-            <Chip
-              mode={ownerJobFilter === 'employees' ? 'flat' : 'outlined'}
+            />
+            <Menu.Item
+              leadingIcon="account-hard-hat"
+              title="Employee Jobs"
               onPress={() => {
                 setOwnerJobFilter('employees');
                 setSelectedEmployeeKey('all');
                 setShowEmployeeJobs(true);
+                setFilterMenuVisible(false);
               }}
-              icon="account-hard-hat"
-              style={[
-                styles.filterChip,
-                ownerJobFilter === 'employees' && styles.filterChipActive
-              ]}
-              textStyle={ownerJobFilter === 'employees' ? styles.filterChipActiveText : styles.filterChipText}
-            >
-              Employee Jobs
-            </Chip>
-          </View>
+            />
+          </Menu>
 
           {ownerJobFilter === 'employees' && employeeChoices.length > 1 && (
-            <View style={styles.employeeFilterContainer}>
-              <Chip
-                compact
-                mode={selectedEmployeeKey === 'all' ? 'flat' : 'outlined'}
-                onPress={() => setSelectedEmployeeKey('all')}
-                style={[
-                  styles.employeeFilterChip,
-                  selectedEmployeeKey === 'all' && styles.filterChipActive
-                ]}
-                textStyle={selectedEmployeeKey === 'all' ? styles.filterChipActiveText : styles.filterChipText}
-              >
-                All Employees
-              </Chip>
-
-              {employeeChoices.map(employee => (
-                <Chip
-                  key={employee.key}
+            <Menu
+              visible={employeeMenuVisible}
+              onDismiss={() => setEmployeeMenuVisible(false)}
+              anchor={
+                <Button
                   compact
-                  mode={selectedEmployeeKey === employee.key ? 'flat' : 'outlined'}
-                  onPress={() => setSelectedEmployeeKey(employee.key)}
-                  style={[
-                    styles.employeeFilterChip,
-                    selectedEmployeeKey === employee.key && styles.filterChipActive
-                  ]}
-                  textStyle={selectedEmployeeKey === employee.key ? styles.filterChipActiveText : styles.filterChipText}
+                  mode="text"
+                  icon="account-hard-hat"
+                  onPress={() => setEmployeeMenuVisible(true)}
+                  style={styles.compactEmployeeButton}
+                  textColor={Colors.primary}
                 >
-                  {employee.name}
-                </Chip>
+                  {selectedEmployeeKey === 'all' ? 'All Employees' : selectedEmployeeName}
+                </Button>
+              }
+            >
+              <Menu.Item
+                title="All Employees"
+                onPress={() => {
+                  setSelectedEmployeeKey('all');
+                  setEmployeeMenuVisible(false);
+                }}
+              />
+              {employeeChoices.map(employee => (
+                <Menu.Item
+                  key={employee.key}
+                  title={employee.name}
+                  onPress={() => {
+                    setSelectedEmployeeKey(employee.key);
+                    setEmployeeMenuVisible(false);
+                  }}
+                />
               ))}
-            </View>
+            </Menu>
           )}
         </View>
       )}
@@ -512,39 +520,20 @@ const useStyles = makeStyles((Colors) => ({
     marginLeft: 0,
     marginRight: 4,
   },
-  filterArea: {
-    paddingBottom: Spacing.xs,
-  },
-  filterContainer: {
+  filterBar: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
+    alignItems: 'center',
     paddingHorizontal: Spacing.md,
     paddingTop: Spacing.sm,
     paddingBottom: Spacing.xs,
-    gap: Spacing.sm,
-  },
-  employeeFilterContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    paddingHorizontal: Spacing.md,
-    paddingTop: Spacing.xs,
-    paddingBottom: Spacing.sm,
     gap: Spacing.xs,
   },
-  filterChip: {
+  compactFilterButton: {
     borderColor: Colors.primary,
+    borderRadius: BorderRadius.medium,
   },
-  employeeFilterChip: {
-    borderColor: Colors.primary,
-  },
-  filterChipActive: {
-    backgroundColor: Colors.primary,
-  },
-  filterChipText: {
-    color: Colors.primary,
-  },
-  filterChipActiveText: {
-    color: Colors.textInverse,
+  compactEmployeeButton: {
+    borderRadius: BorderRadius.medium,
   },
   listContent: {
     paddingBottom: 80,
