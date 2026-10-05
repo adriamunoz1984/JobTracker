@@ -97,6 +97,10 @@ export interface FinderJobRequest {
   pumperId: string;
   status: FinderRequestStatus;
   createdAt: string;
+  pumperName?: string;
+  businessName?: string;
+  pumpType?: string;
+  serviceArea?: string;
 }
 
 export const FINDER_LOCATION_POLICY = {
