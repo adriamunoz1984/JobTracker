@@ -318,9 +318,9 @@ export default function YearlySummaryScreen() {
             ` : `
               <p><strong>Pumper Gross Pay:</strong> $${ownerPay.grossPumperPay.toFixed(2)}</p>
               <p><strong>Direct Payments to Pumpers:</strong> $${ownerPay.directPaymentsToPumpers.toFixed(2)}</p>
-              <p><strong>Still Owed to Pumpers:</strong> $${ownerPay.amountOwedToPumpers.toFixed(2)}</p>
+              <p><strong>Amount Owed to Pumpers:</strong> $${ownerPay.amountOwedToPumpers.toFixed(2)}</p>
             `}
-            <div class="total">${isOwner ? `Owner Take Home (${ownerTakeHomeMode === 'paid' ? 'Paid Jobs' : 'All Jobs'})` : 'Take Home'}: $${totals.finalTakeHome.toFixed(2)}</div>
+            <div class="total">${isOwner ? `Take Home (${ownerTakeHomeMode === 'paid' ? 'Paid Jobs' : 'All Jobs'})` : 'Take Home'}: $${totals.finalTakeHome.toFixed(2)}</div>
             ${user?.taxEstimateEnabled === true && (user?.estimatedTaxRate || 0) > 0 ? `
               <p><strong>Taxable Share:</strong> $${taxEstimate.taxableBase.toFixed(2)}</p>
               <p><strong>Estimated Tax Reserve (${user?.estimatedTaxRate}%):</strong> $${taxEstimate.estimatedTax.toFixed(2)}</p>
@@ -582,7 +582,7 @@ export default function YearlySummaryScreen() {
                 colors={gradients.success}
                 style={styles.totalBox}
               >
-                <Text style={styles.totalLabel}>Amount Still Owed:</Text>
+                <Text style={styles.totalLabel}>Amount Owed:</Text>
                 <Text style={styles.totalValue}>${totals.yourPay.toFixed(2)}</Text>
               </LinearGradient>
             </Card.Content>
@@ -593,7 +593,7 @@ export default function YearlySummaryScreen() {
         {isOwner && (
           <Card style={styles.card}>
             <Card.Content>
-              <Text variant="titleMedium" style={styles.sectionTitle}>💼 Owner Earnings</Text>
+              <Text variant="titleMedium" style={styles.sectionTitle}>💼 Earnings</Text>
               <Divider style={styles.divider} />
 
               <Text style={styles.earningsLabel}>Take Home Basis</Text>
@@ -623,7 +623,7 @@ export default function YearlySummaryScreen() {
               </View>
 
               <View style={styles.earningsRow}>
-                <Text style={styles.earningsLabel}>Still Owed to Pumpers:</Text>
+                <Text style={styles.earningsLabel}>Amount Owed to Pumpers:</Text>
                 <Text style={styles.earningsValue}>${ownerPay.amountOwedToPumpers.toFixed(2)}</Text>
               </View>
 
@@ -641,7 +641,7 @@ export default function YearlySummaryScreen() {
                 style={styles.totalBox}
               >
                 <Text style={styles.totalLabel}>
-                  Owner Take Home ({ownerTakeHomeMode === 'paid' ? 'Paid Jobs' : 'All Jobs'}):
+                  Take Home ({ownerTakeHomeMode === 'paid' ? 'Paid Jobs' : 'All Jobs'}):
                 </Text>
                 <Text style={styles.totalValue}>${totals.finalTakeHome.toFixed(2)}</Text>
               </LinearGradient>
