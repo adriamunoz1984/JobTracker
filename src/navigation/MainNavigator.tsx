@@ -1,6 +1,7 @@
 // src/navigation/MainNavigator.tsx
 import InvoiceListScreen from '../screens/InvoiceListScreen';
 import NotificationBell from '../components/NotificationBell';
+import DraggableFAB from '../components/DraggableFAB';
 import React, { useState } from 'react';
 import { createMaterialTopTabNavigator } from '@react-navigation/material-top-tabs';
 import { Header } from '@react-navigation/elements';
@@ -146,6 +147,8 @@ export default function MainNavigator() {
         <Tab.Screen name="Yearly" component={YearlySummaryScreen} />
         <Tab.Screen name="Invoices" component={InvoiceListScreen} />
       </Tab.Navigator>
+
+      <DraggableFAB variant={activeTab === 'Invoices' ? 'invoice' : 'default'} />
     </View>
   );
 }
