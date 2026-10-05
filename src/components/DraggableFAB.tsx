@@ -2,7 +2,7 @@
 import React, { useRef, useEffect } from 'react';
 import { Animated, PanResponder, StyleSheet, Vibration, Dimensions } from 'react-native';
 import { FAB } from 'react-native-paper';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useNavigationState } from '@react-navigation/native';
 import { makeStyles } from '../theme';
 
 const { width, height } = Dimensions.get('window');
@@ -10,6 +10,17 @@ const { width, height } = Dimensions.get('window');
 const DraggableFAB: React.FC = () => {
   const styles = useStyles();
   const navigation = useNavigation();
+  const activeRouteName = useNavigationState((state) => {
+    let route: any = state.routes[state.index];
+
+    while (route?.state?.routes) {
+      const nestedState = route.state;
+      route = nestedState.routes[nestedState.index ?? 0];
+    }
+
+    return route?.name || '';
+  });
+  const isInvoiceScreen = activeRouteName === 'Invoices';
   
   // Initial position at bottom center of screen
   const position = useRef(new Animated.ValueXY({
@@ -130,8 +141,14 @@ const DraggableFAB: React.FC = () => {
       {...panResponder.panHandlers}
     >
       <FAB
-        style={styles.fab}
-        icon="plus"
+        style={[
+          styles.fab,
+          isInvoiceScreen && styles.invoiceFab,
+        ]}
+        icon={isInvoiceScreen ? 'briefcase-plus' : 'plus'}
+        color={isInvoiceScreen ? styles.invoiceIcon.color : styles.defaultIcon.color}
+        customSize={52}
+        accessibilityLabel="Add Job"
       />
     </Animated.View>
   );
@@ -144,6 +161,23 @@ const useStyles = makeStyles((Colors) => ({
   },
   fab: {
     backgroundColor: Colors.primary,
+    borderRadius: 26,
+    elevation: 6,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.24,
+    shadowRadius: 5,
+  },
+  invoiceFab: {
+    backgroundColor: Colors.surface,
+    borderWidth: 2,
+    borderColor: Colors.primary,
+  },
+  defaultIcon: {
+    color: Colors.textInverse,
+  },
+  invoiceIcon: {
+    color: Colors.primary,
   },
 }));
 
