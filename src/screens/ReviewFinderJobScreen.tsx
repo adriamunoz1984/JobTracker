@@ -32,7 +32,7 @@ export default function ReviewFinderJobScreen({ navigation, route }: any) {
   const handlePost = () => {
     Alert.alert(
       'Job draft is ready',
-      'The posting UI and rules are in place. Live marketplace posting will be connected after the Finder Firestore security rules are finalized so jobs are not exposed insecurely.',
+      'The Finder backend is staged on the development branch. Live posting stays disabled until the public/private Firestore rules pass emulator testing, so no marketplace data is exposed early.',
       [
         { text: 'Keep Editing', style: 'cancel', onPress: () => navigation.goBack() },
         { text: 'OK' },
@@ -92,8 +92,14 @@ export default function ReviewFinderJobScreen({ navigation, route }: any) {
       </ReviewCard>
 
       {jobDraft.notes ? (
-        <ReviewCard title="Special requests / jobsite details">
+        <ReviewCard title="Public jobsite details">
           <Text style={styles.notes}>{jobDraft.notes}</Text>
+        </ReviewCard>
+      ) : null}
+
+      {jobDraft.privateNotes ? (
+        <ReviewCard title="Private access notes">
+          <Text style={styles.notes}>{jobDraft.privateNotes}</Text>
         </ReviewCard>
       ) : null}
 
