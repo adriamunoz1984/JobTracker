@@ -1,0 +1,459 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function isSelf(uid) {
+      return signedIn() && request.auth.uid == uid;
+    }
+
+    function authEmailMatches(email) {
+      return signedIn()
+        && request.auth.token.email != null
+        && email == request.auth.token.email;
+    }
+
+    function activeEmployee(ownerUid, employeeUid) {
+      // The relationship document is keyed by the employee's authenticated UID
+      // under the owner's protected employees collection. That document path,
+      // plus status == active, is the authority. Do not also require a legacy
+      // uid field inside the document because older/partially-migrated active
+      // relationships may not have it even though the document itself is valid.
+      return signedIn()
+        && exists(/databases/$(database)/documents/users/$(ownerUid)/employees/$(employeeUid))
+        && get(/databases/$(database)/documents/users/$(ownerUid)/employees/$(employeeUid)).data.status == 'active';
+    }
+
+    function validEmployeeAcceptance(ownerUid, employeeUid) {
+      return signedIn()
+        && request.auth.uid == employeeUid
+        && request.resource.data.status == 'active'
+        && request.resource.data.ownerId == ownerUid
+        && request.resource.data.inviteId is string
+        && getAfter(
+          /databases/$(database)/documents/employeeInvites/$(request.resource.data.inviteId)
+        ).data.status == 'accepted'
+        && getAfter(
+          /databases/$(database)/documents/employeeInvites/$(request.resource.data.inviteId)
+        ).data.ownerId == ownerUid
+        && getAfter(
+          /databases/$(database)/documents/employeeInvites/$(request.resource.data.inviteId)
+        ).data.acceptedByUid == employeeUid
+        && authEmailMatches(
+          getAfter(
+            /databases/$(database)/documents/employeeInvites/$(request.resource.data.inviteId)
+          ).data.employeeEmail
+        );
+    }
+
+    function canDeleteAcceptedInvitePlaceholder(ownerUid) {
+      return signedIn()
+        && resource.data.status == 'invited'
+        && resource.data.ownerId == ownerUid
+        && resource.data.inviteId is string
+        && authEmailMatches(resource.data.email)
+        && getAfter(
+          /databases/$(database)/documents/employeeInvites/$(resource.data.inviteId)
+        ).data.status == 'accepted'
+        && getAfter(
+          /databases/$(database)/documents/employeeInvites/$(resource.data.inviteId)
+        ).data.ownerId == ownerUid
+        && getAfter(
+          /databases/$(database)/documents/employeeInvites/$(resource.data.inviteId)
+        ).data.acceptedByUid == request.auth.uid;
+    }
+
+    // Private user profile data.
+    match /users/{uid}/profile/{profileId} {
+      allow read, write: if isSelf(uid);
+    }
+
+    // A user's own JobTracker jobs.
+    match /users/{uid}/jobs/{jobId} {
+      allow read, create, update, delete: if isSelf(uid);
+    }
+
+    // Client records belong to the business owner. Active employees may use
+    // them because JobTracker currently lets employees select saved clients
+    // and update billing information while completing work.
+    match /users/{ownerUid}/clients/{clientId} {
+      allow read, create, update, delete: if isSelf(ownerUid)
+        || (signedIn() && activeEmployee(ownerUid, request.auth.uid));
+    }
+
+    // Per-user invoice counter. This replaces the old shared global counter.
+    match /users/{uid}/invoiceCounters/{year} {
+      allow read, create, update: if isSelf(uid);
+      allow delete: if false;
+    }
+
+    // Owner/employee relationship records.
+    match /users/{ownerUid}/employees/{employeeId} {
+      // Owners manage their own team. An invited employee may read only their
+      // matching record (including the temporary pre-acceptance record).
+      allow read: if isSelf(ownerUid)
+        || (
+          signedIn()
+          && (
+            employeeId == request.auth.uid
+            || authEmailMatches(resource.data.email)
+          )
+        );
+
+      // Owners can create invitation placeholders. The invited employee can
+      // create their own active relationship only when the accepted invite in
+      // the same atomic write proves that the connection is legitimate.
+      allow create: if isSelf(ownerUid)
+        || validEmployeeAcceptance(ownerUid, employeeId);
+
+      // Commission/payment settings remain owner-controlled. The invited
+      // employee may delete only the temporary invited row while accepting
+      // that same invitation atomically.
+      allow update: if isSelf(ownerUid);
+      allow delete: if isSelf(ownerUid)
+        || canDeleteAcceptedInvitePlaceholder(ownerUid);
+    }
+
+    // Jobs assigned by an owner live under the employee's account.
+    match /users/{employeeUid}/ownerJobs/{jobId} {
+      // Owners may assign work to an active employee. Connected employees may
+      // also enter their own completed jobs into this shared stream, but only
+      // while a real active relationship exists with the named owner.
+      allow create: if (
+          signedIn()
+          && activeEmployee(request.auth.uid, employeeUid)
+          && request.resource.data.ownerId == request.auth.uid
+          && request.resource.data.assignedTo == employeeUid
+        )
+        || (
+          isSelf(employeeUid)
+          && request.resource.data.ownerId is string
+          && activeEmployee(request.resource.data.ownerId, employeeUid)
+          && request.resource.data.assignedTo == employeeUid
+          && request.resource.data.employeeId == employeeUid
+          && request.resource.data.createdByUid == employeeUid
+          && request.resource.data.entrySource == 'employee-entry'
+          && request.resource.data.jobType == 'employee'
+          && request.resource.data.status == 'completed'
+        );
+
+      // The employee can read their assigned jobs. The owner named on an
+      // existing job can continue reading it even after the employee leaves,
+      // preserving the business's historical records.
+      allow read: if isSelf(employeeUid)
+        || (signedIn() && resource.data.ownerId == request.auth.uid);
+
+      // Employees may complete/update their assigned work but cannot rewrite
+      // the fields that establish who owns and receives the assignment.
+      allow update: if (
+          isSelf(employeeUid)
+          && request.resource.data
+            .diff(resource.data)
+            .affectedKeys()
+            .hasAny([
+              'ownerId',
+              'assignedTo',
+              'employeeId',
+              'employeeCommissionRate',
+              'employeeName',
+              'jobType',
+              'createdAt',
+              'createdByUid',
+              'entrySource'
+            ]) == false
+        )
+        || (
+          signedIn()
+          && resource.data.ownerId == request.auth.uid
+          && request.resource.data.ownerId == resource.data.ownerId
+        );
+
+      // Owners can delete shared business records. Employees may delete only
+      // jobs they personally entered after becoming connected; they cannot
+      // delete work that the owner assigned to them.
+      allow delete: if (
+          signedIn() && resource.data.ownerId == request.auth.uid
+        )
+        || (
+          isSelf(employeeUid)
+          && resource.data.createdByUid == employeeUid
+          && resource.data.entrySource == 'employee-entry'
+        );
+    }
+
+    // Employee invitations are visible only to the owner who created them or
+    // the authenticated email address they were sent to.
+    match /employeeInvites/{inviteId} {
+      allow create: if signedIn()
+        && request.resource.data.ownerId == request.auth.uid
+        && request.resource.data.inviteId == inviteId
+        && request.resource.data.status == 'pending';
+
+      allow read: if signedIn()
+        && (
+          resource.data.ownerId == request.auth.uid
+          || authEmailMatches(resource.data.employeeEmail)
+        );
+
+      // The recipient may only transition a pending invitation to accepted
+      // and stamp their own authenticated UID/email. The owner and recipient
+      // identities cannot be rewritten during acceptance.
+      allow update: if signedIn()
+        && authEmailMatches(resource.data.employeeEmail)
+        && resource.data.status == 'pending'
+        && request.resource.data.status == 'accepted'
+        && request.resource.data.ownerId == resource.data.ownerId
+        && request.resource.data.employeeEmail == resource.data.employeeEmail
+        && request.resource.data.inviteId == resource.data.inviteId
+        && request.resource.data.acceptedByUid == request.auth.uid
+        && request.resource.data.acceptedByEmail == request.auth.token.email
+        && request.resource.data
+          .diff(resource.data)
+          .affectedKeys()
+          .hasOnly([
+            'status',
+            'acceptedAt',
+            'acceptedByUid',
+            'acceptedByEmail'
+          ]);
+
+      allow delete: if signedIn()
+        && (
+          resource.data.ownerId == request.auth.uid
+          || (
+            resource.data.status == 'pending'
+            && authEmailMatches(resource.data.employeeEmail)
+          )
+        );
+    }
+
+    // Legacy registration request path. It is restricted to the employee who
+    // owns the document; no cross-user access is granted.
+    match /employeeRequests/{employeeUid} {
+      allow create: if isSelf(employeeUid)
+        && request.resource.data.employeeEmail == request.auth.token.email;
+      allow read, delete: if isSelf(employeeUid);
+      allow update: if false;
+    }
+
+    // Invoices remain in the existing top-level collection but are private to
+    // the account that created them.
+    match /invoices/{invoiceId} {
+      allow create: if signedIn()
+        && request.resource.data.createdBy == request.auth.uid;
+
+      allow read, delete: if signedIn()
+        && resource.data.createdBy == request.auth.uid;
+
+      allow update: if signedIn()
+        && resource.data.createdBy == request.auth.uid
+        && request.resource.data.createdBy == resource.data.createdBy;
+    }
+
+    // ---------------------------------------------------------------------
+    // Pump Finder development rules.
+    // This file is NOT referenced by the production firebase.json.
+    // Use firebase.finder.json for emulator testing only until launch.
+    // ---------------------------------------------------------------------
+
+    function finderJob(jobId) {
+      return get(/databases/$(database)/documents/finderJobs/$(jobId));
+    }
+
+    function finderRequest(jobId, pumperUid) {
+      return get(
+        /databases/$(database)/documents/finderJobs/$(jobId)/requests/$(pumperUid)
+      );
+    }
+
+    function isFinderPoster(jobId) {
+      return signedIn()
+        && finderJob(jobId).data.posterId == request.auth.uid;
+    }
+
+    function isConfirmedFinderPumper(jobId) {
+      return signedIn()
+        && finderJob(jobId).data.awardedPumperId == request.auth.uid
+        && finderJob(jobId).data.status in ['assigned', 'in-progress', 'completed']
+        && exists(
+          /databases/$(database)/documents/finderJobs/$(jobId)/requests/$(request.auth.uid)
+        )
+        && finderRequest(jobId, request.auth.uid).data.status == 'confirmed';
+    }
+
+    match /finderJobs/{jobId} {
+      // Finder browsing is authenticated in the first marketplace version.
+      allow read: if signedIn();
+
+      // Public job records must never contain customer identity, exact address,
+      // access codes, or other private location/contact details.
+      allow create: if signedIn()
+        && request.resource.data.posterId == request.auth.uid
+        && request.resource.data.status == 'unassigned'
+        && request.resource.data.generalArea is string
+        && request.resource.data.jobDate is string
+        && request.resource.data.startTime is string
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.updatedAt == request.time
+        && request.resource.data.keys().hasOnly([
+          'posterId',
+          'jobDate',
+          'startTime',
+          'generalArea',
+          'yards',
+          'pumpType',
+          'concretePsi',
+          'pricingMode',
+          'extraHoseRequired',
+          'totalHoseFeet',
+          'ppeRequired',
+          'requiredPpe',
+          'notes',
+          'status',
+          'createdAt',
+          'updatedAt'
+        ]);
+
+      // The poster controls job details and awarding. The selected pumper may
+      // only move an award-pending job to assigned while confirming their own
+      // request in the same atomic write.
+      allow update: if (
+          signedIn()
+          && resource.data.posterId == request.auth.uid
+          && request.resource.data.posterId == resource.data.posterId
+        )
+        || (
+          signedIn()
+          && resource.data.status == 'award-pending'
+          && resource.data.awardedPumperId == request.auth.uid
+          && request.resource.data.posterId == resource.data.posterId
+          && request.resource.data.awardedPumperId == resource.data.awardedPumperId
+          && request.resource.data.status == 'assigned'
+          && request.resource.data.updatedAt == request.time
+          && request.resource.data
+            .diff(resource.data)
+            .affectedKeys()
+            .hasOnly(['status', 'updatedAt'])
+          && getAfter(
+            /databases/$(database)/documents/finderJobs/$(jobId)/requests/$(request.auth.uid)
+          ).data.status == 'confirmed'
+        );
+
+      allow delete: if signedIn()
+        && resource.data.posterId == request.auth.uid;
+
+      match /requests/{pumperUid} {
+        allow read: if signedIn()
+          && (
+            request.auth.uid == pumperUid
+            || finderJob(jobId).data.posterId == request.auth.uid
+          );
+
+        allow create: if signedIn()
+          && request.auth.uid == pumperUid
+          && finderJob(jobId).data.posterId != request.auth.uid
+          && finderJob(jobId).data.status == 'unassigned'
+          && request.resource.data.jobId == jobId
+          && request.resource.data.pumperId == pumperUid
+          && request.resource.data.status == 'pending'
+          && request.resource.data.createdAt == request.time
+          && request.resource.data.updatedAt == request.time
+          && request.resource.data.keys().hasOnly([
+            'jobId',
+            'pumperId',
+            'status',
+            'createdAt',
+            'updatedAt'
+          ]);
+
+        // A pumper can withdraw a pending request. A poster can award/decline
+        // requests on their own job. An awarded pumper can confirm only their
+        // own award and must assign the parent job atomically.
+        allow update: if (
+            signedIn()
+            && request.auth.uid == pumperUid
+            && resource.data.pumperId == pumperUid
+            && resource.data.status == 'pending'
+            && request.resource.data.status == 'withdrawn'
+            && request.resource.data
+              .diff(resource.data)
+              .affectedKeys()
+              .hasOnly(['status', 'updatedAt'])
+          )
+          || (
+            isFinderPoster(jobId)
+            && resource.data.status == 'pending'
+            && request.resource.data.status in ['awarded', 'declined']
+            && request.resource.data
+              .diff(resource.data)
+              .affectedKeys()
+              .hasOnly(['status', 'updatedAt'])
+          )
+          || (
+            signedIn()
+            && request.auth.uid == pumperUid
+            && resource.data.status == 'awarded'
+            && request.resource.data.status == 'confirmed'
+            && request.resource.data
+              .diff(resource.data)
+              .affectedKeys()
+              .hasOnly(['status', 'updatedAt'])
+            && getAfter(
+              /databases/$(database)/documents/finderJobs/$(jobId)
+            ).data.awardedPumperId == pumperUid
+            && getAfter(
+              /databases/$(database)/documents/finderJobs/$(jobId)
+            ).data.status == 'assigned'
+          );
+
+        allow delete: if false;
+      }
+    }
+
+    match /finderJobPrivate/{jobId} {
+      allow create: if signedIn()
+        && request.resource.data.posterId == request.auth.uid
+        && request.resource.data.jobId == jobId
+        && request.resource.data.customerName is string
+        && request.resource.data.exactAddress is string
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.updatedAt == request.time
+        && getAfter(
+          /databases/$(database)/documents/finderJobs/$(jobId)
+        ).data.posterId == request.auth.uid
+        && request.resource.data.keys().hasOnly([
+          'jobId',
+          'posterId',
+          'customerName',
+          'exactAddress',
+          'privateNotes',
+          'createdAt',
+          'updatedAt'
+        ]);
+
+      // The exact address unlocks only to the poster or to the selected pumper
+      // after that pumper has explicitly confirmed the award.
+      allow read: if signedIn()
+        && (
+          resource.data.posterId == request.auth.uid
+          || isConfirmedFinderPumper(jobId)
+        );
+
+      allow update: if signedIn()
+        && resource.data.posterId == request.auth.uid
+        && request.resource.data.posterId == resource.data.posterId
+        && request.resource.data.jobId == resource.data.jobId;
+
+      allow delete: if signedIn()
+        && resource.data.posterId == request.auth.uid;
+    }
+
+    // Deny every collection/path that was not explicitly approved above.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
