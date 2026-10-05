@@ -21,7 +21,7 @@ import NotificationsScreen from './src/screens/NotificationsScreen';
 import AssignJobScreen from './src/screens/AssignJobScreen';
 import React, { useEffect } from 'react';
 import { View } from 'react-native';
-import { NavigationContainer, useNavigation, DefaultTheme as NavLightTheme, DarkTheme as NavDarkTheme } from '@react-navigation/native';
+import { NavigationContainer, DefaultTheme as NavLightTheme, DarkTheme as NavDarkTheme } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 // Main App Screensa
 import MainNavigator from './src/navigation/MainNavigator';
@@ -30,7 +30,7 @@ import SettingsScreen from './src/screens/SettingsScreen';
 import AppearanceSettingsScreen from './src/screens/AppearanceSettingsScreen';
 import PaymentSettingsScreen from './src/screens/PaymentSettingsScreen';
 import TaxSettingsScreen from './src/screens/TaxSettingsScreen';
-import { Provider as PaperProvider, ActivityIndicator, Text, FAB } from 'react-native-paper';
+import { Provider as PaperProvider, ActivityIndicator, Text } from 'react-native-paper';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { StatusBar }              from 'expo-status-bar';
 // Context Providers
@@ -43,9 +43,6 @@ import LoginScreen          from './src/screens/LoginScreen';
 import RegisterScreen       from './src/screens/RegisterScreen';
 import ForgotPasswordScreen from './src/screens/ForgotPasswordScreen';
 import RoleSelectionScreen  from './src/screens/RoleSelectionScreen';
-// Components
-import DraggableFAB    from './src/components/DraggableFAB';
-
 // Screen imports for individual screens that aren't in MainNavigator
 import AddJobScreen    from './src/screens/AddjobScreen';
 import JobDetailScreen from './src/screens/JobDetailScreen';
@@ -139,7 +136,6 @@ function AuthNavigator() {
 
 // Separate component for navigation + FAB that can use useNavigation
 function AppNavigatorWithFAB({ user }: { user: any }) {
-  const navigation = useNavigation();
   const { colors, headerTitleStyle } = useAppTheme();
 
   // Every stack header uses the current theme's header colors and title font
@@ -365,9 +361,6 @@ function AppNavigatorWithFAB({ user }: { user: any }) {
           </>
         )}
       </Stack.Navigator>
-      
-        {/* Draggable FAB - only show when user is logged in */}
-        {user && <DraggableFAB />}
 
       {/* Employee Invite Checker - Only for employees without an owner */}
       {user?.role === 'employee' && <EmployeeInviteChecker />}
