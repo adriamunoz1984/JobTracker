@@ -57,10 +57,10 @@ import PostFinderJobScreen from './src/screens/PostFinderJobScreen';
 import ReviewFinderJobScreen from './src/screens/ReviewFinderJobScreen';
 import FinderBusinessProfileScreen from './src/screens/FinderBusinessProfileScreen';
 import FinderPlaceholderScreen from './src/screens/FinderPlaceholderScreen';
+import AvailableFinderJobsScreen from './src/screens/AvailableFinderJobsScreen';
 
 // Pump Finder pages that are still placeholders: route name -> title + description
 const FINDER_PLACEHOLDERS: { name: string; title: string; description: string }[] = [
-  { name: 'AvailableJobs', title: 'Available Jobs', description: 'Matching jobs will appear here. Pumpers request work; they do not instantly claim it.' },
   { name: 'FinderJobDetail', title: 'Job Details', description: 'Review job requirements, yards, hose, PSI, timing, and the general area. The exact street address stays private until award and confirmation.' },
   { name: 'InterestedPumpers', title: 'Interested Pumpers', description: 'Compare pumpers who requested this job. The original poster chooses who receives it.' },
   { name: 'Messages', title: 'Messages', description: 'V1 keeps conversations tied to jobs, with private pumper-to-pumper messaging available for recommendations and coverage.' },
@@ -337,6 +337,11 @@ function AppNavigatorWithFAB({ user }: { user: any }) {
               name="BusinessProfile"
               component={FinderBusinessProfileScreen}
               options={{ headerShown: true, title: 'Edit Pumper Profile' }}
+            />
+            <Stack.Screen
+              name="AvailableJobs"
+              component={AvailableFinderJobsScreen}
+              options={{ headerShown: true, title: 'Available Jobs' }}
             />
             {FINDER_PLACEHOLDERS.map(p => (
               <Stack.Screen
