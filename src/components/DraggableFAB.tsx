@@ -3,12 +3,13 @@ import React, { useRef, useEffect } from 'react';
 import { Animated, PanResponder, StyleSheet, Vibration, Dimensions } from 'react-native';
 import { FAB } from 'react-native-paper';
 import { useNavigation, useNavigationState } from '@react-navigation/native';
-import { makeStyles } from '../theme';
+import { useAppTheme, makeStyles } from '../theme';
 
 const { width, height } = Dimensions.get('window');
 
 const DraggableFAB: React.FC = () => {
   const styles = useStyles();
+  const { colors: Colors } = useAppTheme();
   const navigation = useNavigation();
   const activeRouteName = useNavigationState((state) => {
     let route: any = state.routes[state.index];
@@ -146,7 +147,7 @@ const DraggableFAB: React.FC = () => {
           isInvoiceScreen && styles.invoiceFab,
         ]}
         icon={isInvoiceScreen ? 'briefcase-plus' : 'plus'}
-        color={isInvoiceScreen ? styles.invoiceIcon.color : styles.defaultIcon.color}
+        color={isInvoiceScreen ? Colors.primary : Colors.textInverse}
         customSize={52}
         accessibilityLabel="Add Job"
       />
@@ -172,12 +173,6 @@ const useStyles = makeStyles((Colors) => ({
     backgroundColor: Colors.surface,
     borderWidth: 2,
     borderColor: Colors.primary,
-  },
-  defaultIcon: {
-    color: Colors.textInverse,
-  },
-  invoiceIcon: {
-    color: Colors.primary,
   },
 }));
 
