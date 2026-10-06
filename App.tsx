@@ -60,6 +60,8 @@ import FinderPlaceholderScreen from './src/screens/FinderPlaceholderScreen';
 import AvailableFinderJobsScreen from './src/screens/AvailableFinderJobsScreen';
 import MyPostedFinderJobsScreen from './src/screens/MyPostedFinderJobsScreen';
 import InterestedFinderPumpersScreen from './src/screens/InterestedFinderPumpersScreen';
+import ActiveFinderJobsScreen from './src/screens/ActiveFinderJobsScreen';
+import ConfirmFinderJobScreen from './src/screens/ConfirmFinderJobScreen';
 
 // Pump Finder pages that are still placeholders: route name -> title + description
 const FINDER_PLACEHOLDERS: { name: string; title: string; description: string }[] = [
@@ -67,8 +69,6 @@ const FINDER_PLACEHOLDERS: { name: string; title: string; description: string }[
   { name: 'Messages', title: 'Messages', description: 'V1 keeps conversations tied to jobs, with private pumper-to-pumper messaging available for recommendations and coverage.' },
   { name: 'RecommendPumper', title: 'Recommend a Pumper', description: 'A pumper can recommend another qualified pumper, but the original poster must approve any replacement.' },
   { name: 'SelectPumper', title: 'Select Pumper', description: 'Award the job to one requester. Conflicting awarded jobs will be blocked before confirmation.' },
-  { name: 'ConfirmJob', title: 'Confirm Job', description: 'The selected pumper confirms the awarded job. After confirmation, the exact job address is revealed. A pumper cannot transfer it without poster approval.' },
-  { name: 'ActiveJobs', title: 'Active Jobs', description: 'Confirmed, arrived, in-progress, completion, cancellation, and replacement-request statuses will live here.' },
   { name: 'CompleteFinderJob', title: 'Complete Job', description: 'Fast closeout for actual yards, final price, payment status, and notes.' },
   { name: 'Reviews', title: 'Reviews', description: 'Completed-job participants can leave ratings and optional comments.' },
 ];
@@ -353,6 +353,16 @@ function AppNavigatorWithFAB({ user }: { user: any }) {
               name="InterestedPumpers"
               component={InterestedFinderPumpersScreen}
               options={{ headerShown: true, title: 'Interested Pumpers' }}
+            />
+            <Stack.Screen
+              name="ActiveJobs"
+              component={ActiveFinderJobsScreen}
+              options={{ headerShown: true, title: 'Active Finder Jobs' }}
+            />
+            <Stack.Screen
+              name="ConfirmJob"
+              component={ConfirmFinderJobScreen}
+              options={{ headerShown: true, title: 'Confirm Finder Job' }}
             />
             {FINDER_PLACEHOLDERS.map(p => (
               <Stack.Screen
