@@ -1,5 +1,5 @@
 // src/components/NotificationBell.tsx
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { TouchableOpacity, View } from 'react-native';
 import { Badge, IconButton } from 'react-native-paper';
 import { useNavigation } from '@react-navigation/native';
@@ -16,6 +16,11 @@ import {
   FinderNotificationEvent,
   subscribeFinderNotificationEvents,
 } from '../services/pumpFinderNotifications';
+import {
+  getSeenNotificationIds,
+  markNotificationIdsSeen,
+  notificationStorageIds,
+} from '../services/notificationReadState';
 
 const db = getFirestore();
 
@@ -24,13 +29,31 @@ export default function NotificationBell() {
   const styles = useStyles();
   const navigation = useNavigation<any>();
   const { user } = useAuth();
-  const [pendingJobCount, setPendingJobCount] = useState(0);
-  const [pendingInviteCount, setPendingInviteCount] = useState(0);
+
+  const [pendingJobIds, setPendingJobIds] = useState<string[]>([]);
+  const [pendingInviteIds, setPendingInviteIds] = useState<string[]>([]);
   const [finderEvents, setFinderEvents] = useState<FinderNotificationEvent[]>([]);
+  const [seenIds, setSeenIds] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    if (!user?.uid) {
+      setSeenIds(new Set());
+      return;
+    }
+
+    let active = true;
+    getSeenNotificationIds(user.uid).then(ids => {
+      if (active) setSeenIds(ids);
+    });
+
+    return () => {
+      active = false;
+    };
+  }, [user?.uid]);
 
   useEffect(() => {
     if (!user?.uid || user.role !== 'employee') {
-      setPendingJobCount(0);
+      setPendingJobIds([]);
       return;
     }
 
@@ -38,10 +61,11 @@ export default function NotificationBell() {
     return onSnapshot(
       jobsRef,
       snapshot => {
-        const count = snapshot.docs.filter(
-          snapshotDoc => snapshotDoc.data().status === 'pending'
-        ).length;
-        setPendingJobCount(count);
+        setPendingJobIds(
+          snapshot.docs
+            .filter(snapshotDoc => snapshotDoc.data().status === 'pending')
+            .map(snapshotDoc => snapshotDoc.id)
+        );
       },
       error => console.error('Error loading job notification count:', error)
     );
@@ -49,7 +73,7 @@ export default function NotificationBell() {
 
   useEffect(() => {
     if (!user?.email || user.role !== 'employee') {
-      setPendingInviteCount(0);
+      setPendingInviteIds([]);
       return;
     }
 
@@ -62,10 +86,11 @@ export default function NotificationBell() {
     return onSnapshot(
       q,
       snapshot => {
-        const count = snapshot.docs.filter(
-          snapshotDoc => snapshotDoc.data().status === 'pending'
-        ).length;
-        setPendingInviteCount(count);
+        setPendingInviteIds(
+          snapshot.docs
+            .filter(snapshotDoc => snapshotDoc.data().status === 'pending')
+            .map(snapshotDoc => snapshotDoc.id)
+        );
       },
       error => console.error('Error loading invite notification count:', error)
     );
@@ -91,21 +116,57 @@ export default function NotificationBell() {
     }
   }, [user?.uid]);
 
+  const activeNotificationIds = useMemo(
+    () =>
+      notificationStorageIds({
+        finderEventIds: finderEvents.map(event => event.id),
+        pendingJobIds,
+        pendingInviteIds,
+      }),
+    [finderEvents, pendingJobIds, pendingInviteIds]
+  );
+
+  const unreadIds = useMemo(
+    () => activeNotificationIds.filter(id => !seenIds.has(id)),
+    [activeNotificationIds, seenIds]
+  );
+
   if (!user) {
     return null;
   }
 
-  const notificationCount =
-    pendingJobCount + pendingInviteCount + finderEvents.length;
+  const handleOpenNotifications = async () => {
+    const idsToHighlight = [...unreadIds];
+
+    if (idsToHighlight.length > 0) {
+      const optimistic = new Set(seenIds);
+      idsToHighlight.forEach(id => optimistic.add(id));
+      setSeenIds(optimistic);
+
+      // Persist before opening so the bell badge clears immediately. The
+      // Notifications screen receives the IDs that were new at tap time and
+      // still highlights them during this first read.
+      markNotificationIdsSeen(user.uid, idsToHighlight).catch(error =>
+        console.warn('Could not mark notifications as read:', error)
+      );
+    }
+
+    navigation.navigate('Notifications', {
+      highlightNotificationIds: idsToHighlight,
+      openedAt: Date.now(),
+    });
+  };
+
+  const notificationCount = unreadIds.length;
 
   return (
     <TouchableOpacity
-      onPress={() => navigation.navigate('Notifications')}
+      onPress={handleOpenNotifications}
       style={styles.container}
       accessibilityRole="button"
       accessibilityLabel={
         notificationCount > 0
-          ? `Notifications, ${notificationCount} active`
+          ? `Notifications, ${notificationCount} new`
           : 'Notifications'
       }
     >
