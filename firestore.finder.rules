@@ -271,6 +271,7 @@ service cloud.firestore {
 
     function isFinderPoster(jobId) {
       return signedIn()
+        && exists(/databases/$(database)/documents/finderJobs/$(jobId))
         && finderJob(jobId).data.posterId == request.auth.uid;
     }
 
@@ -349,7 +350,7 @@ service cloud.firestore {
         allow read: if signedIn()
           && (
             request.auth.uid == pumperUid
-            || finderJob(jobId).data.posterId == request.auth.uid
+            || isFinderPoster(jobId)
           );
 
         allow create: if signedIn()
