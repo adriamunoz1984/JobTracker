@@ -15,6 +15,7 @@ import { auth, db } from '../firebase/config';
 import {
   FinderJobDraft,
   FinderJobRequest,
+  FinderPrivateJobDetails,
   FinderPublicJob,
   FinderRequestStatus,
 } from '../types/pumpFinder';
@@ -338,4 +339,116 @@ export async function awardFinderPumper(jobId: string, pumperId: string) {
   });
 
   await batch.commit();
+}
+
+
+export function subscribeMyAwardedFinderJobs(
+  onJobs: (jobs: FinderPublicJob[]) => void,
+  onError?: (error: Error) => void
+): Unsubscribe {
+  const currentUser = auth.currentUser;
+
+  if (!currentUser) {
+    throw new Error('You must be signed in to view awarded Pump Finder jobs.');
+  }
+
+  const awardedJobsQuery = query(
+    collection(db, 'finderJobs'),
+    where('awardedPumperId', '==', currentUser.uid)
+  );
+
+  return onSnapshot(
+    awardedJobsQuery,
+    snapshot => {
+      const jobs = snapshot.docs
+        .map(snapshotDoc => ({
+          id: snapshotDoc.id,
+          ...(snapshotDoc.data() as Omit<FinderPublicJob, 'id'>),
+        }))
+        .filter(job =>
+          ['award-pending', 'assigned', 'in-progress'].includes(job.status)
+        )
+        .sort((a, b) => {
+          const dateCompare = a.jobDate.localeCompare(b.jobDate);
+          if (dateCompare !== 0) return dateCompare;
+          return a.startTime.localeCompare(b.startTime);
+        });
+
+      onJobs(jobs);
+    },
+    error => onError?.(error)
+  );
+}
+
+export async function confirmFinderAward(jobId: string) {
+  const currentUser = auth.currentUser;
+
+  if (!currentUser) {
+    throw new Error('You must be signed in to confirm a Pump Finder award.');
+  }
+
+  const jobRef = doc(db, 'finderJobs', jobId);
+  const requestRef = doc(db, 'finderJobs', jobId, 'requests', currentUser.uid);
+
+  const [jobSnapshot, requestSnapshot] = await Promise.all([
+    getDoc(jobRef),
+    getDoc(requestRef),
+  ]);
+
+  if (!jobSnapshot.exists()) {
+    throw new Error('This Pump Finder job no longer exists.');
+  }
+
+  if (!requestSnapshot.exists()) {
+    throw new Error('Your Pump Finder request could not be found.');
+  }
+
+  const job = jobSnapshot.data() as any;
+  const requestData = requestSnapshot.data() as any;
+
+  if (job.awardedPumperId !== currentUser.uid) {
+    throw new Error('This job was not awarded to your account.');
+  }
+
+  if (job.status === 'assigned' && requestData.status === 'confirmed') {
+    return;
+  }
+
+  if (job.status !== 'award-pending' || requestData.status !== 'awarded') {
+    throw new Error('This award is no longer waiting for confirmation.');
+  }
+
+  const batch = writeBatch(db);
+
+  batch.update(requestRef, {
+    status: 'confirmed',
+    updatedAt: serverTimestamp(),
+  });
+
+  batch.update(jobRef, {
+    status: 'assigned',
+    updatedAt: serverTimestamp(),
+  });
+
+  await batch.commit();
+}
+
+export async function getFinderPrivateDetails(
+  jobId: string
+): Promise<FinderPrivateJobDetails> {
+  const currentUser = auth.currentUser;
+
+  if (!currentUser) {
+    throw new Error('You must be signed in to view private job details.');
+  }
+
+  const privateSnapshot = await getDoc(
+    doc(db, 'finderJobPrivate', jobId)
+  );
+
+  if (!privateSnapshot.exists()) {
+    throw new Error('Private job details could not be found.');
+  }
+
+  return privateSnapshot.data() as FinderPrivateJobDetails;
 }
