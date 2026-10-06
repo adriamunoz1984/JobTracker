@@ -133,8 +133,14 @@ export default function NotificationsScreen() {
       .sort((a, b) => (b.acceptedAt || b.createdAt || '').localeCompare(a.acceptedAt || a.createdAt || '')),
     [invites]
   );
-  const pendingAssignments = assignments.filter(job => job.status === 'pending');
-  const acceptedAssignments = assignments.filter(job => job.status === 'accepted');
+  const pendingAssignments = useMemo(
+    () => assignments.filter(job => job.status === 'pending'),
+    [assignments]
+  );
+  const acceptedAssignments = useMemo(
+    () => assignments.filter(job => job.status === 'accepted'),
+    [assignments]
+  );
 
   useEffect(() => {
     if (!user?.uid) {
@@ -170,11 +176,10 @@ export default function NotificationsScreen() {
   useEffect(() => {
     if (!user?.uid || !seenStateLoaded) return;
 
-    const highlighted = route.params?.highlightNotificationIds || [];
     const unreadNow = activeNotificationIds.filter(
       id => !seenNotificationIds.has(id)
     );
-    const newThisVisit = Array.from(new Set([...highlighted, ...unreadNow]));
+    const newThisVisit = unreadNow;
 
     if (newThisVisit.length > 0) {
       setSessionNewIds(current => {
@@ -196,7 +201,6 @@ export default function NotificationsScreen() {
     seenStateLoaded,
     activeNotificationIds,
     seenNotificationIds,
-    route.params?.highlightNotificationIds,
   ]);
 
   const isNewThisVisit = (id: string) => sessionNewIds.has(id);
