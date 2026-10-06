@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Alert, ScrollView, View } from 'react-native';
 import { Button, Card, Chip, Divider, Text } from 'react-native-paper';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import {
   collection,
   getFirestore,
@@ -22,6 +22,11 @@ import {
   FinderNotificationEvent,
   subscribeFinderNotificationEvents,
 } from '../services/pumpFinderNotifications';
+import {
+  getSeenNotificationIds,
+  markNotificationIdsSeen,
+  notificationStorageIds,
+} from '../services/notificationReadState';
 
 const db = getFirestore();
 
@@ -38,10 +43,16 @@ export default function NotificationsScreen() {
   const { colors: Colors } = useAppTheme();
   const styles = useStyles();
   const navigation = useNavigation<any>();
+  const route = useRoute<any>();
   const { user, updateProfile } = useAuth();
   const [invites, setInvites] = useState<EmployeeInvite[]>([]);
   const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [finderNotifications, setFinderNotifications] = useState<FinderNotificationEvent[]>([]);
+  const [seenNotificationIds, setSeenNotificationIds] = useState<Set<string>>(new Set());
+  const [sessionNewIds, setSessionNewIds] = useState<Set<string>>(
+    new Set(route.params?.highlightNotificationIds || [])
+  );
+  const [seenStateLoaded, setSeenStateLoaded] = useState(false);
   const [isWorking, setIsWorking] = useState<string | null>(null);
 
   useEffect(() => {
@@ -124,6 +135,71 @@ export default function NotificationsScreen() {
   );
   const pendingAssignments = assignments.filter(job => job.status === 'pending');
   const acceptedAssignments = assignments.filter(job => job.status === 'accepted');
+
+  useEffect(() => {
+    if (!user?.uid) {
+      setSeenNotificationIds(new Set());
+      setSeenStateLoaded(false);
+      return;
+    }
+
+    let active = true;
+    setSeenStateLoaded(false);
+
+    getSeenNotificationIds(user.uid).then(ids => {
+      if (!active) return;
+      setSeenNotificationIds(ids);
+      setSeenStateLoaded(true);
+    });
+
+    return () => {
+      active = false;
+    };
+  }, [user?.uid, route.params?.openedAt]);
+
+  const activeNotificationIds = useMemo(
+    () =>
+      notificationStorageIds({
+        finderEventIds: finderNotifications.map(event => event.id),
+        pendingJobIds: pendingAssignments.map(job => job.id),
+        pendingInviteIds: pendingInvites.map(invite => invite.id),
+      }),
+    [finderNotifications, pendingAssignments, pendingInvites]
+  );
+
+  useEffect(() => {
+    if (!user?.uid || !seenStateLoaded) return;
+
+    const highlighted = route.params?.highlightNotificationIds || [];
+    const unreadNow = activeNotificationIds.filter(
+      id => !seenNotificationIds.has(id)
+    );
+    const newThisVisit = Array.from(new Set([...highlighted, ...unreadNow]));
+
+    if (newThisVisit.length > 0) {
+      setSessionNewIds(current => {
+        const next = new Set(current);
+        newThisVisit.forEach(id => next.add(id));
+        return next;
+      });
+
+      const optimistic = new Set(seenNotificationIds);
+      newThisVisit.forEach(id => optimistic.add(id));
+      setSeenNotificationIds(optimistic);
+
+      markNotificationIdsSeen(user.uid, newThisVisit).catch(error =>
+        console.warn('Could not mark notification center items as read:', error)
+      );
+    }
+  }, [
+    user?.uid,
+    seenStateLoaded,
+    activeNotificationIds,
+    seenNotificationIds,
+    route.params?.highlightNotificationIds,
+  ]);
+
+  const isNewThisVisit = (id: string) => sessionNewIds.has(id);
 
   const handleAcceptInvite = async (invite: EmployeeInvite) => {
     if (!user) return;
@@ -214,37 +290,57 @@ export default function NotificationsScreen() {
       {finderNotifications.length > 0 && (
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Pump Finder</Text>
-          {finderNotifications.map(event => (
-            <Card key={event.id} style={styles.card}>
-              <Card.Content>
-                <View style={styles.cardHeading}>
-                  <Text style={styles.cardTitle}>{event.title}</Text>
-                  <Chip compact style={styles.finderChip}>Finder</Chip>
-                </View>
-                <Text style={styles.bodyText}>{event.message}</Text>
-              </Card.Content>
-              <Card.Actions>
-                <Button
-                  mode={event.kind === 'job-awarded' ? 'contained' : 'outlined'}
-                  onPress={() => openFinderNotification(event)}
-                >
-                  {finderActionLabel(event)}
-                </Button>
-              </Card.Actions>
-            </Card>
-          ))}
+          {finderNotifications.map(event => {
+            const storageId = `finder:${event.id}`;
+            const isNew = isNewThisVisit(storageId);
+
+            return (
+              <Card
+                key={event.id}
+                style={[styles.card, isNew && styles.unreadCard]}
+              >
+                <Card.Content>
+                  <View style={styles.cardHeading}>
+                    <Text style={styles.cardTitle}>{event.title}</Text>
+                    <Chip
+                      compact
+                      style={isNew ? styles.newChip : styles.finderChip}
+                    >
+                      {isNew ? 'New • Finder' : 'Finder'}
+                    </Chip>
+                  </View>
+                  <Text style={styles.bodyText}>{event.message}</Text>
+                </Card.Content>
+                <Card.Actions>
+                  <Button
+                    mode={event.kind === 'job-awarded' ? 'contained' : 'outlined'}
+                    onPress={() => openFinderNotification(event)}
+                  >
+                    {finderActionLabel(event)}
+                  </Button>
+                </Card.Actions>
+              </Card>
+            );
+          })}
         </View>
       )}
 
       {user?.role === 'employee' && pendingInvites.length > 0 && (
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Team Invitations</Text>
-          {pendingInvites.map(invite => (
-            <Card key={invite.id} style={styles.card}>
+          {pendingInvites.map(invite => {
+            const isNew = isNewThisVisit(`invite:${invite.id}`);
+            return (
+            <Card
+              key={invite.id}
+              style={[styles.card, isNew && styles.unreadCard]}
+            >
               <Card.Content>
                 <View style={styles.cardHeading}>
                   <Text style={styles.cardTitle}>{getInviteBusinessName(invite)}</Text>
-                  <Chip compact style={styles.newChip}>New</Chip>
+                  <Chip compact style={isNew ? styles.newChip : styles.readChip}>
+                    {isNew ? 'New' : 'Pending'}
+                  </Chip>
                 </View>
                 <Text style={styles.bodyText}>
                   {invite.ownerName} invited you to join their team.
@@ -269,19 +365,27 @@ export default function NotificationsScreen() {
                 </Button>
               </Card.Actions>
             </Card>
-          ))}
+            );
+          })}
         </View>
       )}
 
       {user?.role === 'employee' && pendingAssignments.length > 0 && (
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>New Job Assignments</Text>
-          {pendingAssignments.map(job => (
-            <Card key={job.id} style={styles.card}>
+          {pendingAssignments.map(job => {
+            const isNew = isNewThisVisit(`job:${job.id}`);
+            return (
+            <Card
+              key={job.id}
+              style={[styles.card, isNew && styles.unreadCard]}
+            >
               <Card.Content>
                 <View style={styles.cardHeading}>
                   <Text style={styles.cardTitle}>{job.companyName || 'Assigned Job'}</Text>
-                  <Chip compact style={styles.newChip}>New</Chip>
+                  <Chip compact style={isNew ? styles.newChip : styles.readChip}>
+                    {isNew ? 'New' : 'Pending'}
+                  </Chip>
                 </View>
                 <Text style={styles.bodyText}>{formatAssignmentDate(job.date)}</Text>
                 {(job.address || job.city) && (
@@ -296,7 +400,8 @@ export default function NotificationsScreen() {
                 </Button>
               </Card.Actions>
             </Card>
-          ))}
+            );
+          })}
         </View>
       )}
 
@@ -415,6 +520,11 @@ const useStyles = makeStyles((Colors) => ({
     marginBottom: 12,
     backgroundColor: Colors.surface,
   },
+  unreadCard: {
+    borderWidth: 2,
+    borderColor: Colors.primary,
+    backgroundColor: Colors.primaryBg,
+  },
   cardHeading: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -446,6 +556,9 @@ const useStyles = makeStyles((Colors) => ({
   },
   finderChip: {
     backgroundColor: Colors.primaryBg,
+  },
+  readChip: {
+    backgroundColor: Colors.surfaceDark,
   },
   emptyCard: {
     backgroundColor: Colors.surface,
