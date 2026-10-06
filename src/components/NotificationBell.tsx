@@ -12,6 +12,10 @@ import {
 } from 'firebase/firestore';
 import { useAuth } from '../context/AuthContext';
 import { useAppTheme, makeStyles } from '../theme';
+import {
+  FinderNotificationEvent,
+  subscribeFinderNotificationEvents,
+} from '../services/pumpFinderNotifications';
 
 const db = getFirestore();
 
@@ -22,6 +26,7 @@ export default function NotificationBell() {
   const { user } = useAuth();
   const [pendingJobCount, setPendingJobCount] = useState(0);
   const [pendingInviteCount, setPendingInviteCount] = useState(0);
+  const [finderEvents, setFinderEvents] = useState<FinderNotificationEvent[]>([]);
 
   useEffect(() => {
     if (!user?.uid || user.role !== 'employee') {
@@ -66,11 +71,32 @@ export default function NotificationBell() {
     );
   }, [user?.email, user?.role]);
 
+  useEffect(() => {
+    if (!user?.uid) {
+      setFinderEvents([]);
+      return;
+    }
+
+    try {
+      return subscribeFinderNotificationEvents(
+        setFinderEvents,
+        error => {
+          console.error('Error loading Pump Finder notification count:', error);
+          setFinderEvents([]);
+        }
+      );
+    } catch (error) {
+      console.error('Error starting Pump Finder notifications:', error);
+      setFinderEvents([]);
+    }
+  }, [user?.uid]);
+
   if (!user) {
     return null;
   }
 
-  const notificationCount = pendingJobCount + pendingInviteCount;
+  const notificationCount =
+    pendingJobCount + pendingInviteCount + finderEvents.length;
 
   return (
     <TouchableOpacity
@@ -79,7 +105,7 @@ export default function NotificationBell() {
       accessibilityRole="button"
       accessibilityLabel={
         notificationCount > 0
-          ? `Notifications, ${notificationCount} new`
+          ? `Notifications, ${notificationCount} active`
           : 'Notifications'
       }
     >
