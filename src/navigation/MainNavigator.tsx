@@ -148,7 +148,15 @@ export default function MainNavigator() {
         <Tab.Screen name="Invoices" component={InvoiceListScreen} />
       </Tab.Navigator>
 
-      <DraggableFAB variant={activeTab === 'Invoices' ? 'invoice' : 'default'} />
+      <DraggableFAB
+        variant={
+          activeTab === 'Invoices'
+            ? 'invoice'
+            : activeTab === 'Finder'
+              ? 'finder'
+              : 'default'
+        }
+      />
     </View>
   );
 }
