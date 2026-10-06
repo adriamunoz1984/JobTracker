@@ -25,7 +25,7 @@ const requestLabels: Record<string, string> = {
   withdrawn: 'Withdrawn',
 };
 
-export default function InterestedFinderPumpersScreen({ route }: any) {
+export default function InterestedFinderPumpersScreen({ navigation, route }: any) {
   const { colors: Colors } = useAppTheme();
   const styles = useStyles();
   const jobId: string | undefined = route?.params?.jobId;
@@ -186,43 +186,53 @@ export default function InterestedFinderPumpersScreen({ route }: any) {
               key={request.id}
               style={[styles.pumperCard, isSelected && styles.pumperCardSelected]}
             >
-              <View style={styles.pumperHeader}>
-                <View style={styles.avatar}>
-                  <Ionicons name="person" size={22} color={Colors.primary} />
+              <TouchableOpacity
+                onPress={() => navigation.navigate('PublicFinderProfile', { request })}
+                activeOpacity={0.78}
+              >
+                <View style={styles.pumperHeader}>
+                  <View style={styles.avatar}>
+                    <Ionicons name="person" size={22} color={Colors.primary} />
+                  </View>
+                  <View style={styles.pumperTitleWrap}>
+                    <Text style={styles.pumperName}>{displayName}</Text>
+                    {request.businessName?.trim() ? (
+                      <Text style={styles.businessName}>{request.businessName}</Text>
+                    ) : null}
+                  </View>
+                  <View style={[styles.statusPill, isSelected && styles.statusPillSelected]}>
+                    <Text style={styles.statusText}>
+                      {requestLabels[request.status] || request.status}
+                    </Text>
+                  </View>
                 </View>
-                <View style={styles.pumperTitleWrap}>
-                  <Text style={styles.pumperName}>{displayName}</Text>
-                  {request.businessName?.trim() ? (
-                    <Text style={styles.businessName}>{request.businessName}</Text>
-                  ) : null}
-                </View>
-                <View style={[styles.statusPill, isSelected && styles.statusPillSelected]}>
-                  <Text style={styles.statusText}>
-                    {requestLabels[request.status] || request.status}
-                  </Text>
-                </View>
-              </View>
 
-              {request.pumpType?.trim() || request.serviceArea?.trim() ? (
-                <View style={styles.profileDetails}>
-                  {request.pumpType?.trim() ? (
-                    <View style={styles.detailRow}>
-                      <Ionicons name="construct-outline" size={16} color={Colors.textSecondary} />
-                      <Text style={styles.detailText}>{request.pumpType}</Text>
-                    </View>
-                  ) : null}
-                  {request.serviceArea?.trim() ? (
-                    <View style={styles.detailRow}>
-                      <Ionicons name="map-outline" size={16} color={Colors.textSecondary} />
-                      <Text style={styles.detailText}>{request.serviceArea}</Text>
-                    </View>
-                  ) : null}
+                {request.pumpType?.trim() || request.serviceArea?.trim() ? (
+                  <View style={styles.profileDetails}>
+                    {request.pumpType?.trim() ? (
+                      <View style={styles.detailRow}>
+                        <Ionicons name="construct-outline" size={16} color={Colors.textSecondary} />
+                        <Text style={styles.detailText}>{request.pumpType}</Text>
+                      </View>
+                    ) : null}
+                    {request.serviceArea?.trim() ? (
+                      <View style={styles.detailRow}>
+                        <Ionicons name="map-outline" size={16} color={Colors.textSecondary} />
+                        <Text style={styles.detailText}>{request.serviceArea}</Text>
+                      </View>
+                    ) : null}
+                  </View>
+                ) : (
+                  <Text style={styles.legacyText}>
+                    Test request from account {request.pumperId.slice(0, 8)}…
+                  </Text>
+                )}
+
+                <View style={styles.viewProfileRow}>
+                  <Text style={styles.viewProfileText}>View Business Profile</Text>
+                  <Ionicons name="chevron-forward" size={17} color={Colors.primary} />
                 </View>
-              ) : (
-                <Text style={styles.legacyText}>
-                  Test request from account {request.pumperId.slice(0, 8)}…
-                </Text>
-              )}
+              </TouchableOpacity>
 
               {canAward ? (
                 <TouchableOpacity
@@ -356,6 +366,21 @@ const useStyles = makeStyles(Colors => ({
     color: Colors.textSecondary,
     fontSize: 12,
     marginTop: 12,
+  },
+  viewProfileRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    gap: 4,
+    marginTop: 10,
+    paddingTop: 9,
+    borderTopWidth: 1,
+    borderTopColor: Colors.border,
+  },
+  viewProfileText: {
+    color: Colors.primary,
+    fontSize: 12,
+    fontWeight: '800',
   },
   awardButton: {
     minHeight: 48,
