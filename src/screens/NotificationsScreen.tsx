@@ -205,7 +205,17 @@ export default function NotificationsScreen() {
 
   const isNewThisVisit = (id: string) => sessionNewIds.has(id);
 
+  const markItemReadInView = (id: string) => {
+    setSessionNewIds(current => {
+      if (!current.has(id)) return current;
+      const next = new Set(current);
+      next.delete(id);
+      return next;
+    });
+  };
+
   const handleAcceptInvite = async (invite: EmployeeInvite) => {
+    markItemReadInView(`invite:${invite.id}`);
     if (!user) return;
 
     try {
@@ -231,6 +241,7 @@ export default function NotificationsScreen() {
   };
 
   const handleDeclineInvite = (invite: EmployeeInvite) => {
+    markItemReadInView(`invite:${invite.id}`);
     Alert.alert(
       'Decline Invitation?',
       `Decline the invitation from ${getInviteBusinessName(invite)}?`,
@@ -275,6 +286,7 @@ export default function NotificationsScreen() {
     finderNotifications.length > 0 || acceptedInvites.length > 0;
 
   const openFinderNotification = (event: FinderNotificationEvent) => {
+    markItemReadInView(`finder:${event.id}`);
     navigation.navigate(event.actionRoute, event.actionParams);
   };
 
@@ -399,7 +411,13 @@ export default function NotificationsScreen() {
                 )}
               </Card.Content>
               <Card.Actions>
-                <Button mode="contained" onPress={() => navigation.navigate('PendingJobs')}>
+                <Button
+                  mode="contained"
+                  onPress={() => {
+                    markItemReadInView(`job:${job.id}`);
+                    navigation.navigate('PendingJobs');
+                  }}
+                >
                   View Assignment
                 </Button>
               </Card.Actions>
