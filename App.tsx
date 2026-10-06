@@ -62,6 +62,7 @@ import MyPostedFinderJobsScreen from './src/screens/MyPostedFinderJobsScreen';
 import InterestedFinderPumpersScreen from './src/screens/InterestedFinderPumpersScreen';
 import ActiveFinderJobsScreen from './src/screens/ActiveFinderJobsScreen';
 import ConfirmFinderJobScreen from './src/screens/ConfirmFinderJobScreen';
+import PublicFinderBusinessProfileScreen from './src/screens/PublicFinderBusinessProfileScreen';
 
 // Pump Finder pages that are still placeholders: route name -> title + description
 const FINDER_PLACEHOLDERS: { name: string; title: string; description: string }[] = [
@@ -363,6 +364,11 @@ function AppNavigatorWithFAB({ user }: { user: any }) {
               name="ConfirmJob"
               component={ConfirmFinderJobScreen}
               options={{ headerShown: true, title: 'Confirm Finder Job' }}
+            />
+            <Stack.Screen
+              name="PublicFinderProfile"
+              component={PublicFinderBusinessProfileScreen}
+              options={{ headerShown: true, title: 'Pumper Business Profile' }}
             />
             {FINDER_PLACEHOLDERS.map(p => (
               <Stack.Screen
