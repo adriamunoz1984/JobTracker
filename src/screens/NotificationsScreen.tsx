@@ -18,6 +18,10 @@ import {
   EmployeeInvite,
   getInviteBusinessName,
 } from '../utils/employeeInvites';
+import {
+  FinderNotificationEvent,
+  subscribeFinderNotificationEvents,
+} from '../services/pumpFinderNotifications';
 
 const db = getFirestore();
 
@@ -37,6 +41,7 @@ export default function NotificationsScreen() {
   const { user, updateProfile } = useAuth();
   const [invites, setInvites] = useState<EmployeeInvite[]>([]);
   const [assignments, setAssignments] = useState<Assignment[]>([]);
+  const [finderNotifications, setFinderNotifications] = useState<FinderNotificationEvent[]>([]);
   const [isWorking, setIsWorking] = useState<string | null>(null);
 
   useEffect(() => {
@@ -86,6 +91,26 @@ export default function NotificationsScreen() {
       error => console.error('Error loading assignment notifications:', error)
     );
   }, [user?.uid, user?.role]);
+
+  useEffect(() => {
+    if (!user?.uid) {
+      setFinderNotifications([]);
+      return;
+    }
+
+    try {
+      return subscribeFinderNotificationEvents(
+        setFinderNotifications,
+        error => {
+          console.error('Error loading Pump Finder notifications:', error);
+          setFinderNotifications([]);
+        }
+      );
+    } catch (error) {
+      console.error('Error starting Pump Finder notifications:', error);
+      setFinderNotifications([]);
+    }
+  }, [user?.uid]);
 
   const pendingInvites = useMemo(
     () => invites.filter(invite => invite.status === 'pending'),
@@ -160,18 +185,56 @@ export default function NotificationsScreen() {
   };
 
   const hasEmployeeNotifications =
+    finderNotifications.length > 0 ||
     pendingInvites.length > 0 ||
     acceptedInvites.length > 0 ||
     pendingAssignments.length > 0 ||
     acceptedAssignments.length > 0;
 
-  const hasOwnerNotifications = acceptedInvites.length > 0;
+  const hasOwnerNotifications =
+    finderNotifications.length > 0 || acceptedInvites.length > 0;
+
+  const openFinderNotification = (event: FinderNotificationEvent) => {
+    navigation.navigate(event.actionRoute, event.actionParams);
+  };
+
+  const finderActionLabel = (event: FinderNotificationEvent) => {
+    if (event.kind === 'available-job') return 'View Available Jobs';
+    if (event.kind === 'interested-pumper') return 'View Interested Pumpers';
+    if (event.kind === 'job-awarded') return 'Review & Confirm';
+    return 'View Confirmed Job';
+  };
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <Text style={styles.intro}>
-        Invitations, job assignments, and account connections will appear here.
+        Pump Finder activity, invitations, job assignments, and account connections will appear here.
       </Text>
+
+      {finderNotifications.length > 0 && (
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Pump Finder</Text>
+          {finderNotifications.map(event => (
+            <Card key={event.id} style={styles.card}>
+              <Card.Content>
+                <View style={styles.cardHeading}>
+                  <Text style={styles.cardTitle}>{event.title}</Text>
+                  <Chip compact style={styles.finderChip}>Finder</Chip>
+                </View>
+                <Text style={styles.bodyText}>{event.message}</Text>
+              </Card.Content>
+              <Card.Actions>
+                <Button
+                  mode={event.kind === 'job-awarded' ? 'contained' : 'outlined'}
+                  onPress={() => openFinderNotification(event)}
+                >
+                  {finderActionLabel(event)}
+                </Button>
+              </Card.Actions>
+            </Card>
+          ))}
+        </View>
+      )}
 
       {user?.role === 'employee' && pendingInvites.length > 0 && (
         <View style={styles.section}>
@@ -311,7 +374,7 @@ export default function NotificationsScreen() {
           <Card.Content>
             <Text style={styles.emptyTitle}>You’re all caught up</Text>
             <Text style={styles.bodyText}>
-              New invitations, job assignments, and account updates will show here.
+              New Pump Finder activity, invitations, job assignments, and account updates will show here.
             </Text>
           </Card.Content>
         </Card>
@@ -319,7 +382,7 @@ export default function NotificationsScreen() {
 
       <Divider style={styles.divider} />
       <Text style={styles.footerText}>
-        More JobTracker events can be added to this notification center as we finish the release.
+        Pump Finder alerts are live in-app during development. Push notifications can be layered on after the marketplace flow is stable.
       </Text>
     </ScrollView>
   );
@@ -380,6 +443,9 @@ const useStyles = makeStyles((Colors) => ({
   },
   acceptedChip: {
     backgroundColor: Colors.successBg,
+  },
+  finderChip: {
+    backgroundColor: Colors.primaryBg,
   },
   emptyCard: {
     backgroundColor: Colors.surface,
