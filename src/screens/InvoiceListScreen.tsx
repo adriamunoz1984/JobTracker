@@ -4,7 +4,6 @@ import { View, StyleSheet, FlatList, TouchableOpacity } from 'react-native';
 import { 
   Card, 
   Text, 
-  FAB,
   Chip,
   Searchbar,
   Divider
@@ -71,10 +70,6 @@ export default function InvoiceListScreen() {
     }
   };
 
-  const handleCreateInvoice = () => {
-    (navigation as any).navigate('Invoice');
-  };
-
   const handleInvoicePress = (invoice: Invoice) => {
     (navigation as any).navigate('InvoiceDetail', { invoice });
   };
@@ -137,7 +132,7 @@ export default function InvoiceListScreen() {
         <View style={styles.emptyState}>
           <Text style={styles.emptyText}>📄 No invoices yet</Text>
           <Text style={styles.emptySubtext}>
-            Create invoices from the Reports screen
+            Use the floating create-invoice button to make your first invoice.
           </Text>
         </View>
       ) : (
@@ -149,13 +144,6 @@ export default function InvoiceListScreen() {
         />
       )}
 
-      <FAB
-        icon="plus"
-        label="New Invoice"
-        style={styles.fab}
-        onPress={handleCreateInvoice}
-        color={Colors.textInverse}
-      />
     </View>
   );
 }
@@ -239,12 +227,5 @@ const useStyles = makeStyles((Colors) => ({
     fontSize: 14,
     color: Colors.textSecondary,
     textAlign: 'center',
-  },
-  fab: {
-    position: 'absolute',
-    margin: Spacing.md,
-    right: 0,
-    bottom: 0,
-    backgroundColor: Colors.primary,
   },
 }));
