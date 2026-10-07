@@ -130,13 +130,49 @@ export default function AddFinderPlaceScreen({ navigation }: any) {
 
     try {
       setSaving(true);
+
+      let placeLatitude = latitude;
+      let placeLongitude = longitude;
+
+      // Every community place should land on the Pump Finder map. If the
+      // pumper typed an address instead of capturing the current GPS point,
+      // geocode that address before saving.
+      if (placeLatitude === undefined || placeLongitude === undefined) {
+        try {
+          const permission = await Location.requestForegroundPermissionsAsync();
+
+          if (permission.status !== 'granted') {
+            throw new Error('Location permission is needed to place this stop on the map.');
+          }
+
+          const matches = await Location.geocodeAsync(address.trim());
+          const match = matches[0];
+
+          if (!match) {
+            throw new Error('Pump Finder could not find that address on the map.');
+          }
+
+          placeLatitude = match.latitude;
+          placeLongitude = match.longitude;
+          setLatitude(match.latitude);
+          setLongitude(match.longitude);
+        } catch (mapError: any) {
+          Alert.alert(
+            'Could not pin this place',
+            mapError?.message ||
+              'Check the address or tap Use My Current Location so Pump Finder can save an exact map pin.'
+          );
+          return;
+        }
+      }
+
       await createFinderPumperPlace({
         name: name.trim(),
         category,
         address: address.trim(),
         generalArea: generalArea.trim(),
-        latitude,
-        longitude,
+        latitude: placeLatitude,
+        longitude: placeLongitude,
         features,
         notes: notes.trim() || undefined,
         pumperRating,
@@ -145,7 +181,7 @@ export default function AddFinderPlaceScreen({ navigation }: any) {
 
       Alert.alert(
         'Place Added',
-        'This stop is now available to the Pump Finder community.',
+        'This stop is now saved on the Pump Finder map and available to the community.',
         [{ text: 'OK', onPress: () => navigation.goBack() }]
       );
     } catch (error: any) {
