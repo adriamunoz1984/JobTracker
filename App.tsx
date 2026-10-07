@@ -55,7 +55,6 @@ import DetailedReportScreen from './src/screens/DetailedReportScreen';
 // Pump Finder sub-screens (the Finder home is a tab in MainNavigator)
 import PostFinderJobScreen from './src/screens/PostFinderJobScreen';
 import ReviewFinderJobScreen from './src/screens/ReviewFinderJobScreen';
-import FinderBusinessProfileScreen from './src/screens/FinderBusinessProfileScreen';
 import FinderPlaceholderScreen from './src/screens/FinderPlaceholderScreen';
 import AvailableFinderJobsScreen from './src/screens/AvailableFinderJobsScreen';
 import MyPostedFinderJobsScreen from './src/screens/MyPostedFinderJobsScreen';
@@ -169,7 +168,7 @@ function AppNavigatorWithFAB({ user }: { user: any }) {
             <Stack.Screen 
               name="Profile" 
               component={ProfileScreen}
-              options={{ headerShown: true, title: 'My Pumper Profile' }}
+              options={{ headerShown: true, title: 'My Profile' }}
             />
             {/* Settings (private) and its sub-pages */}
             <Stack.Screen
@@ -334,11 +333,6 @@ function AppNavigatorWithFAB({ user }: { user: any }) {
               name="ReviewJob"
               component={ReviewFinderJobScreen}
               options={{ headerShown: true, title: 'Review Job' }}
-            />
-            <Stack.Screen
-              name="BusinessProfile"
-              component={FinderBusinessProfileScreen}
-              options={{ headerShown: true, title: 'Edit Pumper Profile' }}
             />
             <Stack.Screen
               name="AvailableJobs"
