@@ -49,6 +49,60 @@ export interface FinderPublicPumperProfile {
   ppeAvailable: FinderPpeItem[];
 }
 
+
+export const FINDER_PLACE_CATEGORIES = [
+  'Diesel / Fuel',
+  'Food / Restaurant',
+  'Truck Stop',
+  'Parking / Staging',
+  'Supply / Parts',
+  'Other',
+] as const;
+
+export type FinderPlaceCategory = (typeof FINDER_PLACE_CATEGORIES)[number];
+
+export const FINDER_PLACE_FEATURES = [
+  'Diesel',
+  'DEF',
+  'Pull-through access',
+  'Trailer-friendly parking',
+  'Large-rig parking',
+  'Easy turnaround',
+  'Wide entrance',
+  'Food',
+  'Restroom',
+  '24-hour access',
+] as const;
+
+export type FinderPlaceFeature = (typeof FINDER_PLACE_FEATURES)[number];
+
+export interface FinderPumperPlace {
+  id: string;
+  createdBy: string;
+  name: string;
+  category: FinderPlaceCategory;
+  address: string;
+  generalArea: string;
+  features: FinderPlaceFeature[];
+  notes?: string;
+  pumperRating: number;
+  dieselPrice?: number | null;
+  dieselPriceUpdatedAt?: any;
+  createdAt?: any;
+  updatedAt?: any;
+}
+
+export interface FinderPumperPlaceDraft {
+  name: string;
+  category: FinderPlaceCategory;
+  address: string;
+  generalArea: string;
+  features: FinderPlaceFeature[];
+  notes?: string;
+  pumperRating: number;
+  dieselPrice?: number;
+}
+
 export interface FinderJobDraft {
   customerName: string;
   jobDate: string;
