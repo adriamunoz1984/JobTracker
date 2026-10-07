@@ -62,6 +62,9 @@ import InterestedFinderPumpersScreen from './src/screens/InterestedFinderPumpers
 import ActiveFinderJobsScreen from './src/screens/ActiveFinderJobsScreen';
 import ConfirmFinderJobScreen from './src/screens/ConfirmFinderJobScreen';
 import PublicFinderBusinessProfileScreen from './src/screens/PublicFinderBusinessProfileScreen';
+import FinderPlacesScreen from './src/screens/FinderPlacesScreen';
+import AddFinderPlaceScreen from './src/screens/AddFinderPlaceScreen';
+import FinderPlaceDetailScreen from './src/screens/FinderPlaceDetailScreen';
 
 // Pump Finder pages that are still placeholders: route name -> title + description
 const FINDER_PLACEHOLDERS: { name: string; title: string; description: string }[] = [
@@ -363,6 +366,21 @@ function AppNavigatorWithFAB({ user }: { user: any }) {
               name="PublicFinderProfile"
               component={PublicFinderBusinessProfileScreen}
               options={{ headerShown: true, title: 'Pumper Business Profile' }}
+            />
+            <Stack.Screen
+              name="FinderPlaces"
+              component={FinderPlacesScreen}
+              options={{ headerShown: true, title: 'Pumper-Friendly Places' }}
+            />
+            <Stack.Screen
+              name="AddFinderPlace"
+              component={AddFinderPlaceScreen}
+              options={{ headerShown: true, title: 'Add Pumper-Friendly Place' }}
+            />
+            <Stack.Screen
+              name="FinderPlaceDetail"
+              component={FinderPlaceDetailScreen}
+              options={{ headerShown: true, title: 'Pumper-Friendly Place' }}
             />
             {FINDER_PLACEHOLDERS.map(p => (
               <Stack.Screen
