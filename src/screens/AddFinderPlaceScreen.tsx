@@ -8,6 +8,7 @@ import {
   View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import * as Location from 'expo-location';
 import {
   FINDER_PLACE_CATEGORIES,
   FINDER_PLACE_FEATURES,
@@ -30,6 +31,9 @@ export default function AddFinderPlaceScreen({ navigation }: any) {
   const [notes, setNotes] = useState('');
   const [dieselPrice, setDieselPrice] = useState('');
   const [pumperRating, setPumperRating] = useState(5);
+  const [latitude, setLatitude] = useState<number | undefined>();
+  const [longitude, setLongitude] = useState<number | undefined>();
+  const [locating, setLocating] = useState(false);
   const [saving, setSaving] = useState(false);
 
   const showDieselPrice = useMemo(
@@ -43,6 +47,69 @@ export default function AddFinderPlaceScreen({ navigation }: any) {
         ? current.filter(item => item !== feature)
         : [...current, feature]
     );
+  };
+
+  const useCurrentLocation = async () => {
+    try {
+      setLocating(true);
+
+      const permission = await Location.requestForegroundPermissionsAsync();
+      if (permission.status !== 'granted') {
+        Alert.alert(
+          'Location permission needed',
+          'Allow location access if you want Pump Finder to pin this place from where you are standing. You can still type the address manually.'
+        );
+        return;
+      }
+
+      const position = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.High,
+      });
+
+      const { latitude: lat, longitude: lng } = position.coords;
+      setLatitude(lat);
+      setLongitude(lng);
+
+      try {
+        const matches = await Location.reverseGeocodeAsync({
+          latitude: lat,
+          longitude: lng,
+        });
+        const match = matches[0];
+
+        if (match) {
+          const streetLine = [
+            match.streetNumber,
+            match.street || match.name,
+          ].filter(Boolean).join(' ');
+
+          const fullAddress = [
+            streetLine,
+            match.city,
+            match.region,
+            match.postalCode,
+          ].filter(Boolean).join(', ');
+
+          const area = [
+            match.city || match.district || match.subregion,
+            match.region,
+          ].filter(Boolean).join(', ');
+
+          if (fullAddress) setAddress(fullAddress);
+          if (area) setGeneralArea(area);
+        }
+      } catch (reverseError) {
+        console.warn('Could not reverse geocode pumper place:', reverseError);
+      }
+    } catch (error) {
+      console.error('Could not capture current location:', error);
+      Alert.alert(
+        'Could not get location',
+        'Pump Finder could not read your current location. You can still enter the address manually.'
+      );
+    } finally {
+      setLocating(false);
+    }
   };
 
   const savePlace = async () => {
@@ -68,6 +135,8 @@ export default function AddFinderPlaceScreen({ navigation }: any) {
         category,
         address: address.trim(),
         generalArea: generalArea.trim(),
+        latitude,
+        longitude,
         features,
         notes: notes.trim() || undefined,
         pumperRating,
@@ -149,10 +218,28 @@ export default function AddFinderPlaceScreen({ navigation }: any) {
           autoCapitalize="words"
         />
 
+        <TouchableOpacity
+          style={[styles.locationButton, locating && styles.locationButtonDisabled]}
+          onPress={useCurrentLocation}
+          disabled={locating}
+          activeOpacity={0.8}
+        >
+          <Ionicons name="locate-outline" size={20} color={Colors.primary} />
+          <Text style={styles.locationButtonText}>
+            {locating ? 'Getting Current Location…' : 'Use My Current Location'}
+          </Text>
+        </TouchableOpacity>
+
         <View style={styles.gpsNote}>
-          <Ionicons name="navigate-circle-outline" size={20} color={Colors.primary} />
+          <Ionicons
+            name={latitude !== undefined && longitude !== undefined ? 'checkmark-circle-outline' : 'navigate-circle-outline'}
+            size={20}
+            color={Colors.primary}
+          />
           <Text style={styles.gpsNoteText}>
-            Current-location capture and a real map pin are the next GPS layer. For this first pass, the saved address is used for navigation.
+            {latitude !== undefined && longitude !== undefined
+              ? 'GPS pin captured. You can still correct the address or area before saving.'
+              : 'Using your location saves an exact GPS pin and tries to fill the address automatically. You can also enter everything manually.'}
           </Text>
         </View>
       </View>
@@ -359,6 +446,24 @@ const useStyles = makeStyles(Colors => ({
   featureChipText: { color: Colors.textSecondary, fontSize: 12, fontWeight: '700' },
   featureChipTextSelected: { color: Colors.onPrimary },
   helper: { color: Colors.textSecondary, fontSize: 12, lineHeight: 18 },
+  locationButton: {
+    minHeight: 46,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: Colors.primary,
+    backgroundColor: Colors.surface,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 7,
+    marginBottom: 10,
+  },
+  locationButtonDisabled: { opacity: 0.65 },
+  locationButtonText: {
+    color: Colors.primary,
+    fontSize: 14,
+    fontWeight: '800',
+  },
   gpsNote: {
     flexDirection: 'row',
     gap: 8,
