@@ -21,7 +21,13 @@
     },
     "plugins": [
       "expo-build-properties",
-      "expo-font"
+      "expo-font",
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Allow Job Tracker to use your location to pin pumper-friendly places."
+        }
+      ]
     ],
     "scheme": "job-tracker",
     "extra": {
