@@ -9,6 +9,7 @@ const finderActions = [
   { key: 'AvailableJobs', title: 'Available Jobs', subtitle: 'Browse matching jobs in your service area', icon: 'search-outline' },
   { key: 'MyPostedJobs', title: 'My Posted Jobs', subtitle: 'See requests and choose a pumper for jobs you posted', icon: 'people-outline' },
   { key: 'ActiveJobs', title: 'Active Jobs', subtitle: 'Track confirmed and in-progress Finder jobs', icon: 'construct-outline' },
+  { key: 'FinderPlaces', title: 'Pumper-Friendly Places', subtitle: 'Diesel, food, parking, and stops that work with a pump rig', icon: 'map-outline' },
   { key: 'Messages', title: 'Messages', subtitle: 'Keep job conversations and pumper recommendations in one place', icon: 'chatbubbles-outline' },
   { key: 'Profile', title: 'My Profile', subtitle: 'Edit your public Pump Finder business details and equipment', icon: 'business-outline' },
 ];
