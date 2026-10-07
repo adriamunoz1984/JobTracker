@@ -83,6 +83,8 @@ export interface FinderPumperPlace {
   category: FinderPlaceCategory;
   address: string;
   generalArea: string;
+  latitude?: number;
+  longitude?: number;
   features: FinderPlaceFeature[];
   notes?: string;
   pumperRating: number;
@@ -97,6 +99,8 @@ export interface FinderPumperPlaceDraft {
   category: FinderPlaceCategory;
   address: string;
   generalArea: string;
+  latitude?: number;
+  longitude?: number;
   features: FinderPlaceFeature[];
   notes?: string;
   pumperRating: number;
