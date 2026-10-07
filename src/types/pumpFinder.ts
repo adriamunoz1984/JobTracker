@@ -36,6 +36,19 @@ export interface PumpFinderBusinessProfile {
   ppeAvailable?: FinderPpeItem[];
 }
 
+export interface FinderPublicPumperProfile {
+  pumperId: string;
+  displayName: string;
+  businessName: string;
+  pumpType: string;
+  serviceArea: string;
+  hoseIncludedFt: number;
+  extraHoseRatePerFt: number;
+  standardPsiMax: number;
+  highPsiSurcharge: number | null;
+  ppeAvailable: FinderPpeItem[];
+}
+
 export interface FinderJobDraft {
   customerName: string;
   jobDate: string;
@@ -101,6 +114,11 @@ export interface FinderJobRequest {
   businessName?: string;
   pumpType?: string;
   serviceArea?: string;
+  hoseIncludedFt?: number;
+  extraHoseRatePerFt?: number;
+  standardPsiMax?: number;
+  highPsiSurcharge?: number | null;
+  ppeAvailable?: FinderPpeItem[];
 }
 
 export const FINDER_LOCATION_POLICY = {
