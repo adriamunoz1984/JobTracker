@@ -6,7 +6,6 @@ import {
   onSnapshot,
   query,
   serverTimestamp,
-  setDoc,
   where,
   writeBatch,
   Unsubscribe,
