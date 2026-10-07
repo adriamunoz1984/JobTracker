@@ -76,6 +76,26 @@ service cloud.firestore {
       allow read, create, update, delete: if isSelf(uid);
     }
 
+    // Personal saved pumper-friendly places. The community place remains
+    // public to signed-in Finder users, while each user's saved list is private.
+    match /users/{uid}/finderPlaceFavorites/{placeId} {
+      allow read: if isSelf(uid);
+
+      allow create: if isSelf(uid)
+        && request.resource.data.placeId == placeId
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.keys().hasOnly([
+          'placeId',
+          'createdAt'
+        ])
+        && exists(
+          /databases/$(database)/documents/finderPlaces/$(placeId)
+        );
+
+      allow update: if false;
+      allow delete: if isSelf(uid);
+    }
+
     // Client records belong to the business owner. Active employees may use
     // them because JobTracker currently lets employees select saved clients
     // and update billing information while completing work.
@@ -349,22 +369,12 @@ service cloud.firestore {
         ]
         && request.resource.data.address is string
         && request.resource.data.generalArea is string
-        && (
-          !request.resource.data.keys().hasAny(['latitude'])
-          || (
-            request.resource.data.latitude is number
-            && request.resource.data.latitude >= -90
-            && request.resource.data.latitude <= 90
-          )
-        )
-        && (
-          !request.resource.data.keys().hasAny(['longitude'])
-          || (
-            request.resource.data.longitude is number
-            && request.resource.data.longitude >= -180
-            && request.resource.data.longitude <= 180
-          )
-        )
+        && request.resource.data.latitude is number
+        && request.resource.data.latitude >= -90
+        && request.resource.data.latitude <= 90
+        && request.resource.data.longitude is number
+        && request.resource.data.longitude >= -180
+        && request.resource.data.longitude <= 180
         && request.resource.data.features is list
         && request.resource.data.pumperRating is number
         && request.resource.data.pumperRating >= 1
