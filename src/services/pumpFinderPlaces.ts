@@ -1,6 +1,8 @@
 import {
   collection,
+  deleteDoc,
   doc,
+  getDoc,
   onSnapshot,
   serverTimestamp,
   setDoc,
@@ -89,4 +91,58 @@ export function subscribeFinderPumperPlaces(
     },
     error => onError?.(error)
   );
+}
+
+
+export function subscribeMyFinderPlaceFavorites(
+  onFavorites: (placeIds: Set<string>) => void,
+  onError?: (error: Error) => void
+): Unsubscribe {
+  const currentUser = auth.currentUser;
+
+  if (!currentUser) {
+    throw new Error('You must be signed in to view saved pumper-friendly places.');
+  }
+
+  return onSnapshot(
+    collection(db, 'users', currentUser.uid, 'finderPlaceFavorites'),
+    snapshot => {
+      onFavorites(new Set(snapshot.docs.map(snapshotDoc => snapshotDoc.id)));
+    },
+    error => onError?.(error)
+  );
+}
+
+export async function setFinderPlaceFavorite(
+  placeId: string,
+  shouldSave: boolean
+) {
+  const currentUser = auth.currentUser;
+
+  if (!currentUser) {
+    throw new Error('You must be signed in to save pumper-friendly places.');
+  }
+
+  const favoriteRef = doc(
+    db,
+    'users',
+    currentUser.uid,
+    'finderPlaceFavorites',
+    placeId
+  );
+
+  if (!shouldSave) {
+    await deleteDoc(favoriteRef);
+    return;
+  }
+
+  const placeSnapshot = await getDoc(doc(db, 'finderPlaces', placeId));
+  if (!placeSnapshot.exists()) {
+    throw new Error('This pumper-friendly place is no longer available.');
+  }
+
+  await setDoc(favoriteRef, {
+    placeId,
+    createdAt: serverTimestamp(),
+  });
 }
