@@ -1,8 +1,6 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Alert,
-  Linking,
-  Platform,
   ScrollView,
   Text,
   TouchableOpacity,
@@ -12,6 +10,11 @@ import { Ionicons } from '@expo/vector-icons';
 import { FinderPumperPlace } from '../types/pumpFinder';
 import { useAppTheme, makeStyles } from '../theme';
 import ThemedHero from '../components/ThemedHero';
+import {
+  setFinderPlaceFavorite,
+  subscribeMyFinderPlaceFavorites,
+} from '../services/pumpFinderPlaces';
+import { openPlaceInGoogleMaps } from '../utils/googleMaps';
 
 function updatedLabel(value: any) {
   if (!value) return '';
@@ -35,6 +38,20 @@ export default function FinderPlaceDetailScreen({ route }: any) {
   const { colors: Colors } = useAppTheme();
   const styles = useStyles();
   const place: FinderPumperPlace | undefined = route?.params?.place;
+  const [favoriteIds, setFavoriteIds] = useState<Set<string>>(new Set());
+  const [savingFavorite, setSavingFavorite] = useState(false);
+
+  useEffect(() => {
+    try {
+      return subscribeMyFinderPlaceFavorites(
+        setFavoriteIds,
+        error => console.warn('Could not load saved Pump Finder places:', error)
+      );
+    } catch (error) {
+      console.warn('Could not start saved-place listener:', error);
+      return;
+    }
+  }, []);
 
   if (!place) {
     return (
@@ -48,31 +65,30 @@ export default function FinderPlaceDetailScreen({ route }: any) {
     );
   }
 
+  const isFavorite = favoriteIds.has(place.id);
+
   const openNavigation = async () => {
-    const hasGps =
-      place.latitude !== undefined &&
-      place.longitude !== undefined;
-
-    const encoded = encodeURIComponent(place.address);
-    const url = hasGps
-      ? Platform.OS === 'ios'
-        ? `maps://?ll=${place.latitude},${place.longitude}&q=${encodeURIComponent(place.name)}`
-        : `geo:${place.latitude},${place.longitude}?q=${place.latitude},${place.longitude}(${encodeURIComponent(place.name)})`
-      : Platform.OS === 'ios'
-        ? `maps://?q=${encoded}`
-        : `geo:0,0?q=${encoded}`;
-
     try {
-      const supported = await Linking.canOpenURL(url);
-      if (!supported) {
-        throw new Error('Navigation app unavailable');
-      }
-      await Linking.openURL(url);
+      await openPlaceInGoogleMaps(place);
     } catch {
       Alert.alert(
-        'Could not open navigation',
-        'Your phone could not open a maps app for this address.'
+        'Could not open Google Maps',
+        'Your phone could not open Google Maps for this place.'
       );
+    }
+  };
+
+  const toggleFavorite = async () => {
+    try {
+      setSavingFavorite(true);
+      await setFinderPlaceFavorite(place.id, !isFavorite);
+    } catch (error: any) {
+      Alert.alert(
+        'Could not update saved place',
+        error?.message || 'Please try again.'
+      );
+    } finally {
+      setSavingFavorite(false);
     }
   };
 
@@ -100,7 +116,29 @@ export default function FinderPlaceDetailScreen({ route }: any) {
             ))}
           </View>
         </View>
-        <Text style={styles.ratingNumber}>{place.pumperRating.toFixed(1)}</Text>
+        <View style={styles.ratingActions}>
+          <Text style={styles.ratingNumber}>{place.pumperRating.toFixed(1)}</Text>
+          <TouchableOpacity
+            style={[styles.favoriteButton, isFavorite && styles.favoriteButtonSaved]}
+            onPress={toggleFavorite}
+            disabled={savingFavorite}
+            activeOpacity={0.8}
+          >
+            <Ionicons
+              name={isFavorite ? 'star' : 'star-outline'}
+              size={18}
+              color={isFavorite ? Colors.onPrimary : Colors.primary}
+            />
+            <Text
+              style={[
+                styles.favoriteButtonText,
+                isFavorite && styles.favoriteButtonTextSaved,
+              ]}
+            >
+              {savingFavorite ? 'Saving…' : isFavorite ? 'Saved' : 'Save'}
+            </Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       <View style={styles.section}>
@@ -134,7 +172,7 @@ export default function FinderPlaceDetailScreen({ route }: any) {
           activeOpacity={0.8}
         >
           <Ionicons name="navigate" size={20} color={Colors.onPrimary} />
-          <Text style={styles.navigateButtonText}>Navigate</Text>
+          <Text style={styles.navigateButtonText}>Open in Google Maps</Text>
         </TouchableOpacity>
       </View>
 
@@ -225,7 +263,29 @@ const useStyles = makeStyles(Colors => ({
   },
   ratingLabel: { color: Colors.text, fontSize: 13, fontWeight: '800' },
   stars: { flexDirection: 'row', gap: 2, marginTop: 5 },
+  ratingActions: { alignItems: 'flex-end', gap: 8 },
   ratingNumber: { color: Colors.text, fontSize: 28, fontWeight: '900' },
+  favoriteButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    borderWidth: 1,
+    borderColor: Colors.primary,
+    borderRadius: 18,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    backgroundColor: Colors.surface,
+  },
+  favoriteButtonSaved: {
+    backgroundColor: Colors.primary,
+    borderColor: Colors.primary,
+  },
+  favoriteButtonText: {
+    color: Colors.primary,
+    fontSize: 12,
+    fontWeight: '800',
+  },
+  favoriteButtonTextSaved: { color: Colors.onPrimary },
   section: {
     backgroundColor: Colors.surface,
     borderRadius: 14,
