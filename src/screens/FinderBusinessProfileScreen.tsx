@@ -18,6 +18,7 @@ import {
 } from '../types/pumpFinder';
 import { useAppTheme, makeStyles } from '../theme';
 import ThemedHero from '../components/ThemedHero';
+import { savePublicFinderProfile } from '../services/pumpFinderProfiles';
 
 export default function FinderBusinessProfileScreen() {
   const { colors: Colors } = useAppTheme();
@@ -97,12 +98,25 @@ export default function FinderBusinessProfileScreen() {
 
     try {
       setSaving(true);
+      const publicDisplayName = displayName.trim();
+      const publicBusinessName = businessName.trim() || undefined;
+
       await updateProfile({
-        displayName: displayName.trim(),
-        businessName: businessName.trim() || undefined,
+        displayName: publicDisplayName,
+        businessName: publicBusinessName,
         pumpFinderProfile,
       });
-      Alert.alert('Saved', 'Your pumper profile was updated.');
+
+      await savePublicFinderProfile({
+        displayName: publicDisplayName,
+        businessName: publicBusinessName,
+        pumpFinderProfile,
+      });
+
+      Alert.alert(
+        'Saved',
+        'Your private account profile and public Pump Finder business profile were updated.'
+      );
       navigation.goBack();
     } catch (error) {
       Alert.alert('Could not save', 'Please try again.');
