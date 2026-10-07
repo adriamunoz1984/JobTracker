@@ -294,8 +294,18 @@ service cloud.firestore {
         && request.resource.data.pumpType is string
         && request.resource.data.serviceArea is string
         && request.resource.data.hoseIncludedFt is number
+        && request.resource.data.hoseIncludedFt >= 0
         && request.resource.data.extraHoseRatePerFt is number
+        && request.resource.data.extraHoseRatePerFt >= 0
         && request.resource.data.standardPsiMax is number
+        && request.resource.data.standardPsiMax >= 0
+        && (
+          request.resource.data.highPsiSurcharge == null
+          || (
+            request.resource.data.highPsiSurcharge is number
+            && request.resource.data.highPsiSurcharge >= 0
+          )
+        )
         && request.resource.data.ppeAvailable is list
         && request.resource.data.updatedAt == request.time
         && request.resource.data.keys().hasOnly([
@@ -401,8 +411,18 @@ service cloud.firestore {
           && request.resource.data.pumpType is string
           && request.resource.data.serviceArea is string
           && request.resource.data.hoseIncludedFt is number
+          && request.resource.data.hoseIncludedFt >= 0
           && request.resource.data.extraHoseRatePerFt is number
+          && request.resource.data.extraHoseRatePerFt >= 0
           && request.resource.data.standardPsiMax is number
+          && request.resource.data.standardPsiMax >= 0
+          && (
+            request.resource.data.highPsiSurcharge == null
+            || (
+              request.resource.data.highPsiSurcharge is number
+              && request.resource.data.highPsiSurcharge >= 0
+            )
+          )
           && request.resource.data.ppeAvailable is list
           && request.resource.data.createdAt == request.time
           && request.resource.data.updatedAt == request.time
