@@ -349,6 +349,22 @@ service cloud.firestore {
         ]
         && request.resource.data.address is string
         && request.resource.data.generalArea is string
+        && (
+          !request.resource.data.keys().hasAny(['latitude'])
+          || (
+            request.resource.data.latitude is number
+            && request.resource.data.latitude >= -90
+            && request.resource.data.latitude <= 90
+          )
+        )
+        && (
+          !request.resource.data.keys().hasAny(['longitude'])
+          || (
+            request.resource.data.longitude is number
+            && request.resource.data.longitude >= -180
+            && request.resource.data.longitude <= 180
+          )
+        )
         && request.resource.data.features is list
         && request.resource.data.pumperRating is number
         && request.resource.data.pumperRating >= 1
@@ -372,6 +388,8 @@ service cloud.firestore {
           'category',
           'address',
           'generalArea',
+          'latitude',
+          'longitude',
           'features',
           'notes',
           'pumperRating',
