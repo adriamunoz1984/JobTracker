@@ -331,6 +331,66 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // Community pumper-friendly stops. These records contain public business/
+    // place information only; no customer/job addresses belong here.
+    match /finderPlaces/{placeId} {
+      allow read: if signedIn();
+
+      allow create: if signedIn()
+        && request.resource.data.createdBy == request.auth.uid
+        && request.resource.data.name is string
+        && request.resource.data.category in [
+          'Diesel / Fuel',
+          'Food / Restaurant',
+          'Truck Stop',
+          'Parking / Staging',
+          'Supply / Parts',
+          'Other'
+        ]
+        && request.resource.data.address is string
+        && request.resource.data.generalArea is string
+        && request.resource.data.features is list
+        && request.resource.data.pumperRating is number
+        && request.resource.data.pumperRating >= 1
+        && request.resource.data.pumperRating <= 5
+        && (
+          request.resource.data.dieselPrice == null
+          || (
+            request.resource.data.dieselPrice is number
+            && request.resource.data.dieselPrice > 0
+          )
+        )
+        && (
+          request.resource.data.dieselPriceUpdatedAt == null
+          || request.resource.data.dieselPriceUpdatedAt == request.time
+        )
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.updatedAt == request.time
+        && request.resource.data.keys().hasOnly([
+          'createdBy',
+          'name',
+          'category',
+          'address',
+          'generalArea',
+          'features',
+          'notes',
+          'pumperRating',
+          'dieselPrice',
+          'dieselPriceUpdatedAt',
+          'createdAt',
+          'updatedAt'
+        ]);
+
+      allow update: if signedIn()
+        && resource.data.createdBy == request.auth.uid
+        && request.resource.data.createdBy == resource.data.createdBy
+        && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data.updatedAt == request.time;
+
+      allow delete: if signedIn()
+        && resource.data.createdBy == request.auth.uid;
+    }
+
     match /finderJobs/{jobId} {
       // Finder browsing is authenticated in the first marketplace version.
       allow read: if signedIn();
