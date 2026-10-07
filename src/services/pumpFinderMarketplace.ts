@@ -18,7 +18,9 @@ import {
   FinderPrivateJobDetails,
   FinderPublicJob,
   FinderRequestStatus,
+  PumpFinderBusinessProfile,
 } from '../types/pumpFinder';
+import { publicProfilePayload } from './pumpFinderProfiles';
 
 function cleanOptionalString(value?: string) {
   const trimmed = value?.trim();
@@ -246,19 +248,44 @@ export async function requestFinderJob(jobId: string) {
   }
 
   const profile = profileSnapshot.exists() ? (profileSnapshot.data() as any) : {};
-  const finderProfile = profile?.pumpFinderProfile || {};
+  const finderProfile: PumpFinderBusinessProfile = profile?.pumpFinderProfile || {};
+  const pumperName = profile?.displayName || currentUser.displayName || 'Pumper';
+  const businessName = profile?.businessName || '';
 
-  await setDoc(requestRef, {
+  const publicProfileRef = doc(db, 'finderPumperProfiles', currentUser.uid);
+  const batch = writeBatch(db);
+
+  // Refresh the sanitized public marketplace profile whenever this pumper
+  // requests a job. This keeps poster-facing data current without exposing
+  // the private users/{uid}/profile/data document.
+  batch.set(
+    publicProfileRef,
+    publicProfilePayload({
+      uid: currentUser.uid,
+      displayName: pumperName,
+      businessName,
+      pumpFinderProfile: finderProfile,
+    })
+  );
+
+  batch.set(requestRef, {
     jobId,
     pumperId: currentUser.uid,
     status: 'pending',
-    pumperName: profile?.displayName || currentUser.displayName || 'Pumper',
-    businessName: profile?.businessName || '',
-    pumpType: finderProfile?.pumpType || '',
-    serviceArea: finderProfile?.serviceArea || '',
+    pumperName,
+    businessName,
+    pumpType: finderProfile.pumpType || '',
+    serviceArea: finderProfile.serviceArea || '',
+    hoseIncludedFt: finderProfile.hoseIncludedFt ?? 0,
+    extraHoseRatePerFt: finderProfile.extraHoseRatePerFt ?? 0,
+    standardPsiMax: finderProfile.standardPsiMax ?? 0,
+    highPsiSurcharge: finderProfile.highPsiSurcharge ?? null,
+    ppeAvailable: finderProfile.ppeAvailable || [],
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
   });
+
+  await batch.commit();
 }
 
 export async function getMyFinderRequestStatuses(jobIds: string[]) {
