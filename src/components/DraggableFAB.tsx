@@ -24,7 +24,7 @@ const DraggableFAB: React.FC<DraggableFABProps> = ({ variant = 'default' }) => {
   const action = isInvoiceVariant
     ? {
         route: 'Invoice',
-        icon: 'file-document-plus-outline',
+        icon: 'briefcase-plus',
         label: 'Create Invoice',
       }
     : isFinderVariant
