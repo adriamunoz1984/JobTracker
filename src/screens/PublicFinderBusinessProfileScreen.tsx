@@ -1,20 +1,97 @@
-import React from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
+  ActivityIndicator,
   ScrollView,
   Text,
   View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { FinderJobRequest } from '../types/pumpFinder';
+import {
+  FinderJobRequest,
+  FinderPublicPumperProfile,
+} from '../types/pumpFinder';
 import { makeStyles, useAppTheme } from '../theme';
 import ThemedHero from '../components/ThemedHero';
+import { subscribePublicFinderProfile } from '../services/pumpFinderProfiles';
 
 export default function PublicFinderBusinessProfileScreen({ route }: any) {
   const { colors: Colors } = useAppTheme();
   const styles = useStyles();
   const request: FinderJobRequest | undefined = route?.params?.request;
 
-  if (!request) {
+  const [publicProfile, setPublicProfile] =
+    useState<FinderPublicPumperProfile | null>(null);
+  const [profileLoaded, setProfileLoaded] = useState(false);
+  const [profileError, setProfileError] = useState('');
+
+  useEffect(() => {
+    if (!request?.pumperId) {
+      setProfileLoaded(true);
+      return;
+    }
+
+    const unsubscribe = subscribePublicFinderProfile(
+      request.pumperId,
+      profile => {
+        setPublicProfile(profile);
+        setProfileError('');
+        setProfileLoaded(true);
+      },
+      error => {
+        console.warn('Could not load public Pump Finder profile:', error);
+        setProfileError(error.message || 'Could not load the live public profile.');
+        setProfileLoaded(true);
+      }
+    );
+
+    return () => unsubscribe();
+  }, [request?.pumperId]);
+
+  const profile = useMemo(() => {
+    if (!request) return null;
+
+    return {
+      pumperId: request.pumperId,
+      displayName:
+        publicProfile?.displayName?.trim() ||
+        request.pumperName?.trim() ||
+        `Pumper ${request.pumperId.slice(0, 6)}`,
+      businessName:
+        publicProfile?.businessName?.trim() ||
+        request.businessName?.trim() ||
+        '',
+      pumpType:
+        publicProfile?.pumpType?.trim() ||
+        request.pumpType?.trim() ||
+        '',
+      serviceArea:
+        publicProfile?.serviceArea?.trim() ||
+        request.serviceArea?.trim() ||
+        '',
+      hoseIncludedFt:
+        publicProfile?.hoseIncludedFt ??
+        request.hoseIncludedFt ??
+        0,
+      extraHoseRatePerFt:
+        publicProfile?.extraHoseRatePerFt ??
+        request.extraHoseRatePerFt ??
+        0,
+      standardPsiMax:
+        publicProfile?.standardPsiMax ??
+        request.standardPsiMax ??
+        0,
+      highPsiSurcharge:
+        publicProfile?.highPsiSurcharge ??
+        request.highPsiSurcharge ??
+        null,
+      ppeAvailable:
+        publicProfile?.ppeAvailable ||
+        request.ppeAvailable ||
+        [],
+    };
+  }, [publicProfile, request]);
+
+  if (!request || !profile) {
     return (
       <View style={styles.empty}>
         <Ionicons name="person-circle-outline" size={50} color={Colors.textSecondary} />
@@ -26,69 +103,138 @@ export default function PublicFinderBusinessProfileScreen({ route }: any) {
     );
   }
 
-  const name =
-    request.pumperName?.trim() ||
-    `Pumper ${request.pumperId.slice(0, 6)}`;
-
-  const businessName = request.businessName?.trim();
+  const businessTitle = profile.businessName || profile.displayName;
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <ThemedHero
         icon="business-outline"
-        title={businessName || name}
-        subtitle={businessName ? name : 'Pump Finder pumper profile'}
+        title={businessTitle}
+        subtitle={
+          profile.businessName
+            ? profile.displayName
+            : 'Pump Finder pumper profile'
+        }
       />
+
+      {!profileLoaded ? (
+        <View style={styles.loadingCard}>
+          <ActivityIndicator size="small" color={Colors.primary} />
+          <Text style={styles.loadingText}>Loading current public profile…</Text>
+        </View>
+      ) : null}
 
       <View style={styles.privacyCard}>
         <Ionicons name="shield-checkmark-outline" size={22} color={Colors.primary} />
-        <View style={styles.privacyTextWrap}>
-          <Text style={styles.privacyTitle}>Public marketplace profile</Text>
-          <Text style={styles.privacyText}>
-            Only information the pumper chose to share publicly is shown here. Private phone, email, and contact details are not exposed before the job handoff.
+        <View style={styles.infoTextWrap}>
+          <Text style={styles.infoTitle}>Public marketplace profile</Text>
+          <Text style={styles.infoText}>
+            This profile is stored separately from the pumper’s private JobTracker account.
+            Phone, email, private account data, and customer information are not shown here.
           </Text>
         </View>
       </View>
 
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Pumping business</Text>
-
-        <ProfileRow
-          icon="person-outline"
-          label="Pumper"
-          value={name}
-        />
-
-        {businessName ? (
-          <ProfileRow
-            icon="business-outline"
-            label="Business"
-            value={businessName}
-          />
+        <ProfileRow icon="person-outline" label="Pumper" value={profile.displayName} />
+        {profile.businessName ? (
+          <ProfileRow icon="business-outline" label="Business" value={profile.businessName} />
         ) : null}
-
         <ProfileRow
           icon="construct-outline"
           label="Pump type"
-          value={request.pumpType?.trim() || 'Not listed yet'}
+          value={profile.pumpType || 'Not listed yet'}
         />
-
         <ProfileRow
           icon="map-outline"
           label="Service area"
-          value={request.serviceArea?.trim() || 'Not listed yet'}
+          value={profile.serviceArea || 'Not listed yet'}
         />
       </View>
 
-      <View style={styles.infoCard}>
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Hose & setup</Text>
+        <ProfileRow
+          icon="git-branch-outline"
+          label="Hose included"
+          value={
+            profile.hoseIncludedFt > 0
+              ? `${profile.hoseIncludedFt} ft`
+              : 'Not listed yet'
+          }
+        />
+        <ProfileRow
+          icon="cash-outline"
+          label="Extra hose"
+          value={
+            profile.extraHoseRatePerFt > 0
+              ? `$${profile.extraHoseRatePerFt.toFixed(2)} / ft`
+              : 'No extra-hose rate listed'
+          }
+        />
+      </View>
+
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Concrete PSI</Text>
+        <ProfileRow
+          icon="speedometer-outline"
+          label="Standard PSI"
+          value={
+            profile.standardPsiMax > 0
+              ? `Up to ${profile.standardPsiMax.toLocaleString()} PSI`
+              : 'Not listed yet'
+          }
+        />
+        <ProfileRow
+          icon="trending-up-outline"
+          label="High-PSI surcharge"
+          value={
+            profile.highPsiSurcharge !== null &&
+            profile.highPsiSurcharge !== undefined
+              ? `$${profile.highPsiSurcharge.toFixed(2)}`
+              : 'No surcharge listed'
+          }
+        />
+      </View>
+
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>PPE available</Text>
+        {profile.ppeAvailable.length > 0 ? (
+          <View style={styles.chipWrap}>
+            {profile.ppeAvailable.map(item => (
+              <View key={item} style={styles.ppeChip}>
+                <Ionicons
+                  name="checkmark-circle"
+                  size={16}
+                  color={Colors.primary}
+                />
+                <Text style={styles.ppeChipText}>{item}</Text>
+              </View>
+            ))}
+          </View>
+        ) : (
+          <Text style={styles.mutedText}>No PPE has been listed yet.</Text>
+        )}
+      </View>
+
+      <View style={styles.quoteCard}>
         <Ionicons name="information-circle-outline" size={22} color={Colors.primary} />
-        <View style={styles.privacyTextWrap}>
-          <Text style={styles.privacyTitle}>Profile details are expanding</Text>
-          <Text style={styles.privacyText}>
-            Hose capability, PSI details, PPE, pricing, photos, and reviews can be added to this public profile as the Finder profile snapshot is expanded.
+        <View style={styles.infoTextWrap}>
+          <Text style={styles.infoTitle}>Profile pricing is a capability guide</Text>
+          <Text style={styles.infoText}>
+            Hose and PSI figures help the poster compare pumpers. The actual price for a specific
+            job can still depend on hours, hose, PSI, prevailing wage, travel, and other job details.
           </Text>
         </View>
       </View>
+
+      {profileError ? (
+        <Text style={styles.syncNote}>
+          Live profile refresh was unavailable, so Pump Finder is showing the public snapshot
+          saved with this job request.
+        </Text>
+      ) : null}
     </ScrollView>
   );
 }
@@ -127,6 +273,21 @@ const useStyles = makeStyles(Colors => ({
     padding: 16,
     paddingBottom: 36,
   },
+  loadingCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 9,
+    backgroundColor: Colors.surface,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    padding: 12,
+    marginBottom: 12,
+  },
+  loadingText: {
+    color: Colors.textSecondary,
+    fontSize: 12,
+  },
   privacyCard: {
     flexDirection: 'row',
     alignItems: 'flex-start',
@@ -138,15 +299,15 @@ const useStyles = makeStyles(Colors => ({
     padding: 14,
     marginBottom: 14,
   },
-  privacyTextWrap: {
+  infoTextWrap: {
     flex: 1,
   },
-  privacyTitle: {
+  infoTitle: {
     color: Colors.text,
     fontSize: 14,
     fontWeight: '800',
   },
-  privacyText: {
+  infoText: {
     color: Colors.textSecondary,
     fontSize: 12,
     lineHeight: 18,
@@ -199,7 +360,34 @@ const useStyles = makeStyles(Colors => ({
     fontWeight: '700',
     marginTop: 2,
   },
-  infoCard: {
+  chipWrap: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 5,
+  },
+  ppeChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: Colors.primaryBg,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+  },
+  ppeChipText: {
+    color: Colors.text,
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  mutedText: {
+    color: Colors.textSecondary,
+    fontSize: 13,
+    paddingVertical: 8,
+  },
+  quoteCard: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: 10,
@@ -208,6 +396,13 @@ const useStyles = makeStyles(Colors => ({
     borderWidth: 1,
     borderColor: Colors.border,
     padding: 14,
+  },
+  syncNote: {
+    color: Colors.textSecondary,
+    fontSize: 11,
+    lineHeight: 17,
+    marginTop: 10,
+    textAlign: 'center',
   },
   empty: {
     flex: 1,
