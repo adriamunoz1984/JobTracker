@@ -52,6 +52,8 @@ export async function createFinderPumperPlace(draft: FinderPumperPlaceDraft) {
     category: draft.category,
     address,
     generalArea,
+    ...(draft.latitude !== undefined ? { latitude: draft.latitude } : {}),
+    ...(draft.longitude !== undefined ? { longitude: draft.longitude } : {}),
     features: draft.features,
     ...(notes ? { notes } : {}),
     pumperRating: draft.pumperRating,
