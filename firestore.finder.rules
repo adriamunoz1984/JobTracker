@@ -285,6 +285,42 @@ service cloud.firestore {
         && finderRequest(jobId, request.auth.uid).data.status == 'confirmed';
     }
 
+    function validFinderPublicProfile(uid) {
+      return signedIn()
+        && request.auth.uid == uid
+        && request.resource.data.pumperId == uid
+        && request.resource.data.displayName is string
+        && request.resource.data.businessName is string
+        && request.resource.data.pumpType is string
+        && request.resource.data.serviceArea is string
+        && request.resource.data.hoseIncludedFt is number
+        && request.resource.data.extraHoseRatePerFt is number
+        && request.resource.data.standardPsiMax is number
+        && request.resource.data.ppeAvailable is list
+        && request.resource.data.updatedAt == request.time
+        && request.resource.data.keys().hasOnly([
+          'pumperId',
+          'displayName',
+          'businessName',
+          'pumpType',
+          'serviceArea',
+          'hoseIncludedFt',
+          'extraHoseRatePerFt',
+          'standardPsiMax',
+          'highPsiSurcharge',
+          'ppeAvailable',
+          'updatedAt'
+        ]);
+    }
+
+    // Sanitized Pump Finder profile. This is deliberately separate from the
+    // private JobTracker users/{uid}/profile/data document.
+    match /finderPumperProfiles/{pumperUid} {
+      allow read: if signedIn();
+      allow create, update: if validFinderPublicProfile(pumperUid);
+      allow delete: if false;
+    }
+
     match /finderJobs/{jobId} {
       // Finder browsing is authenticated in the first marketplace version.
       allow read: if signedIn();
@@ -364,6 +400,10 @@ service cloud.firestore {
           && request.resource.data.businessName is string
           && request.resource.data.pumpType is string
           && request.resource.data.serviceArea is string
+          && request.resource.data.hoseIncludedFt is number
+          && request.resource.data.extraHoseRatePerFt is number
+          && request.resource.data.standardPsiMax is number
+          && request.resource.data.ppeAvailable is list
           && request.resource.data.createdAt == request.time
           && request.resource.data.updatedAt == request.time
           && request.resource.data.keys().hasOnly([
@@ -374,6 +414,11 @@ service cloud.firestore {
             'businessName',
             'pumpType',
             'serviceArea',
+            'hoseIncludedFt',
+            'extraHoseRatePerFt',
+            'standardPsiMax',
+            'highPsiSurcharge',
+            'ppeAvailable',
             'createdAt',
             'updatedAt'
           ]);
