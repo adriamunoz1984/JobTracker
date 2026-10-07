@@ -10,7 +10,7 @@ const finderActions = [
   { key: 'MyPostedJobs', title: 'My Posted Jobs', subtitle: 'See requests and choose a pumper for jobs you posted', icon: 'people-outline' },
   { key: 'ActiveJobs', title: 'Active Jobs', subtitle: 'Track confirmed and in-progress Finder jobs', icon: 'construct-outline' },
   { key: 'Messages', title: 'Messages', subtitle: 'Keep job conversations and pumper recommendations in one place', icon: 'chatbubbles-outline' },
-  { key: 'BusinessProfile', title: 'Business Profile', subtitle: 'Set pump, hose, PSI, PPE, service area, and pricing details', icon: 'business-outline' },
+  { key: 'Profile', title: 'My Profile', subtitle: 'Edit your public Pump Finder business details and equipment', icon: 'business-outline' },
 ];
 
 export default function PumpFinderScreen({ navigation }: any) {
