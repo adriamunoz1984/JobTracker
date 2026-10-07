@@ -49,9 +49,16 @@ export default function FinderPlaceDetailScreen({ route }: any) {
   }
 
   const openNavigation = async () => {
+    const hasGps =
+      place.latitude !== undefined &&
+      place.longitude !== undefined;
+
     const encoded = encodeURIComponent(place.address);
-    const url =
-      Platform.OS === 'ios'
+    const url = hasGps
+      ? Platform.OS === 'ios'
+        ? `maps://?ll=${place.latitude},${place.longitude}&q=${encodeURIComponent(place.name)}`
+        : `geo:${place.latitude},${place.longitude}?q=${place.latitude},${place.longitude}(${encodeURIComponent(place.name)})`
+      : Platform.OS === 'ios'
         ? `maps://?q=${encoded}`
         : `geo:0,0?q=${encoded}`;
 
@@ -113,6 +120,13 @@ export default function FinderPlaceDetailScreen({ route }: any) {
           label="Address"
           value={place.address}
         />
+        {place.latitude !== undefined && place.longitude !== undefined ? (
+          <DetailRow
+            icon="locate-outline"
+            label="GPS pin"
+            value={`${place.latitude.toFixed(5)}, ${place.longitude.toFixed(5)}`}
+          />
+        ) : null}
 
         <TouchableOpacity
           style={styles.navigateButton}
