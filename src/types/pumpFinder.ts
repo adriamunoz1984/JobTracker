@@ -15,6 +15,9 @@ export type FinderJobStatus =
   | 'unassigned'
   | 'award-pending'
   | 'assigned'
+  | 'on-the-way'
+  | 'arrived'
+  | 'pumping'
   | 'in-progress'
   | 'completed'
   | 'canceled';
@@ -152,6 +155,38 @@ export interface FinderPublicJob {
   notes?: string;
   status: FinderJobStatus;
   awardedPumperId?: string;
+  awardedAt?: any;
+  onTheWayAt?: any;
+  arrivedAt?: any;
+  pumpingAt?: any;
+  completedAt?: any;
+}
+
+export type FinderCloseoutPaymentMethod =
+  | 'Cash'
+  | 'Check'
+  | 'Zelle'
+  | 'Square'
+  | 'Charge'
+  | 'Card';
+
+export interface FinderJobCloseoutDraft {
+  actualYards: number;
+  actualHours?: number;
+  actualHoseFeet?: number;
+  finalPrice: number;
+  paymentMethod: FinderCloseoutPaymentMethod;
+  isPaid: boolean;
+  isPaidToMe: boolean;
+  checkNumber?: string;
+  notes?: string;
+}
+
+export interface FinderJobCloseout extends FinderJobCloseoutDraft {
+  jobId: string;
+  posterId: string;
+  pumperId: string;
+  completedAt?: any;
 }
 
 export interface FinderPrivateJobDetails {
