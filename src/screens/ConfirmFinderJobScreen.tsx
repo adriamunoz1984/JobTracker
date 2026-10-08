@@ -281,14 +281,14 @@ export default function ConfirmFinderJobScreen({ navigation, route }: any) {
                 ].map(([label, done]) => (
                   <View key={String(label)} style={styles.progressStep}>
                     <Ionicons
-                      name={done ? 'checkmark-circle' : 'ellipse-outline'}
+                      name={Boolean(done) ? 'checkmark-circle' : 'ellipse-outline'}
                       size={20}
-                      color={done ? Colors.primary : Colors.textLight}
+                      color={Boolean(done) ? Colors.primary : Colors.textLight}
                     />
                     <Text
                       style={[
                         styles.progressStepText,
-                        done && styles.progressStepTextDone,
+                        Boolean(done) && styles.progressStepTextDone,
                       ]}
                     >
                       {String(label)}
