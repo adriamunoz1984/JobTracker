@@ -87,6 +87,13 @@ export interface Job {
   createdByUid?: string;
   entrySource?: 'employee-entry';
 
+  // Pump Finder provenance / closeout details for jobs imported from the
+  // marketplace after the pumper completes the work.
+  finderJobId?: string;
+  marketplaceSource?: 'pump-finder';
+  finderActualHours?: number;
+  finderActualHoseFeet?: number;
+
   // Optional customer reference numbers for billing/reporting
   jobNumber?: string | null;
   poNumber?: string | null;
