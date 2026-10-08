@@ -294,7 +294,16 @@ export default function NotificationsScreen() {
     if (event.kind === 'available-job') return 'View Available Jobs';
     if (event.kind === 'interested-pumper') return 'View Interested Pumpers';
     if (event.kind === 'job-awarded') return 'Review & Confirm';
-    return 'View Confirmed Job';
+    if (
+      event.kind === 'job-confirmed' ||
+      event.kind === 'pumper-on-way' ||
+      event.kind === 'pumper-arrived' ||
+      event.kind === 'pumping-started' ||
+      event.kind === 'job-completed'
+    ) {
+      return 'View Job Status';
+    }
+    return 'View Finder Activity';
   };
 
   return (
