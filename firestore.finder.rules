@@ -481,11 +481,17 @@ service cloud.firestore {
         && resource.data.posterId == request.auth.uid;
 
       match /requests/{pumperUid} {
-        allow read: if signedIn()
+        // Direct reads are allowed to the pumper who owns the request or the
+        // poster who owns the parent job. Collection/list reads are poster-only.
+        // Splitting get/list avoids Firestore trying to prove a document-id
+        // condition such as request.auth.uid == pumperUid across a list query.
+        allow get: if signedIn()
           && (
             request.auth.uid == pumperUid
             || isFinderPoster(jobId)
           );
+
+        allow list: if isFinderPoster(jobId);
 
         allow create: if signedIn()
           && request.auth.uid == pumperUid
