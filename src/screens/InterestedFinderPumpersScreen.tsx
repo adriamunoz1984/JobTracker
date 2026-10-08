@@ -151,6 +151,44 @@ export default function InterestedFinderPumpersScreen({ navigation, route }: any
         </View>
       ) : null}
 
+      {job && ['assigned', 'on-the-way', 'arrived', 'pumping', 'in-progress', 'completed'].includes(job.status) ? (
+        <View style={styles.progressCard}>
+          <Ionicons
+            name={
+              job.status === 'completed'
+                ? 'checkmark-done-circle-outline'
+                : job.status === 'on-the-way'
+                  ? 'navigate-outline'
+                  : job.status === 'arrived'
+                    ? 'location-outline'
+                    : job.status === 'pumping' || job.status === 'in-progress'
+                      ? 'construct-outline'
+                      : 'checkmark-circle-outline'
+            }
+            size={24}
+            color={Colors.primary}
+          />
+          <View style={styles.progressTextWrap}>
+            <Text style={styles.progressTitle}>
+              {job.status === 'assigned'
+                ? 'Pumper confirmed'
+                : job.status === 'on-the-way'
+                  ? 'Pumper is on the way'
+                  : job.status === 'arrived'
+                    ? 'Pumper arrived'
+                    : job.status === 'pumping' || job.status === 'in-progress'
+                      ? 'Pumping started'
+                      : 'Job completed'}
+            </Text>
+            <Text style={styles.progressText}>
+              {job.status === 'completed'
+                ? 'The pumper completed the Finder closeout for this job.'
+                : 'This status updates live when the selected pumper moves through the job.'}
+            </Text>
+          </View>
+        </View>
+      ) : null}
+
       {loading ? (
         <View style={styles.stateCard}>
           <ActivityIndicator size="large" color={Colors.primary} />
@@ -258,6 +296,29 @@ export default function InterestedFinderPumpersScreen({ navigation, route }: any
 const useStyles = makeStyles(Colors => ({
   container: { flex: 1, backgroundColor: Colors.background },
   content: { padding: 16, paddingBottom: 36 },
+  progressCard: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+    backgroundColor: Colors.primaryBg,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: Colors.primary,
+    padding: 14,
+    marginBottom: 14,
+  },
+  progressTextWrap: { flex: 1 },
+  progressTitle: {
+    color: Colors.text,
+    fontSize: 14,
+    fontWeight: '800',
+  },
+  progressText: {
+    color: Colors.textSecondary,
+    fontSize: 12,
+    lineHeight: 18,
+    marginTop: 3,
+  },
   awardPendingCard: {
     flexDirection: 'row',
     alignItems: 'flex-start',
