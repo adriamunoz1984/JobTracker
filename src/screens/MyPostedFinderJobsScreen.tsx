@@ -17,7 +17,10 @@ const statusLabels: Record<string, string> = {
   unassigned: 'Open',
   'award-pending': 'Waiting for confirmation',
   assigned: 'Confirmed',
-  'in-progress': 'In progress',
+  'on-the-way': 'On the way',
+  arrived: 'Arrived',
+  pumping: 'Pumping',
+  'in-progress': 'Pumping',
   completed: 'Completed',
   canceled: 'Canceled',
 };
@@ -114,7 +117,9 @@ export default function MyPostedFinderJobsScreen({ navigation }: any) {
                 activeOpacity={0.8}
               >
                 <Ionicons name="people-outline" size={20} color={Colors.onPrimary} />
-                <Text style={styles.requestsButtonText}>View Interested Pumpers</Text>
+                <Text style={styles.requestsButtonText}>
+                  {job.status === 'unassigned' ? 'View Interested Pumpers' : 'View Job Status'}
+                </Text>
                 <Ionicons name="chevron-forward" size={18} color={Colors.onPrimary} />
               </TouchableOpacity>
             </View>
