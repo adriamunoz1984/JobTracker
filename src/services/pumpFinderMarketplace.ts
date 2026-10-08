@@ -688,7 +688,6 @@ export async function completeFinderJob(
     createdAt: nowIso,
     updatedAt: nowIso,
     lastModified: serverTimestamp(),
-    ...(job.pumpType ? { companyName: job.pumpType } : {}),
     ...(cleanOptionalString(draft.notes)
       ? { notes: draft.notes!.trim() }
       : {}),
