@@ -298,11 +298,74 @@ service cloud.firestore {
     function isConfirmedFinderPumper(jobId) {
       return signedIn()
         && finderJob(jobId).data.awardedPumperId == request.auth.uid
-        && finderJob(jobId).data.status in ['assigned', 'in-progress', 'completed']
+        && finderJob(jobId).data.status in [
+          'assigned',
+          'on-the-way',
+          'arrived',
+          'pumping',
+          'in-progress',
+          'completed'
+        ]
         && exists(
           /databases/$(database)/documents/finderJobs/$(jobId)/requests/$(request.auth.uid)
         )
         && finderRequest(jobId, request.auth.uid).data.status == 'confirmed';
+    }
+
+    function validFinderPumperProgress(jobId) {
+      return signedIn()
+        && resource.data.awardedPumperId == request.auth.uid
+        && exists(
+          /databases/$(database)/documents/finderJobs/$(jobId)/requests/$(request.auth.uid)
+        )
+        && finderRequest(jobId, request.auth.uid).data.status == 'confirmed'
+        && request.resource.data.posterId == resource.data.posterId
+        && request.resource.data.awardedPumperId == resource.data.awardedPumperId
+        && request.resource.data.updatedAt == request.time
+        && (
+          (
+            resource.data.status == 'assigned'
+            && request.resource.data.status == 'on-the-way'
+            && request.resource.data.onTheWayAt == request.time
+            && request.resource.data
+              .diff(resource.data)
+              .affectedKeys()
+              .hasOnly(['status', 'onTheWayAt', 'updatedAt'])
+          )
+          || (
+            resource.data.status == 'on-the-way'
+            && request.resource.data.status == 'arrived'
+            && request.resource.data.arrivedAt == request.time
+            && request.resource.data
+              .diff(resource.data)
+              .affectedKeys()
+              .hasOnly(['status', 'arrivedAt', 'updatedAt'])
+          )
+          || (
+            resource.data.status == 'arrived'
+            && request.resource.data.status == 'pumping'
+            && request.resource.data.pumpingAt == request.time
+            && request.resource.data
+              .diff(resource.data)
+              .affectedKeys()
+              .hasOnly(['status', 'pumpingAt', 'updatedAt'])
+          )
+          || (
+            resource.data.status in ['pumping', 'in-progress']
+            && request.resource.data.status == 'completed'
+            && request.resource.data.completedAt == request.time
+            && request.resource.data
+              .diff(resource.data)
+              .affectedKeys()
+              .hasOnly(['status', 'completedAt', 'updatedAt'])
+            && existsAfter(
+              /databases/$(database)/documents/finderJobCloseouts/$(jobId)
+            )
+            && getAfter(
+              /databases/$(database)/documents/finderJobCloseouts/$(jobId)
+            ).data.pumperId == request.auth.uid
+          )
+        );
     }
 
     function validFinderPublicProfile(uid) {
@@ -561,7 +624,8 @@ service cloud.firestore {
           && getAfter(
             /databases/$(database)/documents/finderJobs/$(jobId)/requests/$(request.auth.uid)
           ).data.status == 'confirmed'
-        );
+        )
+        || validFinderPumperProgress(jobId);
 
       allow delete: if signedIn()
         && resource.data.posterId == request.auth.uid;
@@ -665,6 +729,74 @@ service cloud.firestore {
 
         allow delete: if false;
       }
+    }
+
+
+    match /finderJobCloseouts/{jobId} {
+      allow read: if signedIn()
+        && (
+          resource.data.posterId == request.auth.uid
+          || resource.data.pumperId == request.auth.uid
+        );
+
+      allow create: if signedIn()
+        && request.resource.data.jobId == jobId
+        && request.resource.data.pumperId == request.auth.uid
+        && request.resource.data.posterId == finderJob(jobId).data.posterId
+        && finderJob(jobId).data.awardedPumperId == request.auth.uid
+        && finderRequest(jobId, request.auth.uid).data.status == 'confirmed'
+        && request.resource.data.actualYards is number
+        && request.resource.data.actualYards > 0
+        && (
+          !request.resource.data.keys().hasAny(['actualHours'])
+          || (
+            request.resource.data.actualHours is number
+            && request.resource.data.actualHours > 0
+          )
+        )
+        && (
+          !request.resource.data.keys().hasAny(['actualHoseFeet'])
+          || (
+            request.resource.data.actualHoseFeet is number
+            && request.resource.data.actualHoseFeet >= 0
+          )
+        )
+        && request.resource.data.finalPrice is number
+        && request.resource.data.finalPrice > 0
+        && request.resource.data.paymentMethod in [
+          'Cash',
+          'Check',
+          'Zelle',
+          'Square',
+          'Charge',
+          'Card'
+        ]
+        && request.resource.data.isPaid is bool
+        && request.resource.data.isPaidToMe is bool
+        && request.resource.data.completedAt == request.time
+        && request.resource.data.keys().hasOnly([
+          'jobId',
+          'posterId',
+          'pumperId',
+          'actualYards',
+          'actualHours',
+          'actualHoseFeet',
+          'finalPrice',
+          'paymentMethod',
+          'isPaid',
+          'isPaidToMe',
+          'checkNumber',
+          'notes',
+          'completedAt'
+        ])
+        && getAfter(
+          /databases/$(database)/documents/finderJobs/$(jobId)
+        ).data.status == 'completed'
+        && getAfter(
+          /databases/$(database)/documents/finderJobs/$(jobId)
+        ).data.awardedPumperId == request.auth.uid;
+
+      allow update, delete: if false;
     }
 
     match /finderJobPrivate/{jobId} {
