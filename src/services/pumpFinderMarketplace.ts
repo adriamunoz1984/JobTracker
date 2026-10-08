@@ -596,13 +596,11 @@ export async function completeFinderJob(
     jobSnapshot,
     requestSnapshot,
     privateSnapshot,
-    closeoutSnapshot,
     profileSnapshot,
   ] = await Promise.all([
     getDoc(jobRef),
     getDoc(requestRef),
     getDoc(privateRef),
-    getDoc(closeoutRef),
     getDoc(profileRef),
   ]);
 
@@ -627,8 +625,12 @@ export async function completeFinderJob(
     throw new Error('Only the awarded pumper can complete this job.');
   }
 
-  if (job.status === 'completed' && closeoutSnapshot.exists()) {
-    return closeoutSnapshot.data() as FinderJobCloseout;
+  if (job.status === 'completed') {
+    const existingCloseout = await getDoc(closeoutRef);
+    if (existingCloseout.exists()) {
+      return existingCloseout.data() as FinderJobCloseout;
+    }
+    throw new Error('This job is already completed, but its closeout record could not be found.');
   }
 
   if (!['pumping', 'in-progress'].includes(job.status)) {
