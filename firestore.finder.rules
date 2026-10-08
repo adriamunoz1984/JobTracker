@@ -274,9 +274,9 @@ service cloud.firestore {
     }
 
     // ---------------------------------------------------------------------
-    // Pump Finder development rules.
-    // This file is NOT referenced by the production firebase.json.
-    // Use firebase.finder.json for emulator testing only until launch.
+    // Pump Finder marketplace rules.
+    // This file remains the emulator copy; firestore.rules is the production
+    // copy so both environments can be kept in sync.
     // ---------------------------------------------------------------------
 
     function finderJob(jobId) {
@@ -413,7 +413,56 @@ service cloud.firestore {
         && resource.data.createdBy == request.auth.uid
         && request.resource.data.createdBy == resource.data.createdBy
         && request.resource.data.createdAt == resource.data.createdAt
-        && request.resource.data.updatedAt == request.time;
+        && request.resource.data.name is string
+        && request.resource.data.category in [
+          'Diesel / Fuel',
+          'Food / Restaurant',
+          'Truck Stop',
+          'Parking / Staging',
+          'Supply / Parts',
+          'Other'
+        ]
+        && request.resource.data.address is string
+        && request.resource.data.generalArea is string
+        && request.resource.data.latitude is number
+        && request.resource.data.latitude >= -90
+        && request.resource.data.latitude <= 90
+        && request.resource.data.longitude is number
+        && request.resource.data.longitude >= -180
+        && request.resource.data.longitude <= 180
+        && request.resource.data.features is list
+        && request.resource.data.pumperRating is number
+        && request.resource.data.pumperRating >= 1
+        && request.resource.data.pumperRating <= 5
+        && (
+          request.resource.data.dieselPrice == null
+          || (
+            request.resource.data.dieselPrice is number
+            && request.resource.data.dieselPrice > 0
+          )
+        )
+        && (
+          request.resource.data.dieselPriceUpdatedAt == null
+          || request.resource.data.dieselPriceUpdatedAt == resource.data.dieselPriceUpdatedAt
+          || request.resource.data.dieselPriceUpdatedAt == request.time
+        )
+        && request.resource.data.updatedAt == request.time
+        && request.resource.data.keys().hasOnly([
+          'createdBy',
+          'name',
+          'category',
+          'address',
+          'generalArea',
+          'latitude',
+          'longitude',
+          'features',
+          'notes',
+          'pumperRating',
+          'dieselPrice',
+          'dieselPriceUpdatedAt',
+          'createdAt',
+          'updatedAt'
+        ]);
 
       allow delete: if signedIn()
         && resource.data.createdBy == request.auth.uid;
@@ -459,6 +508,43 @@ service cloud.firestore {
           signedIn()
           && resource.data.posterId == request.auth.uid
           && request.resource.data.posterId == resource.data.posterId
+          && request.resource.data.jobDate is string
+          && request.resource.data.startTime is string
+          && request.resource.data.generalArea is string
+          && request.resource.data.pricingMode is string
+          && request.resource.data.extraHoseRequired is bool
+          && request.resource.data.ppeRequired is bool
+          && request.resource.data.requiredPpe is list
+          && request.resource.data.status in [
+            'unassigned',
+            'award-pending',
+            'assigned',
+            'in-progress',
+            'completed',
+            'canceled'
+          ]
+          && request.resource.data.createdAt == resource.data.createdAt
+          && request.resource.data.updatedAt == request.time
+          && request.resource.data.keys().hasOnly([
+            'posterId',
+            'jobDate',
+            'startTime',
+            'generalArea',
+            'yards',
+            'pumpType',
+            'concretePsi',
+            'pricingMode',
+            'extraHoseRequired',
+            'totalHoseFeet',
+            'ppeRequired',
+            'requiredPpe',
+            'notes',
+            'status',
+            'awardedPumperId',
+            'awardedAt',
+            'createdAt',
+            'updatedAt'
+          ])
         )
         || (
           signedIn()
@@ -613,7 +699,20 @@ service cloud.firestore {
       allow update: if signedIn()
         && resource.data.posterId == request.auth.uid
         && request.resource.data.posterId == resource.data.posterId
-        && request.resource.data.jobId == resource.data.jobId;
+        && request.resource.data.jobId == resource.data.jobId
+        && request.resource.data.customerName is string
+        && request.resource.data.exactAddress is string
+        && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data.updatedAt == request.time
+        && request.resource.data.keys().hasOnly([
+          'jobId',
+          'posterId',
+          'customerName',
+          'exactAddress',
+          'privateNotes',
+          'createdAt',
+          'updatedAt'
+        ]);
 
       allow delete: if signedIn()
         && resource.data.posterId == request.auth.uid;
