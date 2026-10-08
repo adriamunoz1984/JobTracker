@@ -16,7 +16,10 @@ import ThemedHero from '../components/ThemedHero';
 const statusLabels: Record<string, string> = {
   'award-pending': 'Awarded — confirm',
   assigned: 'Confirmed',
-  'in-progress': 'In progress',
+  'on-the-way': 'On My Way',
+  arrived: 'Arrived',
+  pumping: 'Pumping',
+  'in-progress': 'Pumping',
 };
 
 export default function ActiveFinderJobsScreen({ navigation }: any) {
@@ -118,7 +121,9 @@ export default function ActiveFinderJobsScreen({ navigation }: any) {
                 <Text style={styles.openText}>
                   {job.status === 'award-pending'
                     ? 'Open to confirm this award'
-                    : 'Open job details'}
+                    : job.status === 'pumping' || job.status === 'in-progress'
+                      ? 'Open to complete this job'
+                      : 'Open job progress'}
                 </Text>
                 <Ionicons name="chevron-forward" size={20} color={Colors.primary} />
               </View>
