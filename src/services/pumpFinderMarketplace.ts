@@ -12,8 +12,11 @@ import {
 } from 'firebase/firestore';
 import { auth, db } from '../firebase/config';
 import {
+  FinderJobCloseout,
+  FinderJobCloseoutDraft,
   FinderJobDraft,
   FinderJobRequest,
+  FinderJobStatus,
   FinderPrivateJobDetails,
   FinderPublicJob,
   FinderRequestStatus,
@@ -392,7 +395,14 @@ export function subscribeMyAwardedFinderJobs(
           ...(snapshotDoc.data() as Omit<FinderPublicJob, 'id'>),
         }))
         .filter(job =>
-          ['award-pending', 'assigned', 'in-progress'].includes(job.status)
+          [
+            'award-pending',
+            'assigned',
+            'on-the-way',
+            'arrived',
+            'pumping',
+            'in-progress',
+          ].includes(job.status)
         )
         .sort((a, b) => {
           const dateCompare = a.jobDate.localeCompare(b.jobDate);
@@ -477,4 +487,255 @@ export async function getFinderPrivateDetails(
   }
 
   return privateSnapshot.data() as FinderPrivateJobDetails;
+}
+
+
+const FINDER_PROGRESS_TRANSITIONS: Partial<Record<FinderJobStatus, FinderJobStatus>> = {
+  assigned: 'on-the-way',
+  'on-the-way': 'arrived',
+  arrived: 'pumping',
+};
+
+export async function advanceFinderJobStatus(
+  jobId: string,
+  nextStatus: 'on-the-way' | 'arrived' | 'pumping'
+) {
+  const currentUser = auth.currentUser;
+
+  if (!currentUser) {
+    throw new Error('You must be signed in to update a Pump Finder job.');
+  }
+
+  const jobRef = doc(db, 'finderJobs', jobId);
+  const requestRef = doc(db, 'finderJobs', jobId, 'requests', currentUser.uid);
+
+  const [jobSnapshot, requestSnapshot] = await Promise.all([
+    getDoc(jobRef),
+    getDoc(requestRef),
+  ]);
+
+  if (!jobSnapshot.exists()) {
+    throw new Error('This Pump Finder job no longer exists.');
+  }
+
+  if (!requestSnapshot.exists()) {
+    throw new Error('Your confirmed Pump Finder request could not be found.');
+  }
+
+  const job = jobSnapshot.data() as FinderPublicJob;
+  const requestData = requestSnapshot.data() as FinderJobRequest;
+
+  if (job.awardedPumperId !== currentUser.uid || requestData.status !== 'confirmed') {
+    throw new Error('Only the confirmed awarded pumper can update this job.');
+  }
+
+  const expectedNext = FINDER_PROGRESS_TRANSITIONS[job.status];
+  if (expectedNext !== nextStatus) {
+    throw new Error('This job is not ready for that status yet.');
+  }
+
+  const timestampField =
+    nextStatus === 'on-the-way'
+      ? 'onTheWayAt'
+      : nextStatus === 'arrived'
+        ? 'arrivedAt'
+        : 'pumpingAt';
+
+  const batch = writeBatch(db);
+  batch.update(jobRef, {
+    status: nextStatus,
+    [timestampField]: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  });
+  await batch.commit();
+}
+
+export async function completeFinderJob(
+  jobId: string,
+  draft: FinderJobCloseoutDraft
+) {
+  const currentUser = auth.currentUser;
+
+  if (!currentUser) {
+    throw new Error('You must be signed in to complete a Pump Finder job.');
+  }
+
+  if (!Number.isFinite(draft.actualYards) || draft.actualYards <= 0) {
+    throw new Error('Enter the actual yards pumped.');
+  }
+
+  if (
+    draft.actualHours !== undefined &&
+    (!Number.isFinite(draft.actualHours) || draft.actualHours <= 0)
+  ) {
+    throw new Error('Enter valid hours or leave hours blank.');
+  }
+
+  if (
+    draft.actualHoseFeet !== undefined &&
+    (!Number.isFinite(draft.actualHoseFeet) || draft.actualHoseFeet < 0)
+  ) {
+    throw new Error('Enter valid hose feet or leave hose blank.');
+  }
+
+  if (!Number.isFinite(draft.finalPrice) || draft.finalPrice <= 0) {
+    throw new Error('Enter the final job price.');
+  }
+
+  if (draft.paymentMethod === 'Check' && !cleanOptionalString(draft.checkNumber)) {
+    throw new Error('Enter the check number.');
+  }
+
+  const jobRef = doc(db, 'finderJobs', jobId);
+  const requestRef = doc(db, 'finderJobs', jobId, 'requests', currentUser.uid);
+  const privateRef = doc(db, 'finderJobPrivate', jobId);
+  const closeoutRef = doc(db, 'finderJobCloseouts', jobId);
+  const profileRef = doc(db, 'users', currentUser.uid, 'profile', 'data');
+
+  const [
+    jobSnapshot,
+    requestSnapshot,
+    privateSnapshot,
+    closeoutSnapshot,
+    profileSnapshot,
+  ] = await Promise.all([
+    getDoc(jobRef),
+    getDoc(requestRef),
+    getDoc(privateRef),
+    getDoc(closeoutRef),
+    getDoc(profileRef),
+  ]);
+
+  if (!jobSnapshot.exists()) {
+    throw new Error('This Pump Finder job no longer exists.');
+  }
+
+  if (!requestSnapshot.exists() || requestSnapshot.data().status !== 'confirmed') {
+    throw new Error('Your confirmed Pump Finder request could not be found.');
+  }
+
+  if (!privateSnapshot.exists()) {
+    throw new Error('The private job details could not be loaded.');
+  }
+
+  const job = {
+    id: jobSnapshot.id,
+    ...(jobSnapshot.data() as Omit<FinderPublicJob, 'id'>),
+  } as FinderPublicJob;
+
+  if (job.awardedPumperId !== currentUser.uid) {
+    throw new Error('Only the awarded pumper can complete this job.');
+  }
+
+  if (job.status === 'completed' && closeoutSnapshot.exists()) {
+    return closeoutSnapshot.data() as FinderJobCloseout;
+  }
+
+  if (!['pumping', 'in-progress'].includes(job.status)) {
+    throw new Error('Start pumping before completing the job.');
+  }
+
+  const privateDetails = privateSnapshot.data() as FinderPrivateJobDetails;
+  const profile = profileSnapshot.exists() ? (profileSnapshot.data() as any) : {};
+  const nowIso = new Date().toISOString();
+
+  const closeoutData = {
+    jobId,
+    posterId: job.posterId,
+    pumperId: currentUser.uid,
+    actualYards: draft.actualYards,
+    ...(draft.actualHours !== undefined ? { actualHours: draft.actualHours } : {}),
+    ...(draft.actualHoseFeet !== undefined ? { actualHoseFeet: draft.actualHoseFeet } : {}),
+    finalPrice: draft.finalPrice,
+    paymentMethod: draft.paymentMethod,
+    isPaid: draft.isPaid,
+    isPaidToMe: draft.isPaidToMe,
+    ...(cleanOptionalString(draft.checkNumber)
+      ? { checkNumber: draft.checkNumber!.trim() }
+      : {}),
+    ...(cleanOptionalString(draft.notes) ? { notes: draft.notes!.trim() } : {}),
+    completedAt: serverTimestamp(),
+  };
+
+  const jobTrackerId = `finder_${jobId}`;
+  const isConnectedEmployee =
+    profile?.role === 'employee' &&
+    profile?.ownerStatus === 'active' &&
+    !!profile?.ownerId;
+
+  const jobTrackerRef = isConnectedEmployee
+    ? doc(db, 'users', currentUser.uid, 'ownerJobs', jobTrackerId)
+    : doc(db, 'users', currentUser.uid, 'jobs', jobTrackerId);
+
+  const jobTrackerData: Record<string, any> = {
+    id: jobTrackerId,
+    userId: currentUser.uid,
+    clientName: privateDetails.customerName,
+    isFlatRate: true,
+    flatRateAmount: draft.finalPrice,
+    address: privateDetails.exactAddress,
+    city: job.generalArea,
+    yards: draft.actualYards,
+    isPaid: draft.isPaid,
+    isPaidToMe: draft.isPaidToMe,
+    paymentMethod: draft.paymentMethod,
+    amount: draft.finalPrice,
+    date: job.jobDate,
+    status: 'completed',
+    jobType: isConnectedEmployee ? 'employee' : 'owner',
+    finderJobId: jobId,
+    marketplaceSource: 'pump-finder',
+    createdAt: nowIso,
+    updatedAt: nowIso,
+    lastModified: serverTimestamp(),
+    ...(job.pumpType ? { companyName: job.pumpType } : {}),
+    ...(cleanOptionalString(draft.notes)
+      ? { notes: draft.notes!.trim() }
+      : {}),
+    ...(cleanOptionalString(draft.checkNumber)
+      ? { checkNumber: draft.checkNumber!.trim() }
+      : {}),
+    ...(draft.actualHours !== undefined ? { finderActualHours: draft.actualHours } : {}),
+    ...(draft.actualHoseFeet !== undefined
+      ? { finderActualHoseFeet: draft.actualHoseFeet }
+      : {}),
+  };
+
+  if (isConnectedEmployee) {
+    Object.assign(jobTrackerData, {
+      ownerId: profile.ownerId,
+      assignedTo: currentUser.uid,
+      employeeId: currentUser.uid,
+      employeeName:
+        profile.displayName || currentUser.displayName || 'Employee',
+      employeeCommissionRate: profile.commissionRate ?? 50,
+      createdByUid: currentUser.uid,
+      entrySource: 'employee-entry',
+    });
+  }
+
+  const batch = writeBatch(db);
+
+  batch.update(jobRef, {
+    status: 'completed',
+    completedAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  });
+
+  batch.set(closeoutRef, closeoutData);
+  batch.set(jobTrackerRef, jobTrackerData, { merge: true });
+
+  await batch.commit();
+
+  return {
+    ...closeoutData,
+    completedAt: new Date(),
+  } as FinderJobCloseout;
+}
+
+export async function getFinderJobCloseout(
+  jobId: string
+): Promise<FinderJobCloseout | null> {
+  const snapshot = await getDoc(doc(db, 'finderJobCloseouts', jobId));
+  return snapshot.exists() ? (snapshot.data() as FinderJobCloseout) : null;
 }
