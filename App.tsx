@@ -65,6 +65,7 @@ import PublicFinderBusinessProfileScreen from './src/screens/PublicFinderBusines
 import FinderPlacesScreen from './src/screens/FinderPlacesScreen';
 import AddFinderPlaceScreen from './src/screens/AddFinderPlaceScreen';
 import FinderPlaceDetailScreen from './src/screens/FinderPlaceDetailScreen';
+import CompleteFinderJobScreen from './src/screens/CompleteFinderJobScreen';
 
 // Pump Finder pages that are still placeholders: route name -> title + description
 const FINDER_PLACEHOLDERS: { name: string; title: string; description: string }[] = [
@@ -72,7 +73,6 @@ const FINDER_PLACEHOLDERS: { name: string; title: string; description: string }[
   { name: 'Messages', title: 'Messages', description: 'V1 keeps conversations tied to jobs, with private pumper-to-pumper messaging available for recommendations and coverage.' },
   { name: 'RecommendPumper', title: 'Recommend a Pumper', description: 'A pumper can recommend another qualified pumper, but the original poster must approve any replacement.' },
   { name: 'SelectPumper', title: 'Select Pumper', description: 'Award the job to one requester. Conflicting awarded jobs will be blocked before confirmation.' },
-  { name: 'CompleteFinderJob', title: 'Complete Job', description: 'Fast closeout for actual yards, final price, payment status, and notes.' },
   { name: 'Reviews', title: 'Reviews', description: 'Completed-job participants can leave ratings and optional comments.' },
 ];
 const Stack = createStackNavigator();
@@ -381,6 +381,11 @@ function AppNavigatorWithFAB({ user }: { user: any }) {
               name="FinderPlaceDetail"
               component={FinderPlaceDetailScreen}
               options={{ headerShown: true, title: 'Pumper-Friendly Place' }}
+            />
+            <Stack.Screen
+              name="CompleteFinderJob"
+              component={CompleteFinderJobScreen}
+              options={{ headerShown: true, title: 'Complete Finder Job' }}
             />
             {FINDER_PLACEHOLDERS.map(p => (
               <Stack.Screen
