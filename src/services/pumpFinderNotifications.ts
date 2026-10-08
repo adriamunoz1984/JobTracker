@@ -14,7 +14,11 @@ export type FinderNotificationKind =
   | 'available-job'
   | 'interested-pumper'
   | 'job-awarded'
-  | 'job-confirmed';
+  | 'job-confirmed'
+  | 'pumper-on-way'
+  | 'pumper-arrived'
+  | 'pumping-started'
+  | 'job-completed';
 
 export interface FinderNotificationEvent {
   id: string;
@@ -92,16 +96,16 @@ export function subscribeFinderNotificationEvents(
           });
       }
 
+      const confirmed =
+        requests.find(request => request.status === 'confirmed') ||
+        requests.find(request => request.pumperId === job.awardedPumperId);
+
+      const pumper =
+        confirmed?.businessName?.trim() ||
+        confirmed?.pumperName?.trim() ||
+        'Your selected pumper';
+
       if (job.status === 'assigned') {
-        const confirmed =
-          requests.find(request => request.status === 'confirmed') ||
-          requests.find(request => request.pumperId === job.awardedPumperId);
-
-        const pumper =
-          confirmed?.businessName?.trim() ||
-          confirmed?.pumperName?.trim() ||
-          'Your selected pumper';
-
         events.push({
           id: `confirmed:${job.id}`,
           kind: 'job-confirmed',
@@ -113,13 +117,69 @@ export function subscribeFinderNotificationEvents(
           actionParams: { jobId: job.id },
         });
       }
+
+      if (job.status === 'on-the-way') {
+        events.push({
+          id: `on-way:${job.id}`,
+          kind: 'pumper-on-way',
+          title: 'Pumper is on the way',
+          message: `${pumper} is heading to the ${job.generalArea} job.`,
+          jobId: job.id,
+          pumperId: confirmed?.pumperId || job.awardedPumperId,
+          actionRoute: 'InterestedPumpers',
+          actionParams: { jobId: job.id },
+        });
+      }
+
+      if (job.status === 'arrived') {
+        events.push({
+          id: `arrived:${job.id}`,
+          kind: 'pumper-arrived',
+          title: 'Pumper arrived',
+          message: `${pumper} arrived at the ${job.generalArea} job.`,
+          jobId: job.id,
+          pumperId: confirmed?.pumperId || job.awardedPumperId,
+          actionRoute: 'InterestedPumpers',
+          actionParams: { jobId: job.id },
+        });
+      }
+
+      if (job.status === 'pumping' || job.status === 'in-progress') {
+        events.push({
+          id: `pumping:${job.id}`,
+          kind: 'pumping-started',
+          title: 'Pumping started',
+          message: `${pumper} started pumping the ${job.generalArea} job.`,
+          jobId: job.id,
+          pumperId: confirmed?.pumperId || job.awardedPumperId,
+          actionRoute: 'InterestedPumpers',
+          actionParams: { jobId: job.id },
+        });
+      }
+
+      if (job.status === 'completed') {
+        events.push({
+          id: `completed:${job.id}`,
+          kind: 'job-completed',
+          title: 'Pump Finder job completed',
+          message: `The ${job.generalArea} job was marked complete.`,
+          jobId: job.id,
+          pumperId: job.awardedPumperId,
+          actionRoute: 'InterestedPumpers',
+          actionParams: { jobId: job.id },
+        });
+      }
     });
 
     const kindRank: Record<FinderNotificationKind, number> = {
       'job-awarded': 0,
       'interested-pumper': 1,
       'job-confirmed': 2,
-      'available-job': 3,
+      'pumper-on-way': 3,
+      'pumper-arrived': 4,
+      'pumping-started': 5,
+      'job-completed': 6,
+      'available-job': 7,
     };
 
     events.sort((a, b) => kindRank[a.kind] - kindRank[b.kind]);
