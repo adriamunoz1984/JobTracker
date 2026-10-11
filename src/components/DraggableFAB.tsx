@@ -143,7 +143,7 @@ const DraggableFAB: React.FC<DraggableFABProps> = ({ variant = 'default' }) => {
           styles.fab,
           isInvoiceVariant && styles.invoiceFab,
         ]}
-        icon={isInvoiceVariant ? 'file-document-plus-outline' : 'plus'}
+        icon={isInvoiceVariant ? 'file-plus' : 'plus'}
         color={isInvoiceVariant ? Colors.primary : Colors.textInverse}
         customSize={52}
         accessibilityLabel={isInvoiceVariant ? 'Create Invoice' : 'Add Job'}
