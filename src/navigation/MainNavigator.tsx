@@ -141,11 +141,11 @@ export default function MainNavigator() {
         initialLayout={{ width: dimensions.width }}
       >
         <Tab.Screen name="Home" component={HomeScreen} />
-        <Tab.Screen name="Finder" component={PumpFinderScreen} />
         <Tab.Screen name="Weekly" component={WeeklyDashboardScreen} />
         <Tab.Screen name="Monthly" component={MonthlySummaryScreen} />
         <Tab.Screen name="Yearly" component={YearlySummaryScreen} />
         <Tab.Screen name="Invoices" component={InvoiceListScreen} />
+        <Tab.Screen name="Finder" component={PumpFinderScreen} />
       </Tab.Navigator>
 
       <DraggableFAB variant={activeTab === 'Invoices' ? 'invoice' : 'default'} />
