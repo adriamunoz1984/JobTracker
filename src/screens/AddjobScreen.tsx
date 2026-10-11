@@ -46,17 +46,23 @@ export default function AddJobScreen() {
   const FLAT_RATE_AMOUNT = 350;
 
   const [clients, setClients] = useState<Client[]>([]);
+  const [isLoadingClients, setIsLoadingClients] = useState(true);
+  const [clientLoadError, setClientLoadError] = useState<string | null>(null);
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
   const [selectedAddress, setSelectedAddress] = useState<ClientAddress | null>(null);
   
   const [showClientDropdown, setShowClientDropdown] = useState(false);
   const [showAddressDropdown, setShowAddressDropdown] = useState(false);
-  const [filteredClients, setFilteredClients] = useState<Client[]>([]);
   const [filteredAddresses, setFilteredAddresses] = useState<ClientAddress[]>([]);
 
   const [date, setDate] = useState(editingJob ? parseISO(editingJob.date) : new Date());
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [companyName, setCompanyName] = useState(editingJob?.companyName || '');
+  // Derive matches from the current clients and typed name. This also updates
+  // suggestions when Firestore finishes loading after the field was focused.
+  const matchingClients = clients.filter(client =>
+    (client.name || '').toLowerCase().includes(companyName.trim().toLowerCase())
+  );
   const [address, setAddress] = useState(editingJob?.address || '');
   const [city, setCity] = useState(editingJob?.city || '');
   const [yards, setYards] = useState(editingJob?.yards?.toString() || '');
@@ -96,9 +102,13 @@ export default function AddJobScreen() {
   useEffect(() => {
     if (!user?.uid) {
       setClients([]);
+      setIsLoadingClients(false);
+      setClientLoadError(null);
       return;
     }
 
+    setIsLoadingClients(true);
+    setClientLoadError(null);
     // Keep the Firestore listener directly inside the effect so React receives
     // the unsubscribe function. The previous async wrapper returned cleanup
     // from the inner function instead, leaving the listener alive after logout.
@@ -122,7 +132,9 @@ export default function AddJobScreen() {
           ...clientDoc.data()
         } as Client));
 
-        setClients(loadedClients.sort((a, b) => a.name.localeCompare(b.name)));
+        setClients(loadedClients.sort((a, b) => (a.name || '').localeCompare(b.name || '')));
+        setIsLoadingClients(false);
+        setClientLoadError(null);
         console.log(`📋 Loaded ${loadedClients.length} clients for ${user.role}`);
       },
       (error) => {
@@ -130,6 +142,9 @@ export default function AddJobScreen() {
         // stop the listener. Only report genuine errors while it is active.
         if (active) {
           console.error('Error loading clients:', error);
+          setClients([]);
+          setIsLoadingClients(false);
+          setClientLoadError('Could not load saved clients. Check your connection or account access.');
         }
       }
     );
@@ -142,20 +157,16 @@ export default function AddJobScreen() {
 
   const handleCompanyNameChange = (text: string) => {
     setCompanyName(text);
-    
-    if (text.trim().length === 0) {
-      setShowClientDropdown(false);
-      setFilteredClients([]);
+    // Editing the name after selecting a saved client should not silently
+    // save this job against the wrong client or an unrelated saved address.
+    if (selectedClient && text !== selectedClient.name) {
       setSelectedClient(null);
-      return;
+      setSelectedAddress(null);
+      setFilteredAddresses([]);
+      setShowAddressDropdown(false);
     }
-
-    const matches = clients.filter(client => 
-      client.name.toLowerCase().includes(text.toLowerCase())
-    );
-    
-    setFilteredClients(matches);
-    setShowClientDropdown(matches.length > 0);
+    // An empty field means "show all saved clients", not "hide suggestions".
+    setShowClientDropdown(true);
   };
 
   const handleSelectClient = (client: Client) => {
@@ -182,7 +193,7 @@ export default function AddJobScreen() {
       setBillingPO(client.billingPO || '');
     }
     
-    setFilteredAddresses(client.addresses);
+    setFilteredAddresses(client.addresses || []);
   };
 
   const handleAddressChange = (text: string) => {
@@ -237,10 +248,9 @@ export default function AddJobScreen() {
   };
 
   const handleCompanyNameFocus = () => {
-    if (clients.length > 0 && companyName.trim().length === 0) {
-      setFilteredClients(clients);
-      setShowClientDropdown(true);
-    }
+    // Always offer saved clients, including when editing an existing company
+    // name or while the listener is still loading them.
+    setShowClientDropdown(true);
   };
 
   const yardsNum = parseFloat(yards) || 0;
@@ -532,22 +542,34 @@ else
           
           {showClientDropdown && (
             <View style={styles.dropdownCard}>
-              <ScrollView style={styles.dropdown} nestedScrollEnabled keyboardShouldPersistTaps="always">
-                {filteredClients.map((item) => (
-                  <TouchableOpacity
-                    key={item.id}
-                    style={styles.dropdownItem}
-                    onPress={() => handleSelectClient(item)}
-                  >
-                    <Text style={styles.dropdownItemText}>{item.name}</Text>
-                    {item.addresses.length > 0 && (
-                      <Text style={styles.dropdownItemSubtext}>
-                        {item.addresses.length} saved address{item.addresses.length > 1 ? 'es' : ''}
-                      </Text>
-                    )}
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
+              {isLoadingClients ? (
+                <Text style={styles.dropdownHint}>Loading saved clients...</Text>
+              ) : clientLoadError ? (
+                <Text style={styles.dropdownHint}>{clientLoadError}</Text>
+              ) : matchingClients.length === 0 ? (
+                <Text style={styles.dropdownHint}>
+                  {clients.length === 0
+                    ? 'No saved clients for this account. You can still type a company name.'
+                    : 'No matching saved clients. You can enter a new company name.'}
+                </Text>
+              ) : (
+                <ScrollView style={styles.dropdown} nestedScrollEnabled keyboardShouldPersistTaps="always">
+                  {matchingClients.map((item) => (
+                    <TouchableOpacity
+                      key={item.id}
+                      style={styles.dropdownItem}
+                      onPress={() => handleSelectClient(item)}
+                    >
+                      <Text style={styles.dropdownItemText}>{item.name}</Text>
+                      {(item.addresses?.length || 0) > 0 && (
+                        <Text style={styles.dropdownItemSubtext}>
+                          {item.addresses.length} saved address{item.addresses.length > 1 ? 'es' : ''}
+                        </Text>
+                      )}
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              )}
             </View>
           )}
         </View>
@@ -1038,6 +1060,11 @@ const useStyles = makeStyles((Colors) => ({
   },
   dropdown: {
     maxHeight: 200,
+  },
+  dropdownHint: {
+    padding: Spacing.md,
+    fontSize: 14,
+    color: Colors.textSecondary,
   },
   dropdownItem: {
     padding: Spacing.md,
