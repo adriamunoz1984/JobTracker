@@ -191,8 +191,22 @@ export function subscribeFinderJobRequests(
   onRequests: (requests: FinderJobRequest[]) => void,
   onError?: (error: Error) => void
 ): Unsubscribe {
-  return onSnapshot(
+  const currentUser = auth.currentUser;
+
+  if (!currentUser) {
+    throw new Error('You must be signed in to view Pump Finder requests.');
+  }
+
+  // Request collection reads are explicitly scoped to the poster. Firestore
+  // can prove this query from the posterId constraint without evaluating a
+  // parent-document lookup for every list operation.
+  const requestsQuery = query(
     collection(db, 'finderJobs', jobId, 'requests'),
+    where('posterId', '==', currentUser.uid)
+  );
+
+  return onSnapshot(
+    requestsQuery,
     snapshot => {
       const requests = snapshot.docs.map(snapshotDoc => ({
         id: snapshotDoc.id,
@@ -272,6 +286,7 @@ export async function requestFinderJob(jobId: string) {
 
   batch.set(requestRef, {
     jobId,
+    posterId: job.posterId,
     pumperId: currentUser.uid,
     status: 'pending',
     pumperName,
