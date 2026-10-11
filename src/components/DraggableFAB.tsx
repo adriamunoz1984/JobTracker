@@ -16,6 +16,9 @@ const DraggableFAB: React.FC<DraggableFABProps> = ({ variant = 'default' }) => {
   const { colors: Colors } = useAppTheme();
   const navigation = useNavigation<any>();
   const isInvoiceVariant = variant === 'invoice';
+  // PanResponder is created only once. Keep the active tab's action current.
+  const activeVariantRef = useRef(variant);
+  activeVariantRef.current = variant;
   
   // Initial position at bottom center of screen
   const position = useRef(new Animated.ValueXY({
@@ -80,7 +83,7 @@ const DraggableFAB: React.FC<DraggableFABProps> = ({ variant = 'default' }) => {
         
         // If we're not dragging, it was a tap
         if (!isDragging.current) {
-          navigation.navigate('AddJob' as never);
+          navigation.navigate(activeVariantRef.current === 'invoice' ? 'Invoice' : 'AddJob');
           return;
         }
         
@@ -140,10 +143,10 @@ const DraggableFAB: React.FC<DraggableFABProps> = ({ variant = 'default' }) => {
           styles.fab,
           isInvoiceVariant && styles.invoiceFab,
         ]}
-        icon={isInvoiceVariant ? 'briefcase-plus' : 'plus'}
+        icon={isInvoiceVariant ? 'file-document-plus-outline' : 'plus'}
         color={isInvoiceVariant ? Colors.primary : Colors.textInverse}
         customSize={52}
-        accessibilityLabel="Add Job"
+        accessibilityLabel={isInvoiceVariant ? 'Create Invoice' : 'Add Job'}
       />
     </Animated.View>
   );
