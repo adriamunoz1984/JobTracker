@@ -116,12 +116,11 @@ export default function AddJobScreen() {
     // from the inner function instead, leaving the listener alive after logout.
     // Once Firebase Auth signed out, that stale listener tried to read the
     // former owner's clients and correctly hit the security rules.
-    let ownerId = user.uid;
-    if (user.role === 'employee' && user.ownerId) {
-      ownerId = user.ownerId;
-    }
-
-    const clientsRef = collection(db, 'users', ownerId, 'clients');
+    // Match Client Management and Add Client: saved clients are stored
+    // under the signed-in user's own account, including linked employees.
+    // An employee's owner may have a separate client collection, but it is
+    // not the source used by the current Client Management screen.
+    const clientsRef = collection(db, 'users', user.uid, 'clients');
     let active = true;
 
     const unsubscribe = onSnapshot(
@@ -308,12 +307,8 @@ export default function AddJobScreen() {
             text: 'Yes, Update Client',
             onPress: async () => {
               try {
-                let ownerId = user!.uid;
-                if (user!.role === 'employee' && user!.ownerId) {
-                  ownerId = user!.ownerId;
-                }
-
-                const clientRef = doc(db, 'users', ownerId, 'clients', selectedClient.id);
+                // Update the same client's collection used for selection.
+                const clientRef = doc(db, 'users', user!.uid, 'clients', selectedClient.id);
                 await updateDoc(clientRef, {
                   billingName: billingName.trim() || null,
                   billingAddress: billingAddress.trim() || null,
