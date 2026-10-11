@@ -52,6 +52,7 @@ export default function AddJobScreen() {
   const [selectedAddress, setSelectedAddress] = useState<ClientAddress | null>(null);
   
   const [showClientDropdown, setShowClientDropdown] = useState(false);
+  const [showAllSavedClients, setShowAllSavedClients] = useState(false);
   const [showAddressDropdown, setShowAddressDropdown] = useState(false);
   const [filteredAddresses, setFilteredAddresses] = useState<ClientAddress[]>([]);
 
@@ -63,6 +64,7 @@ export default function AddJobScreen() {
   const matchingClients = clients.filter(client =>
     (client.name || '').toLowerCase().includes(companyName.trim().toLowerCase())
   );
+  const visibleClientOptions = showAllSavedClients ? clients : matchingClients;
   const [address, setAddress] = useState(editingJob?.address || '');
   const [city, setCity] = useState(editingJob?.city || '');
   const [yards, setYards] = useState(editingJob?.yards?.toString() || '');
@@ -165,7 +167,8 @@ export default function AddJobScreen() {
       setFilteredAddresses([]);
       setShowAddressDropdown(false);
     }
-    // An empty field means "show all saved clients", not "hide suggestions".
+    // Empty input shows all clients; typed input filters them.
+    setShowAllSavedClients(text.trim().length === 0);
     setShowClientDropdown(true);
   };
 
@@ -173,6 +176,7 @@ export default function AddJobScreen() {
     setSelectedClient(client);
     setCompanyName(client.name);
     setShowClientDropdown(false);
+    setShowAllSavedClients(false);
     
     if (client.defaultPricePerYard && !amountPerYard) {
       setAmountPerYard(client.defaultPricePerYard.toString());
@@ -206,12 +210,12 @@ export default function AddJobScreen() {
     
     if (text.trim().length === 0) {
       setShowAddressDropdown(false);
-      setFilteredAddresses(selectedClient.addresses);
+      setFilteredAddresses(selectedClient.addresses || []);
       setSelectedAddress(null);
       return;
     }
 
-    const matches = selectedClient.addresses.filter(addr => 
+    const matches = (selectedClient.addresses || []).filter(addr => 
       addr.label.toLowerCase().includes(text.toLowerCase()) ||
       addr.address.toLowerCase().includes(text.toLowerCase()) ||
       addr.city.toLowerCase().includes(text.toLowerCase())
@@ -241,8 +245,8 @@ export default function AddJobScreen() {
   };
 
   const handleAddressFocus = () => {
-    if (selectedClient && selectedClient.addresses.length > 0) {
-      setFilteredAddresses(selectedClient.addresses);
+    if (selectedClient && (selectedClient.addresses?.length || 0) > 0) {
+      setFilteredAddresses(selectedClient.addresses || []);
       setShowAddressDropdown(true);
     }
   };
@@ -250,6 +254,7 @@ export default function AddJobScreen() {
   const handleCompanyNameFocus = () => {
     // Always offer saved clients, including when editing an existing company
     // name or while the listener is still loading them.
+    setShowAllSavedClients(companyName.trim().length === 0);
     setShowClientDropdown(true);
   };
 
@@ -540,13 +545,29 @@ else
             activeOutlineColor={Colors.primary}
           />
           
+          <Button
+            mode="outlined"
+            icon="account-search-outline"
+            style={{ alignSelf: 'flex-start', marginBottom: Spacing.md }}
+            onPress={() => {
+              if (showClientDropdown && showAllSavedClients) {
+                setShowClientDropdown(false);
+              } else {
+                setShowAllSavedClients(true);
+                setShowClientDropdown(true);
+              }
+            }}
+          >
+            {showClientDropdown && showAllSavedClients ? 'Hide Saved Clients' : 'Choose Saved Client'}
+          </Button>
+
           {showClientDropdown && (
             <View style={styles.dropdownCard}>
               {isLoadingClients ? (
                 <Text style={styles.dropdownHint}>Loading saved clients...</Text>
               ) : clientLoadError ? (
                 <Text style={styles.dropdownHint}>{clientLoadError}</Text>
-              ) : matchingClients.length === 0 ? (
+              ) : visibleClientOptions.length === 0 ? (
                 <Text style={styles.dropdownHint}>
                   {clients.length === 0
                     ? 'No saved clients for this account. You can still type a company name.'
@@ -554,7 +575,7 @@ else
                 </Text>
               ) : (
                 <ScrollView style={styles.dropdown} nestedScrollEnabled keyboardShouldPersistTaps="always">
-                  {matchingClients.map((item) => (
+                  {visibleClientOptions.map((item) => (
                     <TouchableOpacity
                       key={item.id}
                       style={styles.dropdownItem}
