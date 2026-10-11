@@ -200,6 +200,7 @@ export interface FinderPrivateJobDetails {
 export interface FinderJobRequest {
   id: string;
   jobId: string;
+  posterId?: string;
   pumperId: string;
   status: FinderRequestStatus;
   createdAt: string;
