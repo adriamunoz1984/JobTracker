@@ -77,7 +77,8 @@ function FixedTopBar({ title }: { title: string }) {
   return (
     <Header
       title={title}
-      // Left-aligned so the title has room next to the bell, gear, and avatar
+      // Keep longer titles clear of the right-hand controls; offset the title
+      // toward the center without fully centering it over the action icons.
       headerTitleAlign="left"
       headerStyle={{ backgroundColor: colors.header }}
       headerTintColor={colors.onHeader}
@@ -86,7 +87,7 @@ function FixedTopBar({ title }: { title: string }) {
           numberOfLines={1}
           adjustsFontSizeToFit
           minimumFontScale={0.7}
-          style={[headerTitleStyle, { color: colors.onHeader }]}
+          style={[headerTitleStyle, { color: colors.onHeader, marginLeft: 24 }]}
           accessibilityRole="header"
         >
           {title}
