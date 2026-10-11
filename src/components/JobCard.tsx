@@ -360,9 +360,9 @@ const useStyles = makeStyles((Colors) => ({
     alignItems: 'flex-end',
   },
   date: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: Colors.textSecondary,
+    fontSize: 16,
+    fontWeight: '700',
+    color: Colors.text,
     marginBottom: Spacing.xs,
   },
   badgeRow: {
