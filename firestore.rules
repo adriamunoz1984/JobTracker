@@ -636,8 +636,6 @@ service cloud.firestore {
             && resource.data.status == 'pending'
             && request.resource.data.status == 'withdrawn'
             && request.resource.data.posterId == resource.data.posterId
-            && request.resource.data.posterId == resource.data.posterId
-            && request.resource.data.posterId == resource.data.posterId
             && request.resource.data
               .diff(resource.data)
               .affectedKeys()
@@ -647,6 +645,7 @@ service cloud.firestore {
             isFinderPoster(jobId)
             && resource.data.status == 'pending'
             && request.resource.data.status in ['awarded', 'declined']
+            && request.resource.data.posterId == resource.data.posterId
             && request.resource.data
               .diff(resource.data)
               .affectedKeys()
@@ -657,6 +656,7 @@ service cloud.firestore {
             && request.auth.uid == pumperUid
             && resource.data.status == 'awarded'
             && request.resource.data.status == 'confirmed'
+            && request.resource.data.posterId == resource.data.posterId
             && request.resource.data
               .diff(resource.data)
               .affectedKeys()
