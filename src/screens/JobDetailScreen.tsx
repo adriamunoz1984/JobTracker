@@ -9,11 +9,14 @@ import { useAuth } from '../context/AuthContext';
 import { Job } from '../types';
 import { format, parseISO } from 'date-fns';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Colors, Spacing, BorderRadius, Shadows } from '../theme/colors';
+import { Spacing, BorderRadius, Shadows } from '../theme/colors';
+import { useAppTheme, makeStyles } from '../theme';
 
 const db = getFirestore();
 
 export default function JobDetailScreen() {
+  const { colors: Colors, gradients } = useAppTheme();
+  const styles = useStyles();
   const navigation = useNavigation();
   const route = useRoute();
   const { job: initialJob } = route.params as { job: Job };
@@ -29,7 +32,11 @@ export default function JobDetailScreen() {
   const handleSaveChanges = async () => {
     try {
       setIsSaving(true);
-      await updateJob(editedJob);
+      await updateJob({
+        ...editedJob,
+        jobNumber: editedJob.jobNumber?.trim() || null,
+        poNumber: editedJob.poNumber?.trim() || null,
+      });
       Alert.alert('Success', 'Job updated successfully');
       setIsEditMode(false);
     } catch (error) {
@@ -135,7 +142,7 @@ export default function JobDetailScreen() {
   return (
     <ScrollView style={styles.container}>
       <LinearGradient
-        colors={[Colors.primary, Colors.primaryDark]}
+        colors={gradients.primary}
         style={styles.header}
       >
         <View style={styles.headerTop}>
@@ -197,6 +204,24 @@ export default function JobDetailScreen() {
                   keyboardType="decimal-pad"
                   placeholderTextColor={Colors.textSecondary}
                 />
+
+                <Text style={styles.editLabel}>Job Number</Text>
+                <TextInput
+                  style={styles.textInput}
+                  value={editedJob.jobNumber || ''}
+                  onChangeText={(text) => setEditedJob({...editedJob, jobNumber: text})}
+                  placeholder="Optional job #"
+                  placeholderTextColor={Colors.textSecondary}
+                />
+
+                <Text style={styles.editLabel}>PO Number</Text>
+                <TextInput
+                  style={styles.textInput}
+                  value={editedJob.poNumber || ''}
+                  onChangeText={(text) => setEditedJob({...editedJob, poNumber: text})}
+                  placeholder="Optional PO #"
+                  placeholderTextColor={Colors.textSecondary}
+                />
               </>
             ) : (
               <>
@@ -218,6 +243,20 @@ export default function JobDetailScreen() {
                   <Text style={styles.label}>Yards:</Text>
                   <Text style={styles.value}>{currentJob.yards}</Text>
                 </View>
+
+                {currentJob.jobNumber && (
+                  <View style={styles.row}>
+                    <Text style={styles.label}>Job #:</Text>
+                    <Text style={styles.value}>{currentJob.jobNumber}</Text>
+                  </View>
+                )}
+
+                {currentJob.poNumber && (
+                  <View style={styles.row}>
+                    <Text style={styles.label}>PO #:</Text>
+                    <Text style={styles.value}>{currentJob.poNumber}</Text>
+                  </View>
+                )}
 
                 {currentJob.isFlatRate && (
                   <View style={styles.row}>
@@ -611,7 +650,7 @@ export default function JobDetailScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((Colors) => ({
   container: {
     flex: 1,
     backgroundColor: Colors.background,
@@ -714,4 +753,4 @@ const styles = StyleSheet.create({
   button: {
     paddingVertical: Spacing.sm,
   },
-});
+}));

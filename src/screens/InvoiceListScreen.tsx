@@ -4,7 +4,6 @@ import { View, StyleSheet, FlatList, TouchableOpacity } from 'react-native';
 import { 
   Card, 
   Text, 
-  FAB,
   Chip,
   Searchbar,
   Divider
@@ -12,7 +11,7 @@ import {
 import { useNavigation } from '@react-navigation/native';
 import { useAuth } from '../context/AuthContext';
 import { Invoice } from '../types';
-import { format } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 import { 
   collection, 
   query, 
@@ -21,9 +20,12 @@ import {
   onSnapshot 
 } from 'firebase/firestore';
 import { db } from '../firebase/config';
-import { Colors, Spacing, BorderRadius, Shadows } from '../theme/colors';
+import { Spacing, BorderRadius, Shadows } from '../theme/colors';
+import { useAppTheme, makeStyles } from '../theme';
 
 export default function InvoiceListScreen() {
+  const { colors: Colors } = useAppTheme();
+  const styles = useStyles();
   const navigation = useNavigation();
   const { user } = useAuth();
   const [invoices, setInvoices] = useState<Invoice[]>([]);
@@ -68,10 +70,6 @@ export default function InvoiceListScreen() {
     }
   };
 
-  const handleCreateInvoice = () => {
-    (navigation as any).navigate('Invoice');
-  };
-
   const handleInvoicePress = (invoice: Invoice) => {
     (navigation as any).navigate('InvoiceDetail', { invoice });
   };
@@ -105,11 +103,11 @@ export default function InvoiceListScreen() {
           <View style={styles.invoiceDetails}>
             <View style={styles.detailRow}>
               <Text style={styles.label}>Issued:</Text>
-              <Text style={styles.value}>{format(new Date(item.date), 'MMM d, yyyy')}</Text>
+              <Text style={styles.value}>{format(parseISO(item.date), 'MMM d, yyyy')}</Text>
             </View>
             <View style={styles.detailRow}>
               <Text style={styles.label}>Due:</Text>
-              <Text style={styles.value}>{format(new Date(item.dueDate), 'MMM d, yyyy')}</Text>
+              <Text style={styles.value}>{format(parseISO(item.dueDate), 'MMM d, yyyy')}</Text>
             </View>
             <View style={styles.detailRow}>
               <Text style={styles.label}>Jobs:</Text>
@@ -134,7 +132,7 @@ export default function InvoiceListScreen() {
         <View style={styles.emptyState}>
           <Text style={styles.emptyText}>📄 No invoices yet</Text>
           <Text style={styles.emptySubtext}>
-            Create invoices from the Reports screen
+            Use the floating Create Invoice button to make your first invoice
           </Text>
         </View>
       ) : (
@@ -146,18 +144,11 @@ export default function InvoiceListScreen() {
         />
       )}
 
-      <FAB
-        icon="plus"
-        label="New Invoice"
-        style={styles.fab}
-        onPress={handleCreateInvoice}
-        color={Colors.textInverse}
-      />
     </View>
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((Colors) => ({
   container: {
     flex: 1,
     backgroundColor: Colors.background,
@@ -237,11 +228,4 @@ const styles = StyleSheet.create({
     color: Colors.textSecondary,
     textAlign: 'center',
   },
-  fab: {
-    position: 'absolute',
-    margin: Spacing.md,
-    right: 0,
-    bottom: 0,
-    backgroundColor: Colors.primary,
-  },
-});
+}));

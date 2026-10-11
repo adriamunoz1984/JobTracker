@@ -26,11 +26,14 @@ import {
   doc,
   updateDoc
 } from 'firebase/firestore';
-import { Colors, Spacing, BorderRadius, Shadows } from '../theme/colors';
+import { Spacing, BorderRadius, Shadows } from '../theme/colors';
+import { useAppTheme, makeStyles } from '../theme';
 
 const db = getFirestore();
 
 export default function AddJobScreen() {
+  const { colors: Colors, gradients } = useAppTheme();
+  const styles = useStyles();
   const navigation = useNavigation();
   const route = useRoute();
   const { addJob, updateJob } = useJobs();
@@ -43,17 +46,25 @@ export default function AddJobScreen() {
   const FLAT_RATE_AMOUNT = 350;
 
   const [clients, setClients] = useState<Client[]>([]);
+  const [isLoadingClients, setIsLoadingClients] = useState(true);
+  const [clientLoadError, setClientLoadError] = useState<string | null>(null);
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
   const [selectedAddress, setSelectedAddress] = useState<ClientAddress | null>(null);
   
   const [showClientDropdown, setShowClientDropdown] = useState(false);
+  const [showAllSavedClients, setShowAllSavedClients] = useState(false);
   const [showAddressDropdown, setShowAddressDropdown] = useState(false);
-  const [filteredClients, setFilteredClients] = useState<Client[]>([]);
   const [filteredAddresses, setFilteredAddresses] = useState<ClientAddress[]>([]);
 
   const [date, setDate] = useState(editingJob ? parseISO(editingJob.date) : new Date());
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [companyName, setCompanyName] = useState(editingJob?.companyName || '');
+  // Derive matches from the current clients and typed name. This also updates
+  // suggestions when Firestore finishes loading after the field was focused.
+  const matchingClients = clients.filter(client =>
+    (client.name || '').toLowerCase().includes(companyName.trim().toLowerCase())
+  );
+  const visibleClientOptions = showAllSavedClients ? clients : matchingClients;
   const [address, setAddress] = useState(editingJob?.address || '');
   const [city, setCity] = useState(editingJob?.city || '');
   const [yards, setYards] = useState(editingJob?.yards?.toString() || '');
@@ -66,6 +77,8 @@ export default function AddJobScreen() {
   );
   const [isPaidToMe, setIsPaidToMe] = useState(editingJob?.isPaidToMe || false);
   const [checkNumber, setCheckNumber] = useState(editingJob?.checkNumber || '');
+  const [jobNumber, setJobNumber] = useState(editingJob?.jobNumber || '');
+  const [poNumber, setPoNumber] = useState(editingJob?.poNumber || '');
   const [notes, setNotes] = useState(editingJob?.notes || '');
   const [isSaving, setIsSaving] = useState(false);
 
@@ -89,61 +102,80 @@ export default function AddJobScreen() {
   const [billingPO, setBillingPO] = useState(editingJob?.billingPO || '');
 
   useEffect(() => {
-    if (!user?.uid) return;
+    if (!user?.uid) {
+      setClients([]);
+      setIsLoadingClients(false);
+      setClientLoadError(null);
+      return;
+    }
 
-    const loadClients = async () => {
-      try {
-        let ownerId = user.uid;
-        
-        if (user.role === 'employee' && user.ownerId) {
-          ownerId = user.ownerId;
-        }
+    setIsLoadingClients(true);
+    setClientLoadError(null);
+    // Keep the Firestore listener directly inside the effect so React receives
+    // the unsubscribe function. The previous async wrapper returned cleanup
+    // from the inner function instead, leaving the listener alive after logout.
+    // Once Firebase Auth signed out, that stale listener tried to read the
+    // former owner's clients and correctly hit the security rules.
+    // Match Client Management and Add Client: saved clients are stored
+    // under the signed-in user's own account, including linked employees.
+    // An employee's owner may have a separate client collection, but it is
+    // not the source used by the current Client Management screen.
+    const clientsRef = collection(db, 'users', user.uid, 'clients');
+    let active = true;
 
-        const clientsRef = collection(db, 'users', ownerId, 'clients');
-        
-        const unsubscribe = onSnapshot(clientsRef, (snapshot) => {
-          const loadedClients = snapshot.docs.map(doc => ({
-            id: doc.id,
-            ...doc.data()
-          } as Client));
+    const unsubscribe = onSnapshot(
+      clientsRef,
+      (snapshot) => {
+        if (!active) return;
 
-          setClients(loadedClients.sort((a, b) => a.name.localeCompare(b.name)));
-          console.log(`📋 Loaded ${loadedClients.length} clients for ${user.role}`);
-        }, (error) => {
+        const loadedClients = snapshot.docs.map(clientDoc => ({
+          id: clientDoc.id,
+          ...clientDoc.data()
+        } as Client));
+
+        setClients(loadedClients.sort((a, b) => (a.name || '').localeCompare(b.name || '')));
+        setIsLoadingClients(false);
+        setClientLoadError(null);
+        console.log(`📋 Loaded ${loadedClients.length} clients for ${user.role}`);
+      },
+      (error) => {
+        // If auth changed while this screen is being torn down, cleanup will
+        // stop the listener. Only report genuine errors while it is active.
+        if (active) {
           console.error('Error loading clients:', error);
-        });
-
-        return () => unsubscribe();
-      } catch (error) {
-        console.error('Error setting up clients listener:', error);
+          setClients([]);
+          setIsLoadingClients(false);
+          setClientLoadError('Could not load saved clients. Check your connection or account access.');
+        }
       }
-    };
+    );
 
-    loadClients();
+    return () => {
+      active = false;
+      unsubscribe();
+    };
   }, [user?.uid, user?.role, user?.ownerId]);
 
   const handleCompanyNameChange = (text: string) => {
     setCompanyName(text);
-    
-    if (text.trim().length === 0) {
-      setShowClientDropdown(false);
-      setFilteredClients([]);
+    // Editing the name after selecting a saved client should not silently
+    // save this job against the wrong client or an unrelated saved address.
+    if (selectedClient && text !== selectedClient.name) {
       setSelectedClient(null);
-      return;
+      setSelectedAddress(null);
+      setFilteredAddresses([]);
+      setShowAddressDropdown(false);
     }
-
-    const matches = clients.filter(client => 
-      client.name.toLowerCase().includes(text.toLowerCase())
-    );
-    
-    setFilteredClients(matches);
-    setShowClientDropdown(matches.length > 0);
+    // Empty input shows all clients; typed input filters them.
+    setShowAllSavedClients(text.trim().length === 0);
+    setShowClientDropdown(true);
   };
 
   const handleSelectClient = (client: Client) => {
     setSelectedClient(client);
     setCompanyName(client.name);
     setShowClientDropdown(false);
+    setShowAllSavedClients(false);
     
     if (client.defaultPricePerYard && !amountPerYard) {
       setAmountPerYard(client.defaultPricePerYard.toString());
@@ -164,7 +196,7 @@ export default function AddJobScreen() {
       setBillingPO(client.billingPO || '');
     }
     
-    setFilteredAddresses(client.addresses);
+    setFilteredAddresses(client.addresses || []);
   };
 
   const handleAddressChange = (text: string) => {
@@ -177,12 +209,12 @@ export default function AddJobScreen() {
     
     if (text.trim().length === 0) {
       setShowAddressDropdown(false);
-      setFilteredAddresses(selectedClient.addresses);
+      setFilteredAddresses(selectedClient.addresses || []);
       setSelectedAddress(null);
       return;
     }
 
-    const matches = selectedClient.addresses.filter(addr => 
+    const matches = (selectedClient.addresses || []).filter(addr => 
       addr.label.toLowerCase().includes(text.toLowerCase()) ||
       addr.address.toLowerCase().includes(text.toLowerCase()) ||
       addr.city.toLowerCase().includes(text.toLowerCase())
@@ -212,17 +244,17 @@ export default function AddJobScreen() {
   };
 
   const handleAddressFocus = () => {
-    if (selectedClient && selectedClient.addresses.length > 0) {
-      setFilteredAddresses(selectedClient.addresses);
+    if (selectedClient && (selectedClient.addresses?.length || 0) > 0) {
+      setFilteredAddresses(selectedClient.addresses || []);
       setShowAddressDropdown(true);
     }
   };
 
   const handleCompanyNameFocus = () => {
-    if (clients.length > 0 && companyName.trim().length === 0) {
-      setFilteredClients(clients);
-      setShowClientDropdown(true);
-    }
+    // Always offer saved clients, including when editing an existing company
+    // name or while the listener is still loading them.
+    setShowAllSavedClients(companyName.trim().length === 0);
+    setShowClientDropdown(true);
   };
 
   const yardsNum = parseFloat(yards) || 0;
@@ -275,12 +307,8 @@ export default function AddJobScreen() {
             text: 'Yes, Update Client',
             onPress: async () => {
               try {
-                let ownerId = user!.uid;
-                if (user!.role === 'employee' && user!.ownerId) {
-                  ownerId = user!.ownerId;
-                }
-
-                const clientRef = doc(db, 'users', ownerId, 'clients', selectedClient.id);
+                // Update the same client's collection used for selection.
+                const clientRef = doc(db, 'users', user!.uid, 'clients', selectedClient.id);
                 await updateDoc(clientRef, {
                   billingName: billingName.trim() || null,
                   billingAddress: billingAddress.trim() || null,
@@ -378,6 +406,19 @@ export default function AddJobScreen() {
         jobData.companyName = companyName.trim();
       }
 
+      // Job # and PO # are optional per job. When editing, null clears an old value.
+      if (jobNumber.trim()) {
+        jobData.jobNumber = jobNumber.trim();
+      } else if (isEditing && editingJob?.jobNumber) {
+        jobData.jobNumber = null;
+      }
+
+      if (poNumber.trim()) {
+        jobData.poNumber = poNumber.trim();
+      } else if (isEditing && editingJob?.poNumber) {
+        jobData.poNumber = null;
+      }
+
       if (paymentMethod === 'Check' && checkNumber.trim()) {
         jobData.checkNumber = checkNumber.trim();
       }
@@ -452,7 +493,7 @@ else
   return (
     <ScrollView style={styles.container} keyboardShouldPersistTaps="handled">
       <LinearGradient
-        colors={[Colors.primary, Colors.primaryDark]}
+        colors={gradients.primary}
         style={styles.header}
       >
         <Text style={styles.headerTitle}>
@@ -499,24 +540,52 @@ else
             activeOutlineColor={Colors.primary}
           />
           
+          <Button
+            mode="outlined"
+            icon="account-search-outline"
+            style={{ alignSelf: 'flex-start', marginBottom: Spacing.md }}
+            onPress={() => {
+              if (showClientDropdown && showAllSavedClients) {
+                setShowClientDropdown(false);
+              } else {
+                setShowAllSavedClients(true);
+                setShowClientDropdown(true);
+              }
+            }}
+          >
+            {showClientDropdown && showAllSavedClients ? 'Hide Saved Clients' : 'Choose Saved Client'}
+          </Button>
+
           {showClientDropdown && (
             <View style={styles.dropdownCard}>
-              <ScrollView style={styles.dropdown} nestedScrollEnabled keyboardShouldPersistTaps="always">
-                {filteredClients.map((item) => (
-                  <TouchableOpacity
-                    key={item.id}
-                    style={styles.dropdownItem}
-                    onPress={() => handleSelectClient(item)}
-                  >
-                    <Text style={styles.dropdownItemText}>{item.name}</Text>
-                    {item.addresses.length > 0 && (
-                      <Text style={styles.dropdownItemSubtext}>
-                        {item.addresses.length} saved address{item.addresses.length > 1 ? 'es' : ''}
-                      </Text>
-                    )}
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
+              {isLoadingClients ? (
+                <Text style={styles.dropdownHint}>Loading saved clients...</Text>
+              ) : clientLoadError ? (
+                <Text style={styles.dropdownHint}>{clientLoadError}</Text>
+              ) : visibleClientOptions.length === 0 ? (
+                <Text style={styles.dropdownHint}>
+                  {clients.length === 0
+                    ? 'No saved clients for this account. You can still type a company name.'
+                    : 'No matching saved clients. You can enter a new company name.'}
+                </Text>
+              ) : (
+                <ScrollView style={styles.dropdown} nestedScrollEnabled keyboardShouldPersistTaps="always">
+                  {visibleClientOptions.map((item) => (
+                    <TouchableOpacity
+                      key={item.id}
+                      style={styles.dropdownItem}
+                      onPress={() => handleSelectClient(item)}
+                    >
+                      <Text style={styles.dropdownItemText}>{item.name}</Text>
+                      {(item.addresses?.length || 0) > 0 && (
+                        <Text style={styles.dropdownItemSubtext}>
+                          {item.addresses.length} saved address{item.addresses.length > 1 ? 'es' : ''}
+                        </Text>
+                      )}
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              )}
             </View>
           )}
         </View>
@@ -587,6 +656,29 @@ else
             outlineColor={Colors.border}
             activeOutlineColor={Colors.primary}
           />
+
+          <View style={styles.row}>
+            <TextInput
+              label="Job Number (Optional)"
+              value={jobNumber}
+              onChangeText={setJobNumber}
+              mode="outlined"
+              style={[styles.input, styles.flexInput]}
+              placeholder="Job #"
+              outlineColor={Colors.border}
+              activeOutlineColor={Colors.primary}
+            />
+            <TextInput
+              label="PO Number (Optional)"
+              value={poNumber}
+              onChangeText={setPoNumber}
+              mode="outlined"
+              style={[styles.input, styles.flexInput]}
+              placeholder="PO #"
+              outlineColor={Colors.border}
+              activeOutlineColor={Colors.primary}
+            />
+          </View>
         </View>
 
         {isFlatRate && !manualOverride && (
@@ -647,7 +739,7 @@ else
         <Divider style={styles.divider} />
 
         <LinearGradient
-          colors={[Colors.success, Colors.successLight]}
+          colors={gradients.success}
           style={styles.totalContainer}
         >
           <Text style={styles.totalLabel}>Total Amount:</Text>
@@ -914,7 +1006,7 @@ else
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((Colors) => ({
   container: {
     flex: 1,
     backgroundColor: Colors.background,
@@ -984,6 +1076,11 @@ const styles = StyleSheet.create({
   },
   dropdown: {
     maxHeight: 200,
+  },
+  dropdownHint: {
+    padding: Spacing.md,
+    fontSize: 14,
+    color: Colors.textSecondary,
   },
   dropdownItem: {
     padding: Spacing.md,
@@ -1129,4 +1226,4 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.medium,
     ...Shadows.medium,
   },
-});
+}));

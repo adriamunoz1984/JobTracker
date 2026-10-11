@@ -5,9 +5,12 @@ import { TextInput, Button, Text, Divider, Card } from 'react-native-paper';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useNavigation } from '@react-navigation/native';
 import { useAuth } from '../context/AuthContext';
-import { Colors, Spacing, BorderRadius, Shadows } from '../theme/colors';
+import { Spacing, BorderRadius, Shadows } from '../theme/colors';
+import { useAppTheme, makeStyles, getHeaderTitleStyle } from '../theme';
 
 export default function LoginScreen() {
+  const { colors: Colors, gradients } = useAppTheme();
+  const styles = useStyles();
   const navigation = useNavigation();
   const { login } = useAuth();
   
@@ -50,7 +53,7 @@ export default function LoginScreen() {
       >
         {/* Header */}
         <LinearGradient
-          colors={[Colors.primary, Colors.primaryDark]}
+          colors={gradients.primary}
           style={styles.header}
         >
           <Text style={styles.logo}>🚛</Text>
@@ -169,7 +172,7 @@ export default function LoginScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((Colors, _gradients, theme) => ({
   container: {
     flex: 1,
     backgroundColor: Colors.background,
@@ -188,8 +191,8 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.md,
   },
   title: {
-    fontSize: 32,
-    fontWeight: 'bold',
+    ...getHeaderTitleStyle(theme),
+    fontSize: theme.headerFontSize + 10,
     color: Colors.textInverse,
     marginBottom: Spacing.xs,
   },
@@ -269,4 +272,4 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontStyle: 'italic',
   },
-});
+}));

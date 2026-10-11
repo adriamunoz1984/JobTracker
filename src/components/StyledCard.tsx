@@ -2,7 +2,8 @@
 import React from 'react';
 import { View, StyleSheet, ViewStyle } from 'react-native';
 import { Card } from 'react-native-paper';
-import { Colors, Shadows, BorderRadius, Spacing } from '../theme/colors';
+import { Shadows, BorderRadius, Spacing } from '../theme/colors';
+import { useAppTheme, makeStyles } from '../theme';
 
 interface StyledCardProps {
   children: React.ReactNode;
@@ -11,6 +12,8 @@ interface StyledCardProps {
 }
 
 export default function StyledCard({ children, style, variant = 'default' }: StyledCardProps) {
+  const { colors: Colors } = useAppTheme();
+  const styles = useStyles();
   const getVariantColor = () => {
     switch (variant) {
       case 'success': return Colors.successLight;
@@ -29,7 +32,7 @@ export default function StyledCard({ children, style, variant = 'default' }: Sty
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((Colors) => ({
   card: {
     marginHorizontal: Spacing.md,
     marginVertical: Spacing.sm,
@@ -46,4 +49,4 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: BorderRadius.large,
     borderTopRightRadius: BorderRadius.large,
   },
-});
+}));

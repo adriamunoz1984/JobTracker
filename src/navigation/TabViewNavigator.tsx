@@ -10,9 +10,12 @@ import HomeScreen from '../screens/HomeScreen';
 import WeeklyDashboardScreen from '../screens/WeeklyDashBoardScreen';
 import MonthlySummaryScreen from '../screens/MonthlySummaryScreen';
 import YearlySummaryScreen from '../screens/YearlySummaryScreen';
+import { useAppTheme, makeStyles } from '../theme';
 
 
 export default function TabViewNavigator() {
+  const { colors: Colors } = useAppTheme();
+  const styles = useStyles();
   const layout = useWindowDimensions();
   const navigation = useNavigation();
 
@@ -96,7 +99,7 @@ export default function TabViewNavigator() {
       <View style={styles.tabBar}>
         {navigationState.routes.map((route, i) => {
           const isFocused = navigationState.index === i;
-          const color = isFocused ? '#2196F3' : '#777';
+          const color = isFocused ? Colors.primary : Colors.textLight;
           
           let iconName;
           switch (route.key) {
@@ -148,7 +151,7 @@ export default function TabViewNavigator() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((Colors) => ({
   container: {
     flex: 1,
   },
@@ -156,7 +159,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   header: {
-    backgroundColor: '#2196F3',
+    backgroundColor: Colors.primary,
   },
   headerContent: {
     alignItems: 'center', // Center the title text
@@ -166,14 +169,14 @@ const styles = StyleSheet.create({
   },
   tabBar: {
     flexDirection: 'row',
-    backgroundColor: 'white',
+    backgroundColor: Colors.surface,
     height: 60,
     borderTopWidth: 1,
-    borderTopColor: '#e0e0e0',
+    borderTopColor: Colors.border,
   },
   tabItem: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
   },
-});
+}));

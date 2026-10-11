@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, FlatList, TouchableOpacity } from 'react-native';
+import { View, StyleSheet, FlatList, TouchableOpacity, Alert } from 'react-native';
 import ScaledText from '../components/ScaledText';
-import { FAB, Searchbar, IconButton, Button, Divider, Chip } from 'react-native-paper';
+import { FAB, Searchbar, IconButton, Button, Divider, Chip, Menu } from 'react-native-paper';
 import { useNavigation } from '@react-navigation/native';
 import { format, endOfWeek, startOfWeek, isSameDay, parseISO } from 'date-fns';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -11,9 +11,12 @@ import { useJobs } from '../context/JobsContext';
 import { useAuth } from '../context/AuthContext';
 import JobCard from '../components/JobCard';
 import { Job } from '../types';
-import { Colors, Spacing, BorderRadius, Shadows, Typography } from '../theme/colors';
+import { Spacing, BorderRadius, Shadows, Typography } from '../theme/colors';
+import { useAppTheme, makeStyles } from '../theme';
 
 export default function HomeScreen() {
+  const { colors: Colors, gradients } = useAppTheme();
+  const styles = useStyles();
   const navigation = useNavigation();
   const { user } = useAuth();
   const { 
@@ -29,6 +32,12 @@ export default function HomeScreen() {
   const [sortNewestFirst, setSortNewestFirst] = useState(true);
   const [collapsedWeeks, setCollapsedWeeks] = useState<Set<string>>(new Set());
   const [allCollapsed, setAllCollapsed] = useState(false);
+  const [ownerJobFilter, setOwnerJobFilter] = useState<'all' | 'mine' | 'employees'>(
+    showEmployeeJobs ? 'all' : 'mine'
+  );
+  const [selectedEmployeeKey, setSelectedEmployeeKey] = useState<string>('all');
+  const [filterMenuVisible, setFilterMenuVisible] = useState(false);
+  const [employeeMenuVisible, setEmployeeMenuVisible] = useState(false);
   
   // Function to group jobs by date and assign sequence numbers
   const processJobs = (jobsList: Job[]): {jobsWithSequence: Job[], jobsByDate: Record<string, Job[]>} => {
@@ -93,9 +102,44 @@ export default function HomeScreen() {
       )
     : jobs;
 
-  // Filter jobs based on employee toggle
-  const filteredJobs = (user?.role === 'owner' && !showEmployeeJobs)
-    ? searchFilteredJobs.filter(job => !(job as any).isEmployeeJob)
+  const employeeKeyForJob = (job: Job) =>
+    job.employeeId || job.employeeName || 'unknown-employee';
+
+  const employeeChoices = Array.from(
+    jobs
+      .filter(job => job.isEmployeeJob)
+      .reduce((map, job) => {
+        const key = employeeKeyForJob(job);
+        if (!map.has(key)) {
+          map.set(key, {
+            key,
+            name: job.employeeName || 'Employee',
+          });
+        }
+        return map;
+      }, new Map<string, { key: string; name: string }>())
+      .values()
+  ).sort((a, b) => a.name.localeCompare(b.name));
+
+  // Owners can view all work, only their own jobs, all employee jobs, or one
+  // specific employee. Employee accounts continue to see their own feed.
+  const selectedEmployeeName =
+    employeeChoices.find(employee => employee.key === selectedEmployeeKey)?.name || 'All Employees';
+
+  const filteredJobs = user?.role === 'owner'
+    ? searchFilteredJobs.filter(job => {
+        if (ownerJobFilter === 'mine') {
+          return !job.isEmployeeJob;
+        }
+
+        if (ownerJobFilter === 'employees') {
+          if (!job.isEmployeeJob) return false;
+          return selectedEmployeeKey === 'all'
+            || employeeKeyForJob(job) === selectedEmployeeKey;
+        }
+
+        return true;
+      })
     : searchFilteredJobs;
 
   const { jobsWithSequence, jobsByDate } = processJobs(filteredJobs);
@@ -206,7 +250,16 @@ export default function HomeScreen() {
   };
   
   const handleDeleteJob = async (jobId: string) => {
-    await deleteJob(jobId);
+    try {
+      await deleteJob(jobId);
+    } catch (error: any) {
+      const message =
+        error?.message === 'Only the owner can delete an owner-assigned job.'
+          ? error.message
+          : 'The job could not be deleted. Please make sure your app and Firestore rules are up to date, then try again.';
+
+      Alert.alert('Could not delete job', message);
+    }
   };
 
   const renderItem = ({ item }: { item: any }) => {
@@ -232,24 +285,32 @@ export default function HomeScreen() {
             activeOpacity={0.7}
           >
             <LinearGradient
-              colors={[Colors.primary, Colors.accent]}
+              colors={gradients.primaryAccent}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
               style={styles.weekHeaderGradient}
             >
               <View style={styles.weekHeaderContent}>
-                <View style={styles.weekHeaderLeft}>
-                  <MaterialCommunityIcons
-                    name={isCollapsed ? 'chevron-right' : 'chevron-down'}
-                    size={28}
-                    color={Colors.textInverse}
-                  />
-                  <ScaledText style={styles.weekEndText}>
-                    Weekend {format(weekEndDate, 'MMM dd')}
-                  </ScaledText>
-                </View>
-                <ScaledText style={styles.weekTotalText}>
-                  ${displayAmount.toFixed(0)}
+                <MaterialCommunityIcons
+                  name={isCollapsed ? 'chevron-right' : 'chevron-down'}
+                  size={24}
+                  color={Colors.textInverse}
+                  style={styles.weekChevron}
+                />
+                <ScaledText
+                  style={styles.weekEndText}
+                  numberOfLines={1}
+                  ellipsizeMode="tail"
+                >
+                  Week ending {format(weekEndDate, 'MMM dd')}
+                </ScaledText>
+                <ScaledText
+                  style={styles.weekTotalText}
+                  numberOfLines={1}
+                  adjustsFontSizeToFit
+                  minimumFontScale={0.72}
+                >
+                  ${Math.round(displayAmount).toLocaleString()}
                 </ScaledText>
               </View>
             </LinearGradient>
@@ -309,22 +370,98 @@ export default function HomeScreen() {
         />
       </View>
       
-      <View style={styles.filterContainer}>
-        {user?.role === 'owner' && (
-          <Chip
-            mode={showEmployeeJobs ? 'flat' : 'outlined'}
-            onPress={() => setShowEmployeeJobs(!showEmployeeJobs)}
-            icon={showEmployeeJobs ? 'account-group' : 'account'}
-            style={[
-              styles.filterChip,
-              showEmployeeJobs && styles.filterChipActive
-            ]}
-            textStyle={showEmployeeJobs ? styles.filterChipActiveText : styles.filterChipText}
+      {user?.role === 'owner' && (
+        <View style={styles.filterBar}>
+          <Menu
+            visible={filterMenuVisible}
+            onDismiss={() => setFilterMenuVisible(false)}
+            anchor={
+              <Button
+                compact
+                mode="outlined"
+                icon="filter-variant"
+                onPress={() => setFilterMenuVisible(true)}
+                style={styles.compactFilterButton}
+                textColor={Colors.primary}
+              >
+                {ownerJobFilter === 'all'
+                  ? 'All Jobs'
+                  : ownerJobFilter === 'mine'
+                    ? 'My Jobs'
+                    : 'Employee Jobs'}
+              </Button>
+            }
           >
-            {showEmployeeJobs ? 'All Jobs' : 'My Jobs'}
-          </Chip>
-        )}
-      </View>
+            <Menu.Item
+              leadingIcon="account-group"
+              title="All Jobs"
+              onPress={() => {
+                setOwnerJobFilter('all');
+                setSelectedEmployeeKey('all');
+                setShowEmployeeJobs(true);
+                setFilterMenuVisible(false);
+              }}
+            />
+            <Menu.Item
+              leadingIcon="account"
+              title="My Jobs"
+              onPress={() => {
+                setOwnerJobFilter('mine');
+                setSelectedEmployeeKey('all');
+                setShowEmployeeJobs(false);
+                setFilterMenuVisible(false);
+              }}
+            />
+            <Menu.Item
+              leadingIcon="account-hard-hat"
+              title="Employee Jobs"
+              onPress={() => {
+                setOwnerJobFilter('employees');
+                setSelectedEmployeeKey('all');
+                setShowEmployeeJobs(true);
+                setFilterMenuVisible(false);
+              }}
+            />
+          </Menu>
+
+          {ownerJobFilter === 'employees' && employeeChoices.length > 1 && (
+            <Menu
+              visible={employeeMenuVisible}
+              onDismiss={() => setEmployeeMenuVisible(false)}
+              anchor={
+                <Button
+                  compact
+                  mode="text"
+                  icon="account-hard-hat"
+                  onPress={() => setEmployeeMenuVisible(true)}
+                  style={styles.compactEmployeeButton}
+                  textColor={Colors.primary}
+                >
+                  {selectedEmployeeKey === 'all' ? 'All Employees' : selectedEmployeeName}
+                </Button>
+              }
+            >
+              <Menu.Item
+                title="All Employees"
+                onPress={() => {
+                  setSelectedEmployeeKey('all');
+                  setEmployeeMenuVisible(false);
+                }}
+              />
+              {employeeChoices.map(employee => (
+                <Menu.Item
+                  key={employee.key}
+                  title={employee.name}
+                  onPress={() => {
+                    setSelectedEmployeeKey(employee.key);
+                    setEmployeeMenuVisible(false);
+                  }}
+                />
+              ))}
+            </Menu>
+          )}
+        </View>
+      )}
 
       <FlatList
         data={flatListData}
@@ -340,7 +477,7 @@ export default function HomeScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((Colors) => ({
   container: {
     flex: 1,
     backgroundColor: Colors.background,
@@ -392,23 +529,20 @@ const styles = StyleSheet.create({
     marginLeft: 0,
     marginRight: 4,
   },
-  filterContainer: {
+  filterBar: {
     flexDirection: 'row',
+    alignItems: 'center',
     paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.sm,
-    gap: Spacing.sm,
+    paddingTop: Spacing.sm,
+    paddingBottom: Spacing.xs,
+    gap: Spacing.xs,
   },
-  filterChip: {
+  compactFilterButton: {
     borderColor: Colors.primary,
+    borderRadius: BorderRadius.medium,
   },
-  filterChipActive: {
-    backgroundColor: Colors.primary,
-  },
-  filterChipText: {
-    color: Colors.primary,
-  },
-  filterChipActiveText: {
-    color: Colors.textInverse,
+  compactEmployeeButton: {
+    borderRadius: BorderRadius.medium,
   },
   listContent: {
     paddingBottom: 80,
@@ -423,35 +557,36 @@ const styles = StyleSheet.create({
   },
   weekHeaderGradient: {
     paddingVertical: Spacing.md,
-    paddingHorizontal: Spacing.lg,
+    paddingHorizontal: Spacing.sm,
   },
   weekHeaderContent: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: Spacing.lg,
+    paddingHorizontal: Spacing.sm,
     paddingVertical: Spacing.md,
-    gap: Spacing.lg,
+    columnGap: Spacing.sm,
   },
-  weekHeaderLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.md,
-    flex: 1,
-    minWidth: 0,
+  weekChevron: {
+    width: 36,
+    marginLeft: 0,
+    flexShrink: 0,
   },
   weekEndText: {
     fontSize: 16,
     fontWeight: 'bold',
     color: Colors.textInverse,
     flex: 1,
-    numberOfLines: 1,
+    flexShrink: 1,
+    textAlign: 'center',
   },
   weekTotalText: {
     fontSize: 18,
     fontWeight: 'bold',
     color: Colors.textInverse,
-    minWidth: 90,
+    minWidth: 92,
+    maxWidth: '34%',
+    flexShrink: 1,
     textAlign: 'right',
+    paddingRight: Spacing.xs,
   },
-});
+}));

@@ -23,11 +23,14 @@ import {
   updateDoc,
   doc,
 } from 'firebase/firestore';
-import { Colors, Spacing, BorderRadius, Shadows } from '../theme/colors';
+import { Spacing, BorderRadius, Shadows } from '../theme/colors';
+import { useAppTheme, makeStyles } from '../theme';
 
 const db = getFirestore();
 
 export default function AddClientScreen() {
+  const { colors: Colors, gradients } = useAppTheme();
+  const styles = useStyles();
   const navigation = useNavigation();
   const route = useRoute();
   const { user } = useAuth();
@@ -188,7 +191,7 @@ export default function AddClientScreen() {
   return (
     <ScrollView style={styles.container} keyboardShouldPersistTaps="handled">
       <LinearGradient
-        colors={[Colors.accent, Colors.accentDark]}
+        colors={gradients.accent}
         style={styles.header}
       >
         <Text style={styles.headerTitle}>
@@ -541,7 +544,7 @@ export default function AddClientScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((Colors) => ({
   container: {
     flex: 1,
     backgroundColor: Colors.background,
@@ -694,4 +697,4 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.medium,
     ...Shadows.medium,
   },
-});
+}));

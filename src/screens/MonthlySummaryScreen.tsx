@@ -1,7 +1,7 @@
 // src/screens/MonthlySummaryScreen.tsx
 import React, { useState, useEffect } from 'react';
 import { View, StyleSheet, ScrollView, Dimensions, TouchableOpacity } from 'react-native';
-import { Card, Text, Button, Divider, ActivityIndicator } from 'react-native-paper';
+import { Card, Text, Button, Divider, ActivityIndicator, SegmentedButtons } from 'react-native-paper';
 import { BarChart } from 'react-native-chart-kit';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useNavigation } from '@react-navigation/native';
@@ -21,16 +21,21 @@ import {
 } from 'date-fns';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
-import { Colors, Spacing, BorderRadius, Shadows } from '../theme/colors';
+import { Spacing, BorderRadius, Shadows } from '../theme/colors';
+import { useAppTheme, makeStyles, withOpacity } from '../theme';
+import { calculateOwnerPay, calculateTaxEstimate, getEstimatedTaxForJob, getJobPumperName, getTaxableShareForJob } from '../utils/jobMath';
 
 const screenWidth = Dimensions.get('window').width;
 
 export default function MonthlySummaryScreen() {
+  const { colors: Colors, gradients } = useAppTheme();
+  const styles = useStyles();
   const navigation = useNavigation();
   const { jobs } = useJobs();
   const { user } = useAuth();
   const [isExporting, setIsExporting] = useState(false);
   const [monthOffset, setMonthOffset] = useState(0);
+  const [ownerTakeHomeMode, setOwnerTakeHomeMode] = useState<'paid' | 'all'>('paid');
 
   const currentDate = new Date();
   const adjustedDate = addMonths(currentDate, monthOffset);
@@ -61,13 +66,26 @@ export default function MonthlySummaryScreen() {
 
   const isOwner = user?.role === 'owner';
   const commissionRate = user?.commissionRate || 50;
+  const ownerPay = calculateOwnerPay(monthJobs);
+  const ownerPaidPay = calculateOwnerPay(monthJobs.filter(job => job.isPaid));
+  const ownerTakeHomePay = ownerTakeHomeMode === 'paid' ? ownerPaidPay : ownerPay;
+  const taxEstimate = calculateTaxEstimate(
+    monthJobs,
+    isOwner ? 'owner' : 'employee',
+    user?.estimatedTaxRate,
+    user?.includeCashInTaxEstimate !== false,
+    commissionRate
+  );
+  const referenceJobs = monthJobs.filter(job => job.jobNumber || job.poNumber);
 
   if (!isOwner) {
     totals.commission = (totals.income * commissionRate) / 100;
+    // Take Home is the employee's earned commission across all jobs.
+    // Direct payments only reduce what the employer still owes them.
     totals.yourPay = totals.commission - totals.paidToMeAmount;
-    totals.finalTakeHome = totals.yourPay;
+    totals.finalTakeHome = totals.commission;
   } else {
-    totals.finalTakeHome = totals.income - totals.paidToMeAmount;
+    totals.finalTakeHome = ownerTakeHomePay.ownerAfterPumperPay;
   }
 
   // Get weekly breakdown
@@ -99,8 +117,8 @@ export default function MonthlySummaryScreen() {
     backgroundGradientFrom: Colors.surface,
     backgroundGradientTo: Colors.surface,
     decimalPlaces: 0,
-    color: (opacity = 1) => `rgba(46, 125, 50, ${opacity})`,
-    labelColor: (opacity = 1) => `rgba(0, 0, 0, ${opacity})`,
+    color: (opacity = 1) => withOpacity(Colors.success, opacity),
+    labelColor: (opacity = 1) => withOpacity(Colors.text, opacity),
     style: {
       borderRadius: BorderRadius.large,
     },
@@ -124,12 +142,20 @@ export default function MonthlySummaryScreen() {
   };
 
   const handleMetricPress = (metricType: any) => {
+    const detailJobs =
+      isOwner && metricType === 'takeHome' && ownerTakeHomeMode === 'paid'
+        ? monthJobs.filter(job => job.isPaid)
+        : monthJobs;
+
     (navigation as any).navigate('DetailedReport', {
       metricType,
-      jobs: monthJobs,
+      jobs: detailJobs,
       timeLabel: format(adjustedDate, 'MMMM yyyy'),
       isOwner: user?.role === 'owner',
       commissionRate: user?.commissionRate || 50,
+      taxEstimateEnabled: user?.taxEstimateEnabled === true,
+      estimatedTaxRate: user?.estimatedTaxRate || 0,
+      includeCashInTaxEstimate: user?.includeCashInTaxEstimate !== false,
     });
   };
 
@@ -143,6 +169,56 @@ export default function MonthlySummaryScreen() {
           <td>${week.jobs}</td>
           <td>${week.yards.toFixed(1)}</td>
           <td>$${week.revenue.toFixed(2)}</td>
+        </tr>
+      `).join('');
+
+      const referenceRows = referenceJobs.map(job => `
+        <tr>
+          <td>${format(parseISO(job.date), 'MMM d, yyyy')}</td>
+          <td>${job.companyName || job.clientName || 'Job'}</td>
+          ${isOwner ? `<td>${getJobPumperName(job, user?.displayName || 'Owner')}</td>` : ''}
+          <td>${job.jobNumber || ''}</td>
+          <td>${job.poNumber || ''}</td>
+        </tr>
+      `).join('');
+
+      const taxRows = monthJobs.map(job => {
+        const cashExcluded =
+          job.paymentMethod === 'Cash' &&
+          user?.includeCashInTaxEstimate === false;
+        const taxableShare = getTaxableShareForJob(
+          job,
+          isOwner ? 'owner' : 'employee',
+          user?.includeCashInTaxEstimate !== false,
+          commissionRate
+        );
+        const jobTax = getEstimatedTaxForJob(
+          job,
+          isOwner ? 'owner' : 'employee',
+          user?.estimatedTaxRate,
+          user?.includeCashInTaxEstimate !== false,
+          commissionRate
+        );
+        return `
+          <tr>
+            <td>${format(parseISO(job.date), 'MMM d')}</td>
+            <td>${job.companyName || job.clientName || 'Job'}</td>
+            ${isOwner ? `<td>${getJobPumperName(job, user?.displayName || 'Owner')}</td>` : ''}
+            <td>$${Number(job.amount || 0).toFixed(2)}</td>
+            <td>${cashExcluded ? 'Cash excluded' : '$' + taxableShare.toFixed(2)}</td>
+            <td>${cashExcluded ? '—' : '$' + jobTax.toFixed(2)}</td>
+          </tr>
+        `;
+      }).join('');
+
+      const pumperRows = ownerPay.byPumper.map(pumper => `
+        <tr>
+          <td>${pumper.name}</td>
+          <td>${pumper.jobs}</td>
+          <td>$${pumper.revenue.toFixed(2)}</td>
+          <td>$${pumper.grossPay.toFixed(2)}</td>
+          <td>$${pumper.directPayments.toFixed(2)}</td>
+          <td>$${pumper.amountOwed.toFixed(2)}</td>
         </tr>
       `).join('');
 
@@ -216,11 +292,22 @@ export default function MonthlySummaryScreen() {
             <p><strong>Total Unpaid:</strong> $${totals.totalUnpaid.toFixed(2)}</p>
             ${!isOwner ? `
               <p><strong>Commission (${commissionRate}%):</strong> $${totals.commission.toFixed(2)}</p>
-              <p><strong>Cash Payments:</strong> $${totals.cashPayments.toFixed(2)}</p>
+              <p><strong>Direct Payments:</strong> $${totals.paidToMeAmount.toFixed(2)}</p>
+              <p><strong>Still Owed by Employer:</strong> $${totals.yourPay.toFixed(2)}</p>
             ` : `
-              <p><strong>Paid to Me:</strong> $${totals.paidToMeAmount.toFixed(2)}</p>
+              <p><strong>Pumper Gross Pay:</strong> $${ownerPay.grossPumperPay.toFixed(2)}</p>
+              <p><strong>Direct Payments to Pumpers:</strong> $${ownerPay.directPaymentsToPumpers.toFixed(2)}</p>
+              <p><strong>Amount Owed to Pumpers:</strong> $${ownerPay.amountOwedToPumpers.toFixed(2)}</p>
             `}
-            <div class="total">Final Take Home: $${totals.finalTakeHome.toFixed(2)}</div>
+            <div class="total">${isOwner ? `Take Home (${ownerTakeHomeMode === 'paid' ? 'Paid Jobs' : 'All Jobs'})` : 'Take Home'}: $${totals.finalTakeHome.toFixed(2)}</div>
+            ${user?.taxEstimateEnabled === true && (user?.estimatedTaxRate || 0) > 0 ? `
+              <p><strong>Taxable Share:</strong> $${taxEstimate.taxableBase.toFixed(2)}</p>
+              <p><strong>Estimated Tax Reserve (${user?.estimatedTaxRate}%):</strong> $${taxEstimate.estimatedTax.toFixed(2)}</p>
+              <p><strong>After Tax Reserve:</strong> $${taxEstimate.afterTax.toFixed(2)}</p>
+              ${taxEstimate.excludedCashBase > 0 ? `
+                <p><strong>Cash Excluded From Estimate:</strong> $${taxEstimate.excludedCashBase.toFixed(2)}</p>
+              ` : ''}
+            ` : ''}
           </div>
           
           <h2>Weekly Breakdown</h2>
@@ -237,6 +324,38 @@ export default function MonthlySummaryScreen() {
               ${weeklyRows}
             </tbody>
           </table>
+
+          ${isOwner && pumperRows ? `
+            <h2>Pumper Breakdown</h2>
+            <table>
+              <thead>
+                <tr>
+                  <th>Pumper</th><th>Jobs</th><th>Revenue</th><th>Gross Pay</th><th>Direct Payments</th><th>Still Owed</th>
+                </tr>
+              </thead>
+              <tbody>${pumperRows}</tbody>
+            </table>
+          ` : ''}
+
+          ${user?.taxEstimateEnabled === true && (user?.estimatedTaxRate || 0) > 0 && taxRows ? `
+            <h2>Tax by Job</h2>
+            <table>
+              <thead>
+                <tr><th>Date</th><th>Client</th>${isOwner ? '<th>Pumper</th>' : ''}<th>Job Total</th><th>Taxable Share</th><th>Est. Tax</th></tr>
+              </thead>
+              <tbody>${taxRows}</tbody>
+            </table>
+          ` : ''}
+
+          ${referenceRows ? `
+            <h2>Job / PO References</h2>
+            <table>
+              <thead>
+                <tr><th>Date</th><th>Client</th>${isOwner ? '<th>Pumper</th>' : ''}<th>Job #</th><th>PO #</th></tr>
+              </thead>
+              <tbody>${referenceRows}</tbody>
+            </table>
+          ` : ''}
           
           <div style="margin-top: 50px; padding-top: 20px; border-top: 1px solid #ddd; color: #999; font-size: 12px; text-align: center;">
             Generated on ${format(new Date(), 'MMMM d, yyyy h:mm a')}
@@ -260,7 +379,7 @@ export default function MonthlySummaryScreen() {
   return (
     <ScrollView style={styles.container}>
       <LinearGradient
-        colors={[Colors.secondary, Colors.secondaryDark]}
+        colors={gradients.secondary}
         style={styles.header}
       >
         <View style={styles.headerContent}>
@@ -305,7 +424,11 @@ export default function MonthlySummaryScreen() {
                 onPress={() => handleMetricPress('takeHome')}
                 activeOpacity={0.7}
               >
-                <Text style={styles.metricLabelInverse}>Take Home</Text>
+                <Text style={styles.metricLabelInverse}>
+                  {isOwner
+                    ? `Take Home (${ownerTakeHomeMode === 'paid' ? 'Paid' : 'All'})`
+                    : 'Take Home'}
+                </Text>
                 <Text style={styles.metricValueInverse}>${totals.finalTakeHome.toLocaleString()}</Text>
               </TouchableOpacity>
             </View>
@@ -370,17 +493,17 @@ export default function MonthlySummaryScreen() {
               </View>
 
               <View style={styles.earningsRow}>
-                <Text style={styles.earningsLabel}>- Cash Payments:</Text>
-                <Text style={styles.earningsValue}>-${totals.cashPayments.toFixed(2)}</Text>
+                <Text style={styles.earningsLabel}>- Direct Payments:</Text>
+                <Text style={styles.earningsValue}>-${totals.paidToMeAmount.toFixed(2)}</Text>
               </View>
 
               <Divider style={styles.divider} />
 
               <LinearGradient
-                colors={[Colors.success, Colors.successLight]}
+                colors={gradients.success}
                 style={styles.totalBox}
               >
-                <Text style={styles.totalLabel}>Your Pay:</Text>
+                <Text style={styles.totalLabel}>Amount Owed:</Text>
                 <Text style={styles.totalValue}>${totals.yourPay.toFixed(2)}</Text>
               </LinearGradient>
             </Card.Content>
@@ -391,8 +514,19 @@ export default function MonthlySummaryScreen() {
         {isOwner && (
           <Card style={styles.card}>
             <Card.Content>
-              <Text variant="titleMedium" style={styles.sectionTitle}>💼 Owner Earnings</Text>
+              <Text variant="titleMedium" style={styles.sectionTitle}>💼 Earnings</Text>
               <Divider style={styles.divider} />
+
+              <Text style={styles.earningsLabel}>Take Home Basis</Text>
+              <SegmentedButtons
+                value={ownerTakeHomeMode}
+                onValueChange={(value) => setOwnerTakeHomeMode(value as 'paid' | 'all')}
+                buttons={[
+                  { value: 'paid', label: 'Paid jobs' },
+                  { value: 'all', label: 'All jobs' },
+                ]}
+                style={{ marginBottom: 12 }}
+              />
 
               <View style={styles.earningsRow}>
                 <Text style={styles.earningsLabel}>Total Income:</Text>
@@ -400,19 +534,94 @@ export default function MonthlySummaryScreen() {
               </View>
 
               <View style={styles.earningsRow}>
-                <Text style={styles.earningsLabel}>- Paid to Me:</Text>
-                <Text style={styles.earningsValue}>-${totals.paidToMeAmount.toFixed(2)}</Text>
+                <Text style={styles.earningsLabel}>Pumper Gross Pay:</Text>
+                <Text style={styles.earningsValue}>-${ownerPay.grossPumperPay.toFixed(2)}</Text>
               </View>
+
+              <View style={styles.earningsRow}>
+                <Text style={styles.earningsLabel}>Direct Payments to Pumpers:</Text>
+                <Text style={styles.earningsValue}>${ownerPay.directPaymentsToPumpers.toFixed(2)}</Text>
+              </View>
+
+              <View style={styles.earningsRow}>
+                <Text style={styles.earningsLabel}>Amount Owed to Pumpers:</Text>
+                <Text style={styles.earningsValue}>${ownerPay.amountOwedToPumpers.toFixed(2)}</Text>
+              </View>
+
+              {ownerPay.byPumper.map(pumper => (
+                <View key={pumper.key} style={styles.earningsRow}>
+                  <Text style={styles.earningsLabel}>{pumper.name} ({pumper.jobs} jobs):</Text>
+                  <Text style={styles.earningsValue}>${pumper.grossPay.toFixed(2)}</Text>
+                </View>
+              ))}
 
               <Divider style={styles.divider} />
 
               <LinearGradient
-                colors={[Colors.success, Colors.successLight]}
+                colors={gradients.success}
                 style={styles.totalBox}
               >
-                <Text style={styles.totalLabel}>Final Take Home:</Text>
+                <Text style={styles.totalLabel}>
+                  Take Home ({ownerTakeHomeMode === 'paid' ? 'Paid Jobs' : 'All Jobs'}):
+                </Text>
                 <Text style={styles.totalValue}>${totals.finalTakeHome.toFixed(2)}</Text>
               </LinearGradient>
+            </Card.Content>
+          </Card>
+        )}
+
+        {user?.taxEstimateEnabled === true && (user?.estimatedTaxRate || 0) > 0 && (
+          <Card style={styles.card}>
+            <Card.Content>
+              <Text variant="titleMedium" style={styles.sectionTitle}>Tax Estimate</Text>
+              <Divider style={styles.divider} />
+              <View style={styles.earningsRow}>
+                <Text style={styles.earningsLabel}>Taxable Share:</Text>
+                <Text style={styles.earningsValue}>${taxEstimate.taxableBase.toFixed(2)}</Text>
+              </View>
+              <View style={styles.earningsRow}>
+                <Text style={styles.earningsLabel}>Estimated Tax Reserve ({user?.estimatedTaxRate}%):</Text>
+                <Text style={styles.earningsValue}>-${taxEstimate.estimatedTax.toFixed(2)}</Text>
+              </View>
+              <View style={styles.earningsRow}>
+                <Text style={styles.earningsLabel}>After Tax Reserve:</Text>
+                <Text style={styles.earningsValue}>${taxEstimate.afterTax.toFixed(2)}</Text>
+              </View>
+              {taxEstimate.excludedCashBase > 0 && (
+                <View style={styles.earningsRow}>
+                  <Text style={styles.earningsLabel}>Cash Excluded:</Text>
+                  <Text style={styles.earningsValue}>${taxEstimate.excludedCashBase.toFixed(2)}</Text>
+                </View>
+              )}
+            </Card.Content>
+          </Card>
+        )}
+
+        {referenceJobs.length > 0 && (
+          <Card style={styles.card}>
+            <Card.Content>
+              <Text variant="titleMedium" style={styles.sectionTitle}>Job / PO References</Text>
+              <Divider style={styles.divider} />
+              {referenceJobs.map(job => (
+                <View key={job.id} style={styles.referenceRow}>
+                  <View style={styles.referenceInfo}>
+                    <Text style={styles.referenceClient}>
+                      {job.companyName || job.clientName || 'Job'} · {format(parseISO(job.date), 'MMM d')}
+                    </Text>
+                    {isOwner && (
+                      <Text style={styles.referenceMeta}>
+                        Pumper: {getJobPumperName(job, user?.displayName || 'Owner')}
+                      </Text>
+                    )}
+                    <Text style={styles.referenceMeta}>
+                      {[
+                        job.jobNumber ? 'Job #: ' + job.jobNumber : '',
+                        job.poNumber ? 'PO #: ' + job.poNumber : '',
+                      ].filter(Boolean).join('   ')}
+                    </Text>
+                  </View>
+                </View>
+              ))}
             </Card.Content>
           </Card>
         )}
@@ -476,7 +685,7 @@ export default function MonthlySummaryScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((Colors) => ({
   container: {
     flex: 1,
     backgroundColor: Colors.background,
@@ -631,6 +840,24 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: Colors.textInverse,
   },
+  referenceRow: {
+    paddingVertical: Spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.borderLight,
+  },
+  referenceInfo: {
+    flex: 1,
+  },
+  referenceClient: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: Colors.text,
+  },
+  referenceMeta: {
+    fontSize: 12,
+    color: Colors.textSecondary,
+    marginTop: 3,
+  },
   chart: {
     marginVertical: Spacing.sm,
     borderRadius: BorderRadius.medium,
@@ -675,4 +902,4 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.medium,
     ...Shadows.medium,
   },
-});
+}));

@@ -21,7 +21,9 @@ import {
 } from 'date-fns';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
-import { Colors, Spacing, BorderRadius, Shadows } from '../theme/colors';
+import { Spacing, BorderRadius, Shadows } from '../theme/colors';
+import { useAppTheme, makeStyles, withOpacity } from '../theme';
+import { calculateOwnerPay, calculateTaxEstimate, getEstimatedTaxForJob, getJobPumperName } from '../utils/jobMath';
 
 const screenWidth = Dimensions.get('window').width;
 
@@ -34,6 +36,8 @@ const formatAmount = (amount: number): string => {
 };
 
 export default function WeeklyDashboardScreen() {
+  const { colors: Colors, gradients } = useAppTheme();
+  const styles = useStyles();
   const navigation = useNavigation();
   const { jobs } = useJobs();
   const { user } = useAuth();
@@ -70,16 +74,24 @@ export default function WeeklyDashboardScreen() {
 
   const isOwner = user?.role === 'owner';
   const commissionRate = user?.commissionRate || 50;
+  const ownerPay = calculateOwnerPay(weekJobs);
+  const taxEstimate = calculateTaxEstimate(
+    weekJobs,
+    isOwner ? 'owner' : 'employee',
+    user?.estimatedTaxRate,
+    user?.includeCashInTaxEstimate !== false,
+    commissionRate
+  );
 
   if (!isOwner) {
     totals.commission = (totals.income * commissionRate) / 100;
 
-    // Only money explicitly marked as a Direct Payment reduces the end-of-week check.
-    // Payment method (Cash, Check, Zelle, etc.) is informational and must not deduct by itself.
+    // Take Home is the employee's full earned commission.
+    // Direct payments only reduce the amount the employer still owes.
     totals.yourPay = totals.commission - totals.paidToMeAmount;
-    totals.finalTakeHome = totals.yourPay;
+    totals.finalTakeHome = totals.commission;
   } else {
-    totals.finalTakeHome = totals.income - totals.paidToMeAmount;
+    totals.finalTakeHome = ownerPay.ownerAfterPumperPay;
   }
 
   // Get daily breakdown
@@ -111,8 +123,8 @@ export default function WeeklyDashboardScreen() {
     backgroundGradientFrom: Colors.surface,
     backgroundGradientTo: Colors.surface,
     decimalPlaces: 0,
-    color: (opacity = 1) => `rgba(255, 107, 53, ${opacity})`,
-    labelColor: (opacity = 1) => `rgba(0, 0, 0, ${opacity})`,
+    color: (opacity = 1) => withOpacity(Colors.primary, opacity),
+    labelColor: (opacity = 1) => withOpacity(Colors.text, opacity),
     style: {
       borderRadius: BorderRadius.large,
     },
@@ -151,6 +163,9 @@ export default function WeeklyDashboardScreen() {
       timeLabel: `${format(weekStart, 'MMM d')} - ${format(weekEnd, 'MMM d')}`,
       isOwner: user?.role === 'owner',
       commissionRate: user?.commissionRate || 50,
+      taxEstimateEnabled: user?.taxEstimateEnabled === true,
+      estimatedTaxRate: user?.estimatedTaxRate || 0,
+      includeCashInTaxEstimate: user?.includeCashInTaxEstimate !== false,
     });
   };
 
@@ -158,58 +173,68 @@ export default function WeeklyDashboardScreen() {
     try {
       setIsExporting(true);
 
-      // Build job rows for each day (Mon-Sat)
-      const jobRows = dailyData.slice(0, 6).map(day => {
-        const dayJobs = weekJobs.filter(job => {
-          const jobDate = parseISO(job.date);
-          return format(jobDate, 'yyyy-MM-dd') === format(days[dailyData.indexOf(day)], 'yyyy-MM-dd');
-        });
+      // Export only calendar days that actually contain jobs.
+      // This naturally includes Saturday, and Sunday only when a Sunday job exists.
+      const workedDays = dailyData
+        .map((day, index) => ({ ...day, dateValue: days[index] }))
+        .filter(day => day.jobs > 0);
 
-        if (dayJobs.length === 0) {
-          // No work day
-          return `
-            <div class="job-row" style="border-top: 2px solid #333;">
-              <div class="day-section">
-                <div class="day-name">${day.day}</div>
-                <div class="day-date">${day.date}</div>
+      const jobRows = workedDays.length > 0
+        ? workedDays.map(day => {
+            const dayJobs = weekJobs.filter(job => {
+              const jobDate = parseISO(job.date);
+              return format(jobDate, 'yyyy-MM-dd') === format(day.dateValue, 'yyyy-MM-dd');
+            });
+
+            return dayJobs.map((job, idx) => `
+              <div class="job-row" ${idx === 0 ? `style="border-top: 2px solid #333;"` : ''}>
+                ${idx === 0 ? `
+                  <div class="day-section">
+                    <div class="day-name">${day.day}</div>
+                    <div class="day-date">${day.date}</div>
+                  </div>
+                ` : `
+                  <div class="day-section"></div>
+                `}
+                
+                <div class="job-section">
+                  <div class="client-name">${job.companyName || job.clientName || 'Job'}</div>
+                  <div class="address">${job.address}</div>
+                  <div class="city">${job.city}</div>
+                  ${isOwner ? `<div class="pumper"><strong>Pumper:</strong> ${getJobPumperName(job, user?.displayName || 'Owner')}</div>` : ''}
+                  ${job.jobNumber || job.poNumber ? `
+                    <div class="job-refs">
+                      ${job.jobNumber ? `<span><strong>Job #:</strong> ${job.jobNumber}</span>` : ''}
+                      ${job.poNumber ? `<span><strong>PO #:</strong> ${job.poNumber}</span>` : ''}
+                    </div>
+                  ` : ''}
+                  <div class="yards">${job.yards} yards</div>
+                  ${user?.taxEstimateEnabled === true && (user?.estimatedTaxRate || 0) > 0 ? `
+                    <div class="pumper"><strong>Est. tax:</strong> ${
+                      job.paymentMethod === 'Cash' && user?.includeCashInTaxEstimate === false
+                        ? 'Cash excluded'
+                        : '$' + getEstimatedTaxForJob(
+                            job,
+                            isOwner ? 'owner' : 'employee',
+                            user?.estimatedTaxRate,
+                            user?.includeCashInTaxEstimate !== false,
+                            commissionRate
+                          ).toFixed(2)
+                    }</div>
+                  ` : ''}
+                </div>
+                
+                <div class="payment-section">
+                  <div class="payment-method">${job.paymentMethod}</div>
+                  <div class="divider-line">________________</div>
+                  <div class="amount">$${job.amount.toFixed(0)}</div>
+                </div>
               </div>
-              
-              <div class="job-section">
-                <div class="no-work">No Work</div>
-              </div>
-              
-              <div class="payment-section">
-              </div>
-            </div>
+            `).join('');
+          }).join('')
+        : `
+            <div class="no-work">No jobs this week.</div>
           `;
-        }
-
-        return dayJobs.map((job, idx) => `
-          <div class="job-row" ${idx === 0 ? `style="border-top: 2px solid #333;"` : ''}>
-            ${idx === 0 ? `
-              <div class="day-section">
-                <div class="day-name">${day.day}</div>
-                <div class="day-date">${day.date}</div>
-              </div>
-            ` : `
-              <div class="day-section"></div>
-            `}
-            
-            <div class="job-section">
-              <div class="client-name">${job.companyName || job.clientName || 'Job'}</div>
-              <div class="address">${job.address}</div>
-              <div class="city">${job.city}</div>
-              <div class="yards">${job.yards} yards</div>
-            </div>
-            
-            <div class="payment-section">
-              <div class="payment-method">${job.paymentMethod}</div>
-              <div class="divider-line">________________</div>
-              <div class="amount">$${job.amount.toFixed(0)}</div>
-            </div>
-          </div>
-        `).join('');
-      }).join('');
 
       const htmlContent = `
         <!DOCTYPE html>
@@ -272,6 +297,27 @@ export default function WeeklyDashboardScreen() {
             .city {
               font-size: 16px;
               margin-bottom: 8px;
+              color: #333;
+            }
+            .job-refs {
+              display: flex;
+              flex-wrap: wrap;
+              gap: 14px;
+              margin: 6px 0 8px;
+              font-size: 14px;
+              color: #333;
+            }
+            .pumper {
+              font-size: 14px;
+              color: #333;
+              margin: 5px 0;
+            }
+            .job-refs {
+              display: flex;
+              flex-wrap: wrap;
+              gap: 14px;
+              margin: 6px 0 8px;
+              font-size: 14px;
               color: #333;
             }
             .yards {
@@ -365,14 +411,38 @@ export default function WeeklyDashboardScreen() {
               </div>
             ` : `
               <div class="footer-row">
-                <div class="footer-label">- Paid to Me</div>
-                <div class="footer-value">-$${totals.paidToMeAmount.toFixed(0)}</div>
+                <div class="footer-label">Pumper Gross Pay</div>
+                <div class="footer-value">-$${ownerPay.grossPumperPay.toFixed(0)}</div>
+              </div>
+              <div class="footer-row">
+                <div class="footer-label">Direct Payments to Pumpers</div>
+                <div class="footer-value">$${ownerPay.directPaymentsToPumpers.toFixed(0)}</div>
+              </div>
+              <div class="footer-row">
+                <div class="footer-label">Amount Owed to Pumpers</div>
+                <div class="footer-value">$${ownerPay.amountOwedToPumpers.toFixed(0)}</div>
               </div>
               <div class="footer-row footer-total">
-                <div class="footer-label">Final Take Home</div>
-                <div class="footer-value">$${totals.finalTakeHome.toFixed(0)}</div>
+                <div class="footer-label">Take Home</div>
+                <div class="footer-value">$${ownerPay.ownerAfterPumperPay.toFixed(0)}</div>
               </div>
             `}
+            ${user?.taxEstimateEnabled === true && (user?.estimatedTaxRate || 0) > 0 ? `
+              <div class="footer-row">
+                <div class="footer-label">Estimated Tax Reserve (${user?.estimatedTaxRate}%)</div>
+                <div class="footer-value">-$${taxEstimate.estimatedTax.toFixed(0)}</div>
+              </div>
+              <div class="footer-row">
+                <div class="footer-label">Taxable Share After Reserve</div>
+                <div class="footer-value">$${taxEstimate.afterTax.toFixed(0)}</div>
+              </div>
+              ${taxEstimate.excludedCashBase > 0 ? `
+                <div class="footer-row">
+                  <div class="footer-label">Cash Excluded From Estimate</div>
+                  <div class="footer-value">$${taxEstimate.excludedCashBase.toFixed(0)}</div>
+                </div>
+              ` : ''}
+            ` : ''}
           </div>
           
           <div class="timestamp">
@@ -408,7 +478,7 @@ export default function WeeklyDashboardScreen() {
   return (
     <ScrollView style={styles.container}>
       <LinearGradient
-        colors={[Colors.primary, Colors.primaryDark]}
+        colors={gradients.primary}
         style={styles.header}
       >
         <View style={styles.headerContent}>
@@ -538,10 +608,10 @@ export default function WeeklyDashboardScreen() {
               <Divider style={styles.divider} />
 
               <LinearGradient
-                colors={[Colors.success, Colors.successLight]}
+                colors={gradients.success}
                 style={styles.totalBox}
               >
-                <Text style={styles.totalLabel}>Your Pay:</Text>
+                <Text style={styles.totalLabel}>Amount Owed:</Text>
                 <Text style={styles.totalValue}>${totals.yourPay.toFixed(2)}</Text>
               </LinearGradient>
             </Card.Content>
@@ -552,7 +622,7 @@ export default function WeeklyDashboardScreen() {
         {isOwner && (
           <Card style={styles.card}>
             <Card.Content>
-              <Text variant="titleMedium" style={styles.sectionTitle}>💼 Owner Earnings</Text>
+              <Text variant="titleMedium" style={styles.sectionTitle}>💼 Earnings</Text>
               <Divider style={styles.divider} />
 
               <View style={styles.earningsRow}>
@@ -561,19 +631,63 @@ export default function WeeklyDashboardScreen() {
               </View>
 
               <View style={styles.earningsRow}>
-                <Text style={styles.earningsLabel}>- Paid to Me:</Text>
-                <Text style={styles.earningsValue}>-${totals.paidToMeAmount.toFixed(2)}</Text>
+                <Text style={styles.earningsLabel}>Pumper Gross Pay:</Text>
+                <Text style={styles.earningsValue}>-${ownerPay.grossPumperPay.toFixed(2)}</Text>
               </View>
+
+              <View style={styles.earningsRow}>
+                <Text style={styles.earningsLabel}>Direct Payments to Pumpers:</Text>
+                <Text style={styles.earningsValue}>${ownerPay.directPaymentsToPumpers.toFixed(2)}</Text>
+              </View>
+
+              <View style={styles.earningsRow}>
+                <Text style={styles.earningsLabel}>Amount Owed to Pumpers:</Text>
+                <Text style={styles.earningsValue}>${ownerPay.amountOwedToPumpers.toFixed(2)}</Text>
+              </View>
+
+              {ownerPay.byPumper.map(pumper => (
+                <View key={pumper.key} style={styles.earningsRow}>
+                  <Text style={styles.earningsLabel}>{pumper.name} ({pumper.jobs} jobs):</Text>
+                  <Text style={styles.earningsValue}>${pumper.grossPay.toFixed(2)}</Text>
+                </View>
+              ))}
 
               <Divider style={styles.divider} />
 
               <LinearGradient
-                colors={[Colors.success, Colors.successLight]}
+                colors={gradients.success}
                 style={styles.totalBox}
               >
-                <Text style={styles.totalLabel}>Final Take Home:</Text>
+                <Text style={styles.totalLabel}>Take Home:</Text>
                 <Text style={styles.totalValue}>${totals.finalTakeHome.toFixed(2)}</Text>
               </LinearGradient>
+            </Card.Content>
+          </Card>
+        )}
+
+        {user?.taxEstimateEnabled === true && (user?.estimatedTaxRate || 0) > 0 && (
+          <Card style={styles.card}>
+            <Card.Content>
+              <Text variant="titleMedium" style={styles.sectionTitle}>Tax Estimate</Text>
+              <Divider style={styles.divider} />
+              <View style={styles.earningsRow}>
+                <Text style={styles.earningsLabel}>Taxable Share:</Text>
+                <Text style={styles.earningsValue}>${taxEstimate.taxableBase.toFixed(2)}</Text>
+              </View>
+              <View style={styles.earningsRow}>
+                <Text style={styles.earningsLabel}>Estimated Tax Reserve ({user?.estimatedTaxRate}%):</Text>
+                <Text style={styles.earningsValue}>-${taxEstimate.estimatedTax.toFixed(2)}</Text>
+              </View>
+              <View style={styles.earningsRow}>
+                <Text style={styles.earningsLabel}>After Tax Reserve:</Text>
+                <Text style={styles.earningsValue}>${taxEstimate.afterTax.toFixed(2)}</Text>
+              </View>
+              {taxEstimate.excludedCashBase > 0 && (
+                <View style={styles.earningsRow}>
+                  <Text style={styles.earningsLabel}>Cash Excluded:</Text>
+                  <Text style={styles.earningsValue}>${taxEstimate.excludedCashBase.toFixed(2)}</Text>
+                </View>
+              )}
             </Card.Content>
           </Card>
         )}
@@ -652,7 +766,7 @@ export default function WeeklyDashboardScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((Colors) => ({
   container: {
     flex: 1,
     backgroundColor: Colors.background,
@@ -877,4 +991,4 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.medium,
     ...Shadows.medium,
   },
-});
+}));

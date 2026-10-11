@@ -19,7 +19,9 @@ import { Job } from '../types';
 import { format, startOfWeek, endOfWeek, isWithinInterval, parseISO } from 'date-fns';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
-import { Colors, Spacing, BorderRadius, Shadows } from '../theme/colors';
+import { Spacing, BorderRadius, Shadows } from '../theme/colors';
+import { useAppTheme, makeStyles, withOpacity } from '../theme';
+import { calculateOwnerPay, calculateTaxEstimate, getEstimatedTaxForJob, getJobPumperName } from '../utils/jobMath';
 
 const screenWidth = Dimensions.get('window').width;
 
@@ -33,10 +35,16 @@ interface ColumnConfig {
   amount: boolean;
   status: boolean;
   checkNumber: boolean;
+  jobNumber: boolean;
+  poNumber: boolean;
+  pumper: boolean;
+  estimatedTax: boolean;
   notes: boolean;
 }
 
 export default function ReportsScreen() {
+  const { colors: Colors, gradients } = useAppTheme();
+  const styles = useStyles();
   const { jobs } = useJobs();
   const { user } = useAuth();
 
@@ -62,6 +70,10 @@ export default function ReportsScreen() {
     amount: true,
     status: true,
     checkNumber: false,
+    jobNumber: true,
+    poNumber: true,
+    pumper: true,
+    estimatedTax: true,
     notes: false,
   });
 
@@ -117,6 +129,17 @@ export default function ReportsScreen() {
     setFilteredJobs(filtered);
   }, [jobs, dateRange, paymentStatus, customStartDate, customEndDate]);
 
+  const hasJobNumbers = filteredJobs.some(job => Boolean(job.jobNumber));
+  const hasPONumbers = filteredJobs.some(job => Boolean(job.poNumber));
+  const ownerPay = calculateOwnerPay(filteredJobs);
+  const taxEstimate = calculateTaxEstimate(
+    filteredJobs,
+    user?.role === 'owner' ? 'owner' : 'employee',
+    user?.estimatedTaxRate,
+    user?.includeCashInTaxEstimate !== false,
+    user?.commissionRate || 50
+  );
+
   const stats = {
     totalJobs: filteredJobs.length,
     totalYards: filteredJobs.reduce((sum, job) => sum + (job.yards || 0), 0),
@@ -133,19 +156,12 @@ export default function ReportsScreen() {
     chargeCount: filteredJobs.filter(j => j.paymentMethod === 'Charge').length,
     
     paidToMe: filteredJobs.filter(j => j.isPaidToMe).reduce((sum, job) => sum + (job.amount || 0), 0),
-    employeeJobs: filteredJobs.filter(j => (j as any).isEmployeeJob).reduce((sum, job) => sum + (job.amount || 0), 0),
   };
 
-  const calculateNetEarnings = () => {
-    let net = stats.totalCharged;
-    if (user?.role === 'owner') {
-      net -= stats.employeeJobs;
-    }
-    net -= stats.paidToMe;
-    return net;
-  };
-
-  const netEarnings = calculateNetEarnings();
+  const netEarnings =
+    user?.role === 'owner'
+      ? ownerPay.ownerAfterPumperPay
+      : stats.totalCharged - stats.paidToMe;
 
   const pieChartData = [
     {
@@ -190,6 +206,10 @@ export default function ReportsScreen() {
       if (columns.amount) tableHeaders += '<th>Amount</th>';
       if (columns.status) tableHeaders += '<th>Status</th>';
       if (columns.checkNumber) tableHeaders += '<th>Check #</th>';
+      if (columns.jobNumber && hasJobNumbers) tableHeaders += '<th>Job #</th>';
+      if (columns.poNumber && hasPONumbers) tableHeaders += '<th>PO #</th>';
+      if (columns.pumper && user?.role === 'owner') tableHeaders += '<th>Pumper</th>';
+      if (columns.estimatedTax && user?.taxEstimateEnabled === true && (user?.estimatedTaxRate || 0) > 0) tableHeaders += '<th>Est. Tax</th>';
       if (columns.notes) tableHeaders += '<th>Notes</th>';
 
       // Build table rows based on selected columns
@@ -207,11 +227,41 @@ export default function ReportsScreen() {
         if (columns.amount) row += `<td>$${job.amount.toFixed(2)}</td>`;
         if (columns.status) row += `<td class="${job.isPaid ? 'paid' : 'unpaid'}">${job.isPaid ? '✓ Paid' : '✗ Unpaid'}</td>`;
         if (columns.checkNumber) row += `<td>${job.checkNumber || '—'}</td>`;
+        if (columns.jobNumber && hasJobNumbers) row += `<td>${job.jobNumber || ''}</td>`;
+        if (columns.poNumber && hasPONumbers) row += `<td>${job.poNumber || ''}</td>`;
+        if (columns.pumper && user?.role === 'owner') {
+          row += `<td>${getJobPumperName(job, user?.displayName || 'Owner')}</td>`;
+        }
+        if (columns.estimatedTax && user?.taxEstimateEnabled === true && (user?.estimatedTaxRate || 0) > 0) {
+          const cashExcluded =
+            job.paymentMethod === 'Cash' &&
+            user?.includeCashInTaxEstimate === false;
+          row += `<td>${cashExcluded
+            ? 'Cash excluded'
+            : '$' + getEstimatedTaxForJob(
+                job,
+                user?.role === 'owner' ? 'owner' : 'employee',
+                user?.estimatedTaxRate,
+                user?.includeCashInTaxEstimate !== false,
+                user?.commissionRate || 50
+              ).toFixed(2)}</td>`;
+        }
         if (columns.notes) row += `<td>${job.notes || '—'}</td>`;
         row += '</tr>';
         return row;
       }).join('');
       
+      const pumperRows = ownerPay.byPumper.map(pumper => `
+        <tr>
+          <td>${pumper.name}</td>
+          <td>${pumper.jobs}</td>
+          <td>$${pumper.revenue.toFixed(2)}</td>
+          <td>$${pumper.grossPay.toFixed(2)}</td>
+          <td>$${pumper.directPayments.toFixed(2)}</td>
+          <td>$${pumper.amountOwed.toFixed(2)}</td>
+        </tr>
+      `).join('');
+
       const htmlContent = `
         <!DOCTYPE html>
         <html>
@@ -323,15 +373,37 @@ export default function ReportsScreen() {
           </div>
           
           ${user?.role === 'owner' ? `
-            <h2>💼 Your Net Earnings</h2>
+            <h2>💼 Owner Earnings</h2>
             <div class="breakdown">
               <p>Total Charged: $${stats.totalCharged.toFixed(2)}</p>
-              <p>- Employee Jobs: -$${stats.employeeJobs.toFixed(2)}</p>
-              <p>- Paid to Me: -$${stats.paidToMe.toFixed(2)}</p>
-              <div class="total">You're Owed: $${netEarnings.toFixed(2)}</div>
+              <p>Pumper Gross Pay: -$${ownerPay.grossPumperPay.toFixed(2)}</p>
+              <p>Direct Payments to Pumpers: $${ownerPay.directPaymentsToPumpers.toFixed(2)}</p>
+              <p>Still Owed to Pumpers: $${ownerPay.amountOwedToPumpers.toFixed(2)}</p>
+              <div class="total">Owner After Pumper Pay: $${netEarnings.toFixed(2)}</div>
             </div>
+            ${pumperRows ? `
+              <h2>Pumper Breakdown</h2>
+              <table>
+                <thead>
+                  <tr><th>Pumper</th><th>Jobs</th><th>Revenue</th><th>Gross Pay</th><th>Direct Payments</th><th>Still Owed</th></tr>
+                </thead>
+                <tbody>${pumperRows}</tbody>
+              </table>
+            ` : ''}
           ` : ''}
           
+          ${user?.taxEstimateEnabled === true && (user?.estimatedTaxRate || 0) > 0 ? `
+            <h2>Tax Estimate</h2>
+            <div class="breakdown">
+              <p>Taxable Share: $${taxEstimate.taxableBase.toFixed(2)}</p>
+              <p>Estimated Tax Reserve (${user?.estimatedTaxRate}%): $${taxEstimate.estimatedTax.toFixed(2)}</p>
+              <p>After Tax Reserve: $${taxEstimate.afterTax.toFixed(2)}</p>
+              ${taxEstimate.excludedCashBase > 0 ? `
+                <p>Cash Excluded From Estimate: $${taxEstimate.excludedCashBase.toFixed(2)}</p>
+              ` : ''}
+            </div>
+          ` : ''}
+
           <h2>📋 Job Details</h2>
           <table>
             <thead>
@@ -388,7 +460,7 @@ export default function ReportsScreen() {
   return (
     <ScrollView style={styles.container}>
       <LinearGradient
-        colors={[Colors.info, Colors.infoLight]}
+        colors={gradients.info}
         style={styles.header}
       >
         <Text style={styles.headerTitle}>📊 Reports & Analytics</Text>
@@ -596,6 +668,46 @@ export default function ReportsScreen() {
 
               <View style={styles.checkboxRow}>
                 <Checkbox
+                  status={columns.jobNumber ? 'checked' : 'unchecked'}
+                  onPress={() => toggleColumn('jobNumber')}
+                  color={Colors.primary}
+                />
+                <Text style={styles.checkboxLabel}>Job Number</Text>
+              </View>
+
+              <View style={styles.checkboxRow}>
+                <Checkbox
+                  status={columns.poNumber ? 'checked' : 'unchecked'}
+                  onPress={() => toggleColumn('poNumber')}
+                  color={Colors.primary}
+                />
+                <Text style={styles.checkboxLabel}>PO Number</Text>
+              </View>
+
+              {user?.role === 'owner' && (
+                <View style={styles.checkboxRow}>
+                  <Checkbox
+                    status={columns.pumper ? 'checked' : 'unchecked'}
+                    onPress={() => toggleColumn('pumper')}
+                    color={Colors.primary}
+                  />
+                  <Text style={styles.checkboxLabel}>Pumper</Text>
+                </View>
+              )}
+
+              {user?.taxEstimateEnabled === true && (user?.estimatedTaxRate || 0) > 0 && (
+                <View style={styles.checkboxRow}>
+                  <Checkbox
+                    status={columns.estimatedTax ? 'checked' : 'unchecked'}
+                    onPress={() => toggleColumn('estimatedTax')}
+                    color={Colors.primary}
+                  />
+                  <Text style={styles.checkboxLabel}>Estimated Tax</Text>
+                </View>
+              )}
+
+              <View style={styles.checkboxRow}>
+                <Checkbox
                   status={columns.notes ? 'checked' : 'unchecked'}
                   onPress={() => toggleColumn('notes')}
                   color={Colors.primary}
@@ -665,6 +777,33 @@ export default function ReportsScreen() {
           </Card.Content>
         </Card>
 
+        {user?.taxEstimateEnabled === true && (user?.estimatedTaxRate || 0) > 0 && (
+          <Card style={styles.card}>
+            <Card.Content>
+              <Text variant="titleMedium" style={styles.sectionTitle}>Tax Estimate</Text>
+              <Divider style={styles.divider} />
+              <View style={styles.breakdownRow}>
+                <Text style={styles.breakdownLabel}>Taxable Share:</Text>
+                <Text style={styles.breakdownValue}>${taxEstimate.taxableBase.toFixed(2)}</Text>
+              </View>
+              <View style={styles.breakdownRow}>
+                <Text style={styles.breakdownLabel}>Estimated Tax Reserve ({user?.estimatedTaxRate}%):</Text>
+                <Text style={styles.breakdownValue}>-${taxEstimate.estimatedTax.toFixed(2)}</Text>
+              </View>
+              <View style={styles.breakdownRow}>
+                <Text style={styles.breakdownLabel}>After Tax Reserve:</Text>
+                <Text style={styles.breakdownValue}>${taxEstimate.afterTax.toFixed(2)}</Text>
+              </View>
+              {taxEstimate.excludedCashBase > 0 && (
+                <View style={styles.breakdownRow}>
+                  <Text style={styles.breakdownLabel}>Cash Excluded:</Text>
+                  <Text style={styles.breakdownValue}>${taxEstimate.excludedCashBase.toFixed(2)}</Text>
+                </View>
+              )}
+            </Card.Content>
+          </Card>
+        )}
+
         {/* Pie Chart */}
         {showGraphs && pieChartData.length > 0 && (
           <Card style={styles.card}>
@@ -675,7 +814,7 @@ export default function ReportsScreen() {
                 width={screenWidth - 60}
                 height={220}
                 chartConfig={{
-                  color: (opacity = 1) => `rgba(0, 0, 0, ${opacity})`,
+                  color: (opacity = 1) => withOpacity(Colors.text, opacity),
                 }}
                 accessor="amount"
                 backgroundColor="transparent"
@@ -699,22 +838,34 @@ export default function ReportsScreen() {
               </View>
               
               <View style={styles.earningsRow}>
-                <Text style={styles.earningsLabel}>- Employee Jobs:</Text>
-                <Text style={styles.earningsValue}>-${stats.employeeJobs.toFixed(2)}</Text>
+                <Text style={styles.earningsLabel}>Pumper Gross Pay:</Text>
+                <Text style={styles.earningsValue}>-${ownerPay.grossPumperPay.toFixed(2)}</Text>
               </View>
               
               <View style={styles.earningsRow}>
-                <Text style={styles.earningsLabel}>- Paid to Me:</Text>
-                <Text style={styles.earningsValue}>-${stats.paidToMe.toFixed(2)}</Text>
+                <Text style={styles.earningsLabel}>Direct Payments to Pumpers:</Text>
+                <Text style={styles.earningsValue}>${ownerPay.directPaymentsToPumpers.toFixed(2)}</Text>
               </View>
+
+              <View style={styles.earningsRow}>
+                <Text style={styles.earningsLabel}>Still Owed to Pumpers:</Text>
+                <Text style={styles.earningsValue}>${ownerPay.amountOwedToPumpers.toFixed(2)}</Text>
+              </View>
+
+              {ownerPay.byPumper.map(pumper => (
+                <View key={pumper.key} style={styles.earningsRow}>
+                  <Text style={styles.earningsLabel}>{pumper.name} ({pumper.jobs} jobs):</Text>
+                  <Text style={styles.earningsValue}>${pumper.grossPay.toFixed(2)}</Text>
+                </View>
+              ))}
               
               <Divider style={styles.divider} />
               
               <LinearGradient
-                colors={[Colors.success, Colors.successLight]}
+                colors={gradients.success}
                 style={styles.totalBox}
               >
-                <Text style={styles.totalLabel}>You're Owed:</Text>
+                <Text style={styles.totalLabel}>Owner After Pumper Pay:</Text>
                 <Text style={styles.totalValue}>${netEarnings.toFixed(2)}</Text>
               </LinearGradient>
             </Card.Content>
@@ -738,7 +889,7 @@ export default function ReportsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((Colors) => ({
   container: {
     flex: 1,
     backgroundColor: Colors.background,
@@ -943,4 +1094,4 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.medium,
     ...Shadows.medium,
   },
-});
+}));

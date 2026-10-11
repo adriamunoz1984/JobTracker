@@ -4,8 +4,11 @@ import { Card, Title, Paragraph, Text, Button, IconButton, Menu, Divider, Badge,
 import { format, parseISO } from 'date-fns';
 import { useNavigation } from '@react-navigation/native';
 import { useJobs } from '../context/JobsContext';
-import { Colors, Spacing, BorderRadius, Shadows, Typography } from '../theme/colors';
+import { useAuth } from '../context/AuthContext';
+import { getEstimatedTaxForJob, getJobPumperName } from '../utils/jobMath';
+import { Spacing, BorderRadius, Shadows, Typography } from '../theme/colors';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useAppTheme, makeStyles } from '../theme';
 
 interface Job {
   id: string;
@@ -33,8 +36,11 @@ interface JobCardProps {
 }
 
 const JobCard: React.FC<JobCardProps> = ({ job, onDelete, onTogglePaid }) => {
+  const { colors: Colors } = useAppTheme();
+  const styles = useStyles();
   const navigation = useNavigation<any>();
   const { updateJob } = useJobs();
+  const { user } = useAuth();
   const [expanded, setExpanded] = useState(false);
   const [menuVisible, setMenuVisible] = useState(false);
 
@@ -87,6 +93,38 @@ const JobCard: React.FC<JobCardProps> = ({ job, onDelete, onTogglePaid }) => {
 
   const showSequenceBadge = job.totalJobsOnDate && job.totalJobsOnDate > 1;
   const shouldIndent = showSequenceBadge && job.sequenceNumber && job.sequenceNumber > 1;
+  const pumperLabel =
+    user?.role === 'owner'
+      ? job.isEmployeeJob
+        ? `Pumper: ${getJobPumperName(job as any, 'Employee')}`
+        : 'My Job'
+      : null;
+  const taxEnabled = user?.taxEstimateEnabled === true;
+  const taxRate = user?.estimatedTaxRate || 0;
+  const includeCashInTaxEstimate = user?.includeCashInTaxEstimate !== false;
+  const estimatedTax =
+    user && taxEnabled && taxRate > 0
+      ? getEstimatedTaxForJob(
+          job as any,
+          user.role,
+          taxRate,
+          includeCashInTaxEstimate,
+          user.commissionRate || 50
+        )
+      : 0;
+  const cashExcludedFromTax =
+    taxEnabled && taxRate > 0 &&
+    job.paymentMethod === 'Cash' &&
+    !includeCashInTaxEstimate;
+
+  const canDeleteJob =
+    user?.role === 'owner' ||
+    !(job as any).isEmployeeJob ||
+    (
+      user?.role === 'employee' &&
+      (job as any).createdByUid === user.uid &&
+      (job as any).entrySource === 'employee-entry'
+    );
   
   return (
     <Card 
@@ -113,14 +151,17 @@ const JobCard: React.FC<JobCardProps> = ({ job, onDelete, onTogglePaid }) => {
             </View>
           )}
               
-              {(job as any).isEmployeeJob && (job as any).employeeName && (
-                <Chip 
-                  icon="account-hard-hat" 
+              {pumperLabel && (
+                <Chip
+                  icon={job.isEmployeeJob ? 'account-hard-hat' : 'account'}
                   compact
-                  style={styles.employeeBadge}
+                  style={[
+                    styles.employeeBadge,
+                    !job.isEmployeeJob && styles.ownerJobBadge,
+                  ]}
                   textStyle={styles.employeeBadgeText}
                 >
-                  {(job as any).employeeName}
+                  {pumperLabel}
                 </Chip>
               )}
             </View>
@@ -161,13 +202,17 @@ const JobCard: React.FC<JobCardProps> = ({ job, onDelete, onTogglePaid }) => {
                 title={job.isPaid ? "Mark as Unpaid" : "Mark as Paid"} 
                 leadingIcon={job.isPaid ? "close-circle" : "check-circle"}
               />
-              <Divider />
-              <Menu.Item 
-                onPress={handleDelete} 
-                title="Delete" 
-                leadingIcon="delete"
-                titleStyle={{ color: Colors.error }}
-              />
+              {canDeleteJob && (
+                <>
+                  <Divider />
+                  <Menu.Item
+                    onPress={handleDelete}
+                    title="Delete"
+                    leadingIcon="delete"
+                    titleStyle={{ color: Colors.error }}
+                  />
+                </>
+              )}
             </Menu>
           </View>
         </View>
@@ -219,6 +264,27 @@ const JobCard: React.FC<JobCardProps> = ({ job, onDelete, onTogglePaid }) => {
               )}
           </View>
           
+          {(job as any).jobNumber || (job as any).poNumber ? (
+            <View style={styles.referenceRow}>
+              {(job as any).jobNumber ? (
+                <Text style={styles.referenceText}>Job #: {(job as any).jobNumber}</Text>
+              ) : null}
+              {(job as any).poNumber ? (
+                <Text style={styles.referenceText}>PO #: {(job as any).poNumber}</Text>
+              ) : null}
+            </View>
+          ) : null}
+
+          {taxEnabled && taxRate > 0 && (
+            <View style={styles.taxRow}>
+              <Text style={styles.taxText}>
+                {cashExcludedFromTax
+                  ? 'Tax estimate: cash excluded'
+                  : `Est. tax reserve: $${estimatedTax.toFixed(2)}`}
+              </Text>
+            </View>
+          )}
+
           {/* Notes */}
           {expanded && job.notes && (
             <View style={styles.notesContainer}>
@@ -259,7 +325,7 @@ const JobCard: React.FC<JobCardProps> = ({ job, onDelete, onTogglePaid }) => {
   );
 };
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((Colors) => ({
   card: {
     marginHorizontal: Spacing.md,
     marginVertical: Spacing.sm,
@@ -294,9 +360,9 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
   },
   date: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: Colors.textSecondary,
+    fontSize: 16,
+    fontWeight: '700',
+    color: Colors.text,
     marginBottom: Spacing.xs,
   },
   badgeRow: {
@@ -321,12 +387,19 @@ sequenceBadgeText: {
   textAlign: 'center',
 },
   employeeBadge: {
-    height: 24,
-    backgroundColor: Colors.infoBg,
+    minHeight: 28,
+    backgroundColor: Colors.primaryBg,
+    borderWidth: 1,
+    borderColor: Colors.primary,
+  },
+  ownerJobBadge: {
+    backgroundColor: Colors.surfaceDark,
+    borderColor: Colors.border,
   },
   employeeBadgeText: {
-    fontSize: 11,
-    color: Colors.info,
+    fontSize: 12,
+    fontWeight: '700',
+    color: Colors.primary,
   },
   amount: {
     fontSize: 24,
@@ -393,6 +466,25 @@ sequenceBadgeText: {
     fontWeight: '600',
     color: Colors.text,
   },
+  referenceRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: Spacing.md,
+    marginTop: Spacing.sm,
+  },
+  referenceText: {
+    fontSize: 12,
+    color: Colors.textSecondary,
+    fontWeight: '600',
+  },
+  taxRow: {
+    marginTop: Spacing.sm,
+  },
+  taxText: {
+    fontSize: 12,
+    color: Colors.textSecondary,
+    fontWeight: '600',
+  },
   paidToMeChip: {
     height: 28,
     backgroundColor: Colors.infoBg,
@@ -440,6 +532,6 @@ directPaymentText: {
   color: Colors.info,
   fontWeight: '600',
 },
-});
+}));
 
 export default JobCard;

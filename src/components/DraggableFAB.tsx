@@ -3,11 +3,22 @@ import React, { useRef, useEffect } from 'react';
 import { Animated, PanResponder, StyleSheet, Vibration, Dimensions } from 'react-native';
 import { FAB } from 'react-native-paper';
 import { useNavigation } from '@react-navigation/native';
+import { useAppTheme, makeStyles } from '../theme';
 
 const { width, height } = Dimensions.get('window');
 
-const DraggableFAB: React.FC = () => {
-  const navigation = useNavigation();
+interface DraggableFABProps {
+  variant?: 'default' | 'invoice';
+}
+
+const DraggableFAB: React.FC<DraggableFABProps> = ({ variant = 'default' }) => {
+  const styles = useStyles();
+  const { colors: Colors } = useAppTheme();
+  const navigation = useNavigation<any>();
+  const isInvoiceVariant = variant === 'invoice';
+  // PanResponder is created only once. Keep the active tab's action current.
+  const activeVariantRef = useRef(variant);
+  activeVariantRef.current = variant;
   
   // Initial position at bottom center of screen
   const position = useRef(new Animated.ValueXY({
@@ -72,7 +83,7 @@ const DraggableFAB: React.FC = () => {
         
         // If we're not dragging, it was a tap
         if (!isDragging.current) {
-          navigation.navigate('AddJob' as never);
+          navigation.navigate(activeVariantRef.current === 'invoice' ? 'Invoice' : 'AddJob');
           return;
         }
         
@@ -128,21 +139,38 @@ const DraggableFAB: React.FC = () => {
       {...panResponder.panHandlers}
     >
       <FAB
-        style={styles.fab}
-        icon="plus"
+        style={[
+          styles.fab,
+          isInvoiceVariant && styles.invoiceFab,
+        ]}
+        icon={isInvoiceVariant ? 'file-plus' : 'plus'}
+        color={isInvoiceVariant ? Colors.primary : Colors.textInverse}
+        customSize={52}
+        accessibilityLabel={isInvoiceVariant ? 'Create Invoice' : 'Add Job'}
       />
     </Animated.View>
   );
 };
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((Colors) => ({
   fabContainer: {
     position: 'absolute',
     zIndex: 999,
   },
   fab: {
-    backgroundColor: '#2196F3',
+    backgroundColor: Colors.primary,
+    borderRadius: 26,
+    elevation: 6,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.24,
+    shadowRadius: 5,
   },
-});
+  invoiceFab: {
+    backgroundColor: Colors.surface,
+    borderWidth: 2,
+    borderColor: Colors.primary,
+  },
+}));
 
 export default DraggableFAB;

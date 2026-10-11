@@ -1,6 +1,11 @@
 <resources>
-  <color name="splashscreen_background">#2196F3</color>
+  <!-- Summer Camp Massacre — light (sunny cabin canvas) -->
+  <color name="splashscreen_background">#1F3324</color>
   <color name="iconBackground">#FFFFFF</color>
-  <color name="colorPrimary">#023c69</color>
-  <color name="colorPrimaryDark">#2196F3</color>
+  <color name="colorPrimary">#B8461A</color>
+  <color name="colorPrimaryDark">#1F3324</color>
+  <color name="statusBar">#1F3324</color>
+  <color name="appBackground">#F2EBDD</color>
+  <color name="appText">#1F3324</color>
+  <color name="appHint">#6E786B</color>
 </resources>

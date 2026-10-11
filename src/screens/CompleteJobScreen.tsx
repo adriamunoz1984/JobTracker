@@ -12,6 +12,7 @@ import {
   getDoc,
   updateDoc
 } from 'firebase/firestore';
+import { makeStyles } from '../theme';
 
 const db = getFirestore();
 
@@ -22,6 +23,8 @@ interface OwnerJob {
   address: string;
   city: string;
   notes?: string;
+  jobNumber?: string;
+  poNumber?: string;
   ownerId: string;
   assignedTo: string;
   status: string;
@@ -33,6 +36,7 @@ interface OwnerJob {
 }
 
 export default function CompleteJobScreen() {
+  const styles = useStyles();
   const navigation = useNavigation();
   const route = useRoute();
   const { user } = useAuth();
@@ -99,11 +103,17 @@ export default function CompleteJobScreen() {
         amount: parseFloat(amount),
         paymentMethod,
         isPaidToMe,
-        isPaid: false, // Add this - job starts as unpaid
+        // A direct payment means the employee actually received the money.
+        // Keep this consistent with normal JobTracker job entry.
+        isPaid: isPaidToMe,
         status: 'completed',
         completedAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
-        jobType: 'employee', // Add this - marks it as employee job
+
+        // Do not rewrite jobType here. Assigned jobs are created as
+        // jobType: 'owner' and Firestore intentionally protects ownership /
+        // assignment fields from employee edits. Reporting already derives
+        // employee attribution from ownerJobs + employeeId/status.
       };
 
       if (paymentMethod === 'Check' && checkNumber.trim()) {
@@ -166,6 +176,20 @@ export default function CompleteJobScreen() {
 
           <Text style={styles.label}>Location:</Text>
           <Text style={styles.value}>{job.address}, {job.city}</Text>
+
+          {job.jobNumber && (
+            <>
+              <Text style={styles.label}>Job #:</Text>
+              <Text style={styles.value}>{job.jobNumber}</Text>
+            </>
+          )}
+
+          {job.poNumber && (
+            <>
+              <Text style={styles.label}>PO #:</Text>
+              <Text style={styles.value}>{job.poNumber}</Text>
+            </>
+          )}
         </View>
 
         <Divider style={styles.divider} />
@@ -253,23 +277,23 @@ export default function CompleteJobScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((Colors) => ({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: Colors.background,
   },
   inputContainer: {
     padding: 16,
   },
   subtitle: {
-    color: '#666',
+    color: Colors.textSecondary,
     marginBottom: 16,
   },
   divider: {
     marginVertical: 16,
   },
   infoSection: {
-    backgroundColor: '#E3F2FD',
+    backgroundColor: Colors.primaryBg,
     padding: 12,
     borderRadius: 8,
     marginBottom: 8,
@@ -291,7 +315,7 @@ const styles = StyleSheet.create({
   },
   input: {
     marginBottom: 16,
-    backgroundColor: 'white',
+    backgroundColor: Colors.surface,
   },
   segmentedButtons: {
     marginBottom: 16,
@@ -302,7 +326,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginVertical: 16,
     padding: 12,
-    backgroundColor: 'white',
+    backgroundColor: Colors.surface,
     borderRadius: 8,
   },
   switchLabel: {
@@ -312,6 +336,6 @@ const styles = StyleSheet.create({
   submitButton: {
     marginTop: 24,
     paddingVertical: 8,
-    backgroundColor: '#4CAF50',
+    backgroundColor: Colors.success,
   },
-});
+}));

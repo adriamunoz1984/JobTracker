@@ -1,79 +1,13 @@
 // src/theme/colors.ts
-export const Colors = {
-  // Primary Brand Colors
-  primary: '#FF6B35',        // Concrete Orange - energetic, construction
-  primaryDark: '#D94E1F',    // Darker orange
-  primaryLight: '#FF8A5C',   // Lighter orange
-  
-  // Secondary Colors
-  secondary: '#2C3E50',      // Concrete Gray/Blue - professional, trustworthy
-  secondaryDark: '#1A252F',  // Darker gray
-  secondaryLight: '#34495E', // Lighter gray
-  
-  // Accent Colors
-  accent: '#F39C12',         // Caution Yellow - stands out, action-oriented
-  accentDark: '#E67E22',
-  accentLight: '#F1C40F',
-  
-  // Status Colors
-  success: '#27AE60',        // Paid/Complete
-  successLight: '#2ECC71',
-  successBg: '#D5F4E6',
-  
-  error: '#E74C3C',          // Unpaid/Error
-  errorLight: '#EC7063',
-  errorBg: '#FADBD8',
-  
-  warning: '#F39C12',        // Pending
-  warningLight: '#F8C471',
-  warningBg: '#FCF3CF',
-  
-  info: '#3498DB',           // Info
-  infoLight: '#5DADE2',
-  infoBg: '#D6EAF8',
-  
-  // Neutral Colors
-  background: '#F5F6FA',     // Light background
-  surface: '#FFFFFF',        // Card background
-  surfaceDark: '#ECF0F1',    // Subtle dark surface
-  
-  // Text Colors
-  text: '#2C3E50',           // Primary text
-  textSecondary: '#7F8C8D',  // Secondary text
-  textLight: '#95A5A6',      // Light text
-  textInverse: '#FFFFFF',    // Text on dark backgrounds
-  
-  // Border Colors
-  border: '#BDC3C7',         // Default border
-  borderLight: '#E8EBED',    // Light border
-  borderDark: '#95A5A6',     // Dark border
-  
-  // Concrete-specific Colors
-  concrete: {
-    mixer: '#C0C0C0',        // Concrete gray
-    wet: '#8B8680',          // Wet concrete
-    pump: '#FF6B35',         // Pump orange
-    truck: '#2C3E50',        // Truck body
-  },
-  
-  // Payment Method Colors
-  payment: {
-    cash: '#27AE60',         // Green for cash
-    check: '#3498DB',        // Blue for check
-    charge: '#F39C12',       // Orange for charge
-    zelle: '#6B46C1',        // Purple for Zelle
-    square: '#000000',       // Black for Square
-  },
-};
+// Shared sizes, shadows and type scale. Colors now live in palettes.ts and are
+// read through useAppTheme() so they can switch between light and dark mode.
+import { lightPalette, lightGradients } from './palettes';
 
-export const Gradients = {
-  primary: ['#FF6B35', '#F39C12'],           // Orange to yellow
-  secondary: ['#2C3E50', '#34495E'],         // Gray gradient
-  success: ['#27AE60', '#2ECC71'],           // Green gradient
-  header: ['#FF6B35', '#E67E22'],            // Header gradient
-  card: ['#FFFFFF', '#F5F6FA'],              // Subtle card gradient
-  background: ['#F5F6FA', '#ECF0F1'],        // Background gradient
-};
+/** @deprecated Static light palette. Inside components use useAppTheme().colors instead. */
+export const Colors = lightPalette;
+
+/** @deprecated Static light gradients. Inside components use useAppTheme().gradients instead. */
+export const Gradients = lightGradients;
 
 export const Shadows = {
   small: {

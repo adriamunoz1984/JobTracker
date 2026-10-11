@@ -141,25 +141,53 @@ export const JobsProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const addJob = async (jobData: Omit<Job, 'id' | 'createdAt' | 'updatedAt'>): Promise<string> => {
     const now = new Date().toISOString();
     const jobId = `job_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-    
+
+    // Once an employee has accepted an owner's invitation, every new job they
+    // enter belongs in the shared ownerJobs stream. Older jobs remain in their
+    // private jobs collection, so accepting an invitation never exposes history.
+    const isConnectedEmployee =
+      user?.role === 'employee' &&
+      user?.ownerStatus === 'active' &&
+      !!user?.ownerId;
+
     const newJob: Job = {
       ...jobData,
       id: jobId,
       createdAt: now,
       updatedAt: now,
-      jobType: 'owner',
+      jobType: isConnectedEmployee ? 'employee' : 'owner',
+      ...(isConnectedEmployee
+        ? {
+            ownerId: user!.ownerId!,
+            assignedTo: user!.uid,
+            employeeId: user!.uid,
+            employeeName: user!.displayName || 'Employee',
+            employeeCommissionRate: user!.commissionRate ?? 50,
+            status: 'completed' as const,
+            createdByUid: user!.uid,
+            entrySource: 'employee-entry' as const,
+          }
+        : {}),
     };
 
-    // Save directly to Firestore only
     if (user?.uid && user.uid !== 'test-user-id') {
-      const jobsCollection = getUserJobsCollection();
-      if (jobsCollection) {
-        const cleanJob = removeUndefined(newJob);
-        
-        await setDoc(doc(jobsCollection, jobId), {
+      const cleanJob = removeUndefined(newJob);
+
+      if (isConnectedEmployee) {
+        // Security rules independently verify that this active owner/employee
+        // relationship exists, so profile fields alone cannot grant access.
+        await setDoc(doc(db, 'users', user.uid, 'ownerJobs', jobId), {
           ...cleanJob,
           lastModified: serverTimestamp(),
         });
+      } else {
+        const jobsCollection = getUserJobsCollection();
+        if (jobsCollection) {
+          await setDoc(doc(jobsCollection, jobId), {
+            ...cleanJob,
+            lastModified: serverTimestamp(),
+          });
+        }
       }
     }
     
@@ -171,7 +199,7 @@ export const JobsProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     let unsubscribes: Array<() => void> = [];
     let isMounted = true;
-    let allJobsMap: { [key: string]: Job } = {}; // Move outside initializeJobs
+    let jobsBySource: Record<string, Job[]> = {};
 
     const initializeJobs = async () => {
       setIsLoading(true);
@@ -183,14 +211,13 @@ export const JobsProvider: React.FC<{ children: React.ReactNode }> = ({ children
         // Helper to merge jobs from different sources
         const updateAllJobs = (newJobs: Job[], source: string) => {
           if (!isMounted) return;
-          
-          // Update jobs from this source
-          newJobs.forEach(job => {
-            allJobsMap[job.id] = job;
-          });
-          
-          // Combine all jobs and update state
-          const combinedJobs = Object.values(allJobsMap)
+
+          // Replace this source's snapshot so removed/reclassified jobs do not stay stale.
+          jobsBySource[source] = newJobs;
+
+          // Combine all active sources and update state.
+          const combinedJobs = Object.values(jobsBySource)
+            .flat()
             .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
           
           setJobs(combinedJobs);
@@ -222,6 +249,7 @@ export const JobsProvider: React.FC<{ children: React.ReactNode }> = ({ children
                   id: doc.id,
                   ...jobData,
                   isOwnerJob: true,
+                  isEmployeeJob: false,
                 } as Job;
               });
               
@@ -237,57 +265,135 @@ export const JobsProvider: React.FC<{ children: React.ReactNode }> = ({ children
           unsubscribes.push(unsubscribeOwnerJobs);
         }
 
-        // 2. Load employee jobs if user is owner
-        if (user.role === 'owner') {
-          try {
-            // Get list of employees
-            const employeesRef = collection(db, 'users', user.uid, 'employees');
-            const employeesSnapshot = await getDocs(employeesRef);
-            
-            const activeEmployees = employeesSnapshot.docs
-              .map(doc => ({ uid: doc.id, ...doc.data() }))
-              .filter((emp: any) => emp.status === 'active');
-            
-            console.log(`👥 Found ${activeEmployees.length} active employees`);
+        // 2. Employees also load their completed employer-assigned jobs so
+        // weekly/monthly/yearly reports and tax estimates include every job.
+        if (user.role === 'employee') {
+          const assignedJobsRef = collection(db, 'users', user.uid, 'ownerJobs');
+          const assignedJobsQuery = query(
+            assignedJobsRef,
+            where('status', '==', 'completed')
+          );
 
-            // Set up listeners for each employee's completed jobs
-            activeEmployees.forEach((employee: any) => {
-              const employeeJobsRef = collection(db, 'users', employee.uid, 'ownerJobs');
-              const employeeJobsQuery = query(
-                employeeJobsRef,
-                where('ownerId', '==', user.uid),
-                where('status', '==', 'completed')
-              );
-              
-              const unsubscribeEmployeeJobs = onSnapshot(employeeJobsQuery,
-                (snapshot) => {
-                  if (!isMounted) return;
-                  
-                  const employeeJobs = snapshot.docs.map(doc => {
-                    const data = doc.data();
-                    return {
-                      id: doc.id,
-                      ...data,
-                      isEmployeeJob: true,
-                      employeeName: employee.name,
-                      employeeId: employee.uid,
-                    } as Job;
-                  });
-                  
-                  console.log(`👷 Employee ${employee.name} jobs: ${employeeJobs.length}`);
-                  updateAllJobs(employeeJobs, employee.uid);
-                },
-                (error) => {
-                  if (!isMounted) return;
-                  console.error(`❌ Employee ${employee.name} jobs listener error:`, error);
+          const unsubscribeAssignedJobs = onSnapshot(
+            assignedJobsQuery,
+            (snapshot) => {
+              if (!isMounted) return;
+
+              const assignedJobs = snapshot.docs.map(snapshotDoc => {
+                const data = snapshotDoc.data();
+                return {
+                  id: snapshotDoc.id,
+                  ...data,
+                  isEmployeeJob: true,
+                  isOwnerJob: false,
+                  employeeId: data.employeeId || user.uid,
+                  employeeName: data.employeeName || user.displayName || 'Employee',
+                  employeeCommissionRate:
+                    data.employeeCommissionRate ?? user.commissionRate ?? 50,
+                } as Job;
+              });
+
+              updateAllJobs(assignedJobs, 'assigned-completed');
+            },
+            (error) => {
+              if (!isMounted) return;
+              console.error('❌ Assigned jobs listener error:', error);
+            }
+          );
+
+          unsubscribes.push(unsubscribeAssignedJobs);
+        }
+
+        // 3. Owners listen to the employee relationship collection in real time.
+        // When a new invitation is accepted, the owner begins receiving that
+        // employee's completed/newly-entered jobs without needing to relaunch.
+        if (user.role === 'owner') {
+          const employeesRef = collection(db, 'users', user.uid, 'employees');
+          const employeeJobUnsubscribes = new Map<string, () => void>();
+
+          const unsubscribeEmployees = onSnapshot(
+            employeesRef,
+            (employeesSnapshot) => {
+              if (!isMounted) return;
+
+              const activeEmployees = employeesSnapshot.docs
+                .map(employeeDoc => ({ uid: employeeDoc.id, ...employeeDoc.data() }))
+                .filter((emp: any) => emp.status === 'active');
+
+              const activeIds = new Set(activeEmployees.map((emp: any) => emp.uid));
+              console.log(`👥 Found ${activeEmployees.length} active employees`);
+
+              // Stop listening to employees who are no longer active.
+              employeeJobUnsubscribes.forEach((unsubscribeEmployeeJobs, employeeUid) => {
+                if (!activeIds.has(employeeUid)) {
+                  unsubscribeEmployeeJobs();
+                  employeeJobUnsubscribes.delete(employeeUid);
+                  updateAllJobs([], employeeUid);
                 }
-              );
-              
-              unsubscribes.push(unsubscribeEmployeeJobs);
-            });
-          } catch (error) {
-            console.error('❌ Error loading employee jobs:', error);
-          }
+              });
+
+              activeEmployees.forEach((employee: any) => {
+                if (employeeJobUnsubscribes.has(employee.uid)) return;
+
+                const employeeName =
+                  employee.name ||
+                  employee.displayName ||
+                  employee.email ||
+                  'Employee';
+                const employeeCommissionRate =
+                  Number.isFinite(Number(employee.commissionRate))
+                    ? Number(employee.commissionRate)
+                    : 50;
+
+                const employeeJobsRef = collection(db, 'users', employee.uid, 'ownerJobs');
+                const employeeJobsQuery = query(
+                  employeeJobsRef,
+                  where('ownerId', '==', user.uid),
+                  where('status', '==', 'completed')
+                );
+
+                const unsubscribeEmployeeJobs = onSnapshot(
+                  employeeJobsQuery,
+                  (snapshot) => {
+                    if (!isMounted) return;
+
+                    const employeeJobs = snapshot.docs.map(jobDoc => {
+                      const data = jobDoc.data();
+                      return {
+                        id: jobDoc.id,
+                        ...data,
+                        isEmployeeJob: true,
+                        isOwnerJob: false,
+                        employeeName: data.employeeName || employeeName,
+                        employeeId: data.employeeId || employee.uid,
+                        employeeCommissionRate:
+                          data.employeeCommissionRate ?? employeeCommissionRate,
+                      } as Job;
+                    });
+
+                    console.log(`👷 Employee ${employeeName} jobs: ${employeeJobs.length}`);
+                    updateAllJobs(employeeJobs, employee.uid);
+                  },
+                  (error) => {
+                    if (!isMounted) return;
+                    console.error(`❌ Employee ${employeeName} jobs listener error:`, error);
+                  }
+                );
+
+                employeeJobUnsubscribes.set(employee.uid, unsubscribeEmployeeJobs);
+              });
+            },
+            (error) => {
+              if (!isMounted) return;
+              console.error('❌ Employee relationship listener error:', error);
+            }
+          );
+
+          unsubscribes.push(() => {
+            unsubscribeEmployees();
+            employeeJobUnsubscribes.forEach(unsubscribeEmployeeJobs => unsubscribeEmployeeJobs());
+            employeeJobUnsubscribes.clear();
+          });
         }
         
       } else if (!user) {
@@ -320,55 +426,84 @@ export const JobsProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
   }, [user?.uid]); // ONLY depend on user.uid
 
-  const updateJob = async (updatedJob: Job) => {
-  // Update local state
+  const getJobDocRef = (job: Job) => {
+  if (!user?.uid) return null;
+
+  if (job.isEmployeeJob) {
+    if (user.role === 'owner' && job.employeeId) {
+      return doc(db, 'users', job.employeeId, 'ownerJobs', job.id);
+    }
+    if (user.role === 'employee') {
+      return doc(db, 'users', user.uid, 'ownerJobs', job.id);
+    }
+  }
+
+  const jobsCollection = getUserJobsCollection();
+  return jobsCollection ? doc(jobsCollection, job.id) : null;
+};
+
+const updateJob = async (updatedJob: Job) => {
   const updatedJobs = jobs.map((job) =>
     job.id === updatedJob.id
       ? { ...updatedJob, updatedAt: new Date().toISOString() }
       : job
   );
-  
+
   setJobs(updatedJobs);
-  
-  // Update only THIS job in Firebase (not all jobs)
+
   if (user?.uid && user.uid !== 'test-user-id') {
-    const jobsCollection = getUserJobsCollection();
-    if (jobsCollection) {
+    const jobDocRef = getJobDocRef(updatedJob);
+    if (jobDocRef) {
       const cleanJob = removeUndefined(updatedJob);
-      
-      await setDoc(doc(jobsCollection, updatedJob.id), {
+
+      await setDoc(jobDocRef, {
         ...cleanJob,
         updatedAt: new Date().toISOString(),
         lastModified: serverTimestamp(),
-      });
-      
+      }, { merge: true });
+
       console.log(`☁️ Updated job in Firebase: ${updatedJob.id}`);
     }
   }
-  
-  // Update AsyncStorage
+
   await AsyncStorage.setItem('jobs', JSON.stringify(updatedJobs));
   console.log(`✅ Updated job: ${updatedJob.id}`);
 };
 
   const deleteJob = async (id: string) => {
-    const updatedJobs = jobs.filter((job) => job.id !== id);
-    setJobs(updatedJobs);
-    
-    // Delete from Firebase if user is logged in
-    if (user?.uid) {
-      try {
-        const jobsCollection = getUserJobsCollection();
-        if (jobsCollection) {
-          await deleteDoc(doc(jobsCollection, id));
+    const jobToDelete = jobs.find(job => job.id === id);
+    if (!jobToDelete) return;
+
+    // An employee may remove a shared job only when they personally entered it.
+    // Owner-assigned work remains a business record controlled by the owner.
+    if (
+      user?.role === 'employee' &&
+      jobToDelete.isEmployeeJob &&
+      !(
+        (jobToDelete as any).createdByUid === user.uid &&
+        (jobToDelete as any).entrySource === 'employee-entry'
+      )
+    ) {
+      throw new Error('Only the owner can delete an owner-assigned job.');
+    }
+
+    // Delete remotely first. If Firestore rejects the operation, leave the
+    // local copy intact so the UI never pretends a job was deleted when it was not.
+    if (user?.uid && user.uid !== 'test-user-id') {
+      const jobDocRef = getJobDocRef(jobToDelete);
+      if (jobDocRef) {
+        try {
+          await deleteDoc(jobDocRef);
           console.log(`☁️ Deleted job from Firebase: ${id}`);
+        } catch (error) {
+          setSyncStatus('error');
+          throw error;
         }
-      } catch (error) {
-        console.error('❌ Error deleting from Firebase:', error);
       }
     }
-    
-    // Update AsyncStorage
+
+    const updatedJobs = jobs.filter((job) => job.id !== id);
+    setJobs(updatedJobs);
     await AsyncStorage.setItem('jobs', JSON.stringify(updatedJobs));
     console.log(`✅ Deleted job: ${id}`);
   };

@@ -14,10 +14,12 @@ import {
   doc,
   setDoc
 } from 'firebase/firestore';
+import { makeStyles } from '../theme';
 
 const db = getFirestore();
 
 export default function AssignJobScreen() {
+  const styles = useStyles();
   const navigation = useNavigation();
   const { user } = useAuth();
   
@@ -31,6 +33,8 @@ export default function AssignJobScreen() {
   const [companyName, setCompanyName] = useState('');
   const [address, setAddress] = useState('');
   const [city, setCity] = useState('');
+  const [jobNumber, setJobNumber] = useState('');
+  const [poNumber, setPoNumber] = useState('');
   const [notes, setNotes] = useState('');
 
   // Load active employees
@@ -82,11 +86,13 @@ export default function AssignJobScreen() {
 
     const jobId = `job_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     const now = new Date().toISOString();
+    const selectedEmp = employees.find(e => e.uid === selectedEmployee);
 
     // Create incomplete job - remove undefined fields
     const jobData: any = {
       id: jobId,
-      date: date.toISOString(),
+      // Store the local calendar day so assigned jobs cannot shift dates by timezone.
+      date: format(date, 'yyyy-MM-dd'),
       address: address.trim(),
       city: city.trim(),
       
@@ -100,6 +106,9 @@ export default function AssignJobScreen() {
       // Assignment info
       ownerId: user!.uid,
       assignedTo: selectedEmployee,
+      employeeId: selectedEmployee,
+      employeeName: selectedEmp?.name || 'Employee',
+      employeeCommissionRate: selectedEmp?.commissionRate ?? 50,
       jobType: 'owner',
       status: 'pending',
       
@@ -111,13 +120,20 @@ export default function AssignJobScreen() {
     if (companyName.trim()) {
       jobData.companyName = companyName.trim();
     }
+
+    if (jobNumber.trim()) {
+      jobData.jobNumber = jobNumber.trim();
+    }
+
+    if (poNumber.trim()) {
+      jobData.poNumber = poNumber.trim();
+    }
     
     if (notes.trim()) {
       jobData.notes = notes.trim();
     }
 
     // Save to employee's ownerJobs collection
-    const selectedEmp = employees.find(e => e.uid === selectedEmployee);
     await setDoc(
       doc(db, 'users', selectedEmployee, 'ownerJobs', jobId),
       jobData
@@ -249,6 +265,24 @@ export default function AssignJobScreen() {
         />
 
         <TextInput
+          label="Job Number (Optional)"
+          value={jobNumber}
+          onChangeText={setJobNumber}
+          style={styles.input}
+          mode="outlined"
+          placeholder="Job #"
+        />
+
+        <TextInput
+          label="PO Number (Optional)"
+          value={poNumber}
+          onChangeText={setPoNumber}
+          style={styles.input}
+          mode="outlined"
+          placeholder="PO #"
+        />
+
+        <TextInput
           label="Notes (Optional)"
           value={notes}
           onChangeText={setNotes}
@@ -277,10 +311,10 @@ export default function AssignJobScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((Colors) => ({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: Colors.background,
   },
   inputContainer: {
     padding: 16,
@@ -297,7 +331,7 @@ const styles = StyleSheet.create({
   emptyText: {
     fontSize: 16,
     textAlign: 'center',
-    color: '#666',
+    color: Colors.textSecondary,
     marginBottom: 24,
   },
   manageButton: {
@@ -310,7 +344,7 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     fontSize: 14,
-    color: '#666',
+    color: Colors.textSecondary,
     marginBottom: 16,
   },
   divider: {
@@ -322,16 +356,16 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   employeeItem: {
-    backgroundColor: 'white',
+    backgroundColor: Colors.surface,
     marginBottom: 8,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#e0e0e0',
+    borderColor: Colors.border,
   },
   selectedEmployee: {
-    borderColor: '#2196F3',
+    borderColor: Colors.primary,
     borderWidth: 2,
-    backgroundColor: '#E3F2FD',
+    backgroundColor: Colors.primaryBg,
   },
   dateLabel: {
     fontSize: 16,
@@ -343,20 +377,20 @@ const styles = StyleSheet.create({
   },
   input: {
     marginBottom: 16,
-    backgroundColor: 'white',
+    backgroundColor: Colors.surface,
   },
   infoText: {
     fontSize: 14,
-    color: '#666',
+    color: Colors.textSecondary,
     fontStyle: 'italic',
     marginVertical: 16,
     padding: 12,
-    backgroundColor: '#E3F2FD',
+    backgroundColor: Colors.primaryBg,
     borderRadius: 8,
   },
   submitButton: {
     marginTop: 24,
     paddingVertical: 8,
-    backgroundColor: '#2196F3',
+    backgroundColor: Colors.primary,
   },
-});
+}));

@@ -3,10 +3,13 @@ import React, { useMemo } from 'react';
 import { View, StyleSheet, ScrollView, FlatList } from 'react-native';
 import { Text, Card, Divider, Chip } from 'react-native-paper';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useRoute, useNavigation } from '@react-navigation/native';
+import { useRoute } from '@react-navigation/native';
 import { Job } from '../types';
 import { format, parseISO } from 'date-fns';
-import { Colors, Spacing, BorderRadius, Shadows } from '../theme/colors';
+import { Spacing, BorderRadius, Shadows } from '../theme/colors';
+import { useAppTheme, makeStyles } from '../theme';
+import { useAuth } from '../context/AuthContext';
+import { calculateOwnerPay, calculateTaxEstimate, getEstimatedTaxForJob, getJobPumperName } from '../utils/jobMath';
 
 type MetricType = 'income' | 'takeHome' | 'paid' | 'unpaid' | 'yards' | 'avgJob';
 
@@ -16,14 +19,28 @@ interface DetailedReportParams {
   timeLabel: string;
   isOwner: boolean;
   commissionRate?: number;
+  taxEstimateEnabled?: boolean;
+  estimatedTaxRate?: number;
+  includeCashInTaxEstimate?: boolean;
 }
 
 export default function DetailedReportScreen() {
+  const { colors: Colors, gradients } = useAppTheme();
+  const styles = useStyles();
+  const { user } = useAuth();
   const route = useRoute();
-  const navigation = useNavigation();
   const params = route.params as DetailedReportParams;
 
-  const { metricType, jobs, timeLabel, isOwner, commissionRate = 50 } = params;
+  const {
+    metricType,
+    jobs,
+    timeLabel,
+    isOwner,
+    commissionRate = user?.commissionRate || 50,
+    taxEstimateEnabled = user?.taxEstimateEnabled === true,
+    estimatedTaxRate = user?.estimatedTaxRate || 0,
+    includeCashInTaxEstimate = user?.includeCashInTaxEstimate !== false,
+  } = params;
 
   // Filter jobs based on metric type
   const filteredJobs = useMemo(() => {
@@ -39,14 +56,20 @@ export default function DetailedReportScreen() {
 
   // Calculate metrics
   const totalIncome = jobs.reduce((sum, job) => sum + (job.amount || 0), 0);
+  const ownerPay = calculateOwnerPay(jobs);
+  const taxEstimate = calculateTaxEstimate(
+    jobs,
+    isOwner ? 'owner' : 'employee',
+    estimatedTaxRate,
+    includeCashInTaxEstimate,
+    commissionRate
+  );
   const commission = (totalIncome * commissionRate) / 100;
-  const cashPayments = jobs
-    .filter(j => j.paymentMethod === 'Cash')
-    .reduce((sum, job) => sum + (job.amount || 0), 0);
   const directPayments = jobs
     .filter(j => j.isPaidToMe)
     .reduce((sum, job) => sum + (job.amount || 0), 0);
-  const takeHome = commission - directPayments;
+  const amountStillOwed = commission - directPayments;
+  const takeHome = isOwner ? ownerPay.ownerAfterPumperPay : commission;
   const paidAmount = jobs.filter(j => j.isPaid).reduce((sum, job) => sum + (job.amount || 0), 0);
   const unpaidAmount = jobs.filter(j => !j.isPaid).reduce((sum, job) => sum + (job.amount || 0), 0);
   const totalYards = jobs.reduce((sum, job) => sum + (job.yards || 0), 0);
@@ -96,17 +119,62 @@ export default function DetailedReportScreen() {
               <Text style={styles.breakdownLabel}>Total Income:</Text>
               <Text style={styles.breakdownValue}>${totalIncome.toFixed(2)}</Text>
             </View>
-            <View style={styles.breakdownRow}>
-              <Text style={styles.breakdownLabel}>Commission ({commissionRate}%):</Text>
-              <Text style={styles.breakdownValue}>${commission.toFixed(2)}</Text>
-            </View>
-            <View style={styles.breakdownRow}>
-              <Text style={styles.breakdownLabel}>- Cash Payments:</Text>
-              <Text style={styles.breakdownValue}>-${cashPayments.toFixed(2)}</Text>
-            </View>
+
+            {isOwner ? (
+              <>
+                <View style={styles.breakdownRow}>
+                  <Text style={styles.breakdownLabel}>Pumper Gross Pay:</Text>
+                  <Text style={styles.breakdownValue}>-${ownerPay.grossPumperPay.toFixed(2)}</Text>
+                </View>
+                <View style={styles.breakdownRow}>
+                  <Text style={styles.breakdownLabel}>Direct Payments to Pumpers:</Text>
+                  <Text style={styles.breakdownValue}>${ownerPay.directPaymentsToPumpers.toFixed(2)}</Text>
+                </View>
+                <View style={styles.breakdownRow}>
+                  <Text style={styles.breakdownLabel}>Still Owed to Pumpers:</Text>
+                  <Text style={styles.breakdownValue}>${ownerPay.amountOwedToPumpers.toFixed(2)}</Text>
+                </View>
+                {ownerPay.byPumper.map(pumper => (
+                  <View key={pumper.key} style={styles.breakdownRow}>
+                    <Text style={styles.breakdownLabel}>{pumper.name} ({pumper.jobs} jobs):</Text>
+                    <Text style={styles.breakdownValue}>${pumper.grossPay.toFixed(2)}</Text>
+                  </View>
+                ))}
+              </>
+            ) : (
+              <>
+                <View style={styles.breakdownRow}>
+                  <Text style={styles.breakdownLabel}>Commission ({commissionRate}%):</Text>
+                  <Text style={styles.breakdownValue}>${commission.toFixed(2)}</Text>
+                </View>
+                <View style={styles.breakdownRow}>
+                  <Text style={styles.breakdownLabel}>- Direct Payments:</Text>
+                  <Text style={styles.breakdownValue}>-${directPayments.toFixed(2)}</Text>
+                </View>
+                <View style={styles.breakdownRow}>
+                  <Text style={styles.breakdownLabel}>Amount Still Owed:</Text>
+                  <Text style={styles.breakdownValue}>${amountStillOwed.toFixed(2)}</Text>
+                </View>
+              </>
+            )}
+
+            {taxEstimateEnabled && estimatedTaxRate > 0 && (
+              <>
+                <View style={styles.breakdownRow}>
+                  <Text style={styles.breakdownLabel}>Estimated Tax Reserve ({estimatedTaxRate}%):</Text>
+                  <Text style={styles.breakdownValue}>-${taxEstimate.estimatedTax.toFixed(2)}</Text>
+                </View>
+                <View style={styles.breakdownRow}>
+                  <Text style={styles.breakdownLabel}>Taxable Share After Reserve:</Text>
+                  <Text style={styles.breakdownValue}>${taxEstimate.afterTax.toFixed(2)}</Text>
+                </View>
+              </>
+            )}
             <Divider style={styles.divider} />
             <View style={styles.breakdownRow}>
-              <Text style={[styles.breakdownLabel, styles.bold]}>Your Take Home:</Text>
+              <Text style={[styles.breakdownLabel, styles.bold]}>
+                {isOwner ? 'Owner After Pumper Pay:' : 'Your Take Home:'}
+              </Text>
               <Text style={[styles.breakdownValue, styles.bold, { color: Colors.success }]}>
                 ${takeHome.toFixed(2)}
               </Text>
@@ -241,6 +309,33 @@ export default function DetailedReportScreen() {
         <Text style={styles.jobMeta}>
           {format(parseISO(item.date), 'MMM d')} • {item.city}
         </Text>
+        {isOwner && (
+          <Text style={styles.jobMeta}>
+            Pumper: {getJobPumperName(item, 'Owner')}
+          </Text>
+        )}
+        {(item.jobNumber || item.poNumber) && (
+          <Text style={styles.jobMeta}>
+            {[
+              item.jobNumber ? 'Job #: ' + item.jobNumber : '',
+              item.poNumber ? 'PO #: ' + item.poNumber : '',
+            ].filter(Boolean).join('   ')}
+          </Text>
+        )}
+        {taxEstimateEnabled && estimatedTaxRate > 0 && (
+          <Text style={styles.jobMeta}>
+            {item.paymentMethod === 'Cash' && !includeCashInTaxEstimate
+              ? 'Tax estimate: cash excluded'
+              : 'Est. tax reserve: $' +
+                getEstimatedTaxForJob(
+                  item,
+                  isOwner ? 'owner' : 'employee',
+                  estimatedTaxRate,
+                  includeCashInTaxEstimate,
+                  commissionRate
+                ).toFixed(2)}
+          </Text>
+        )}
       </View>
       <Text style={styles.jobAmount}>${item.amount.toFixed(0)}</Text>
     </View>
@@ -249,7 +344,7 @@ export default function DetailedReportScreen() {
   return (
     <ScrollView style={styles.container}>
       <LinearGradient
-        colors={[Colors.primary, Colors.primaryDark]}
+        colors={gradients.primary}
         style={styles.header}
       >
         <Text style={styles.headerTitle}>{getTitle()}</Text>
@@ -300,7 +395,7 @@ export default function DetailedReportScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((Colors) => ({
   container: {
     flex: 1,
     backgroundColor: Colors.background,
@@ -403,4 +498,4 @@ const styles = StyleSheet.create({
     fontSize: 14,
     padding: Spacing.lg,
   },
-});
+}));
