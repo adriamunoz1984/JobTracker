@@ -83,6 +83,10 @@ const DraggableFAB: React.FC<DraggableFABProps> = ({ variant = 'default' }) => {
         
         // If we're not dragging, it was a tap
         if (!isDragging.current) {
+          // Reset before opening the form so the button is back in its home
+          // position regardless of whether the user saves, cancels, or goes back.
+          position.flattenOffset();
+          position.setValue({ x: width / 2 - 28, y: height - 120 });
           navigation.navigate(activeVariantRef.current === 'invoice' ? 'Invoice' : 'AddJob');
           return;
         }
