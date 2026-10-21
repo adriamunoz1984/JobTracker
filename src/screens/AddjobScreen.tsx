@@ -656,7 +656,7 @@ else
 
         <Divider style={styles.divider} />
 
-        {(!isEditing || isPrivateExisting) && (
+        {!isEditing && (
           <View style={styles.switchRow}>
             <View style={styles.switchContent}>
               <Text style={styles.switchLabel}>Independent Job</Text>
