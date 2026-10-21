@@ -9,7 +9,7 @@ import { format, parseISO } from 'date-fns';
 import { Spacing, BorderRadius, Shadows } from '../theme/colors';
 import { useAppTheme, makeStyles } from '../theme';
 import { useAuth } from '../context/AuthContext';
-import { calculateOwnerPay, calculateTaxEstimate, getEstimatedTaxForJob, getJobPumperName } from '../utils/jobMath';
+import { calculateJobCommissions, calculateOwnerPay, calculateTaxEstimate, getEstimatedTaxForJob, getJobPumperName } from '../utils/jobMath';
 
 type MetricType = 'income' | 'takeHome' | 'paid' | 'unpaid' | 'yards' | 'avgJob';
 
@@ -36,7 +36,7 @@ export default function DetailedReportScreen() {
     jobs,
     timeLabel,
     isOwner,
-    commissionRate = user?.commissionRate || 50,
+    commissionRate = user?.commissionRate ?? 50,
     taxEstimateEnabled = user?.taxEstimateEnabled === true,
     estimatedTaxRate = user?.estimatedTaxRate || 0,
     includeCashInTaxEstimate = user?.includeCashInTaxEstimate !== false,
@@ -64,7 +64,7 @@ export default function DetailedReportScreen() {
     includeCashInTaxEstimate,
     commissionRate
   );
-  const commission = (totalIncome * commissionRate) / 100;
+  const commission = calculateJobCommissions(jobs, commissionRate);
   const directPayments = jobs
     .filter(j => j.isPaidToMe)
     .reduce((sum, job) => sum + (job.amount || 0), 0);
@@ -144,7 +144,7 @@ export default function DetailedReportScreen() {
             ) : (
               <>
                 <View style={styles.breakdownRow}>
-                  <Text style={styles.breakdownLabel}>Commission ({commissionRate}%):</Text>
+                  <Text style={styles.breakdownLabel}>Commission (per job):</Text>
                   <Text style={styles.breakdownValue}>${commission.toFixed(2)}</Text>
                 </View>
                 <View style={styles.breakdownRow}>
