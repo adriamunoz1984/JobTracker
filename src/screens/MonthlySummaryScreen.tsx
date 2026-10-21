@@ -23,7 +23,7 @@ import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 import { Spacing, BorderRadius, Shadows } from '../theme/colors';
 import { useAppTheme, makeStyles, withOpacity } from '../theme';
-import { calculateOwnerPay, calculateTaxEstimate, getEstimatedTaxForJob, getJobPumperName, getTaxableShareForJob } from '../utils/jobMath';
+import { calculateJobCommissions, calculateOwnerPay, calculateTaxEstimate, getEstimatedTaxForJob, getJobPumperName, getTaxableShareForJob } from '../utils/jobMath';
 
 const screenWidth = Dimensions.get('window').width;
 
@@ -65,7 +65,7 @@ export default function MonthlySummaryScreen() {
   };
 
   const isOwner = user?.role === 'owner';
-  const commissionRate = user?.commissionRate || 50;
+  const commissionRate = user?.commissionRate ?? 50;
   const ownerPay = calculateOwnerPay(monthJobs);
   const ownerPaidPay = calculateOwnerPay(monthJobs.filter(job => job.isPaid));
   const ownerTakeHomePay = ownerTakeHomeMode === 'paid' ? ownerPaidPay : ownerPay;
@@ -79,7 +79,7 @@ export default function MonthlySummaryScreen() {
   const referenceJobs = monthJobs.filter(job => job.jobNumber || job.poNumber);
 
   if (!isOwner) {
-    totals.commission = (totals.income * commissionRate) / 100;
+    totals.commission = calculateJobCommissions(monthJobs, commissionRate);
     // Take Home is the employee's earned commission across all jobs.
     // Direct payments only reduce what the employer still owes them.
     totals.yourPay = totals.commission - totals.paidToMeAmount;
@@ -152,7 +152,7 @@ export default function MonthlySummaryScreen() {
       jobs: detailJobs,
       timeLabel: format(adjustedDate, 'MMMM yyyy'),
       isOwner: user?.role === 'owner',
-      commissionRate: user?.commissionRate || 50,
+      commissionRate: user?.commissionRate ?? 50,
       taxEstimateEnabled: user?.taxEstimateEnabled === true,
       estimatedTaxRate: user?.estimatedTaxRate || 0,
       includeCashInTaxEstimate: user?.includeCashInTaxEstimate !== false,
@@ -291,7 +291,7 @@ export default function MonthlySummaryScreen() {
             <p><strong>Unpaid Jobs:</strong> ${totals.unpaidJobs}</p>
             <p><strong>Total Unpaid:</strong> $${totals.totalUnpaid.toFixed(2)}</p>
             ${!isOwner ? `
-              <p><strong>Commission (${commissionRate}%):</strong> $${totals.commission.toFixed(2)}</p>
+              <p><strong>Commission (per job):</strong> $${totals.commission.toFixed(2)}</p>
               <p><strong>Direct Payments:</strong> $${totals.paidToMeAmount.toFixed(2)}</p>
               <p><strong>Still Owed by Employer:</strong> $${totals.yourPay.toFixed(2)}</p>
             ` : `
