@@ -1,6 +1,14 @@
 // src/utils/jobMath.ts
 import { Job } from '../types';
 
+/** Add commission earned job-by-job; zero percent is a valid rate. */
+export function calculateJobCommissions(jobs: Job[], defaultRate: number): number {
+  return jobs.reduce((sum, job) => {
+    const rate = job.employeeCommissionRate ?? defaultRate;
+    return sum + (job.amount || 0) * rate / 100;
+  }, 0);
+}
+
 export interface PumperPayRow {
   key: string;
   name: string;
