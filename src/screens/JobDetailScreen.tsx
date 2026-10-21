@@ -25,6 +25,7 @@ export default function JobDetailScreen() {
   const [isDeleting, setIsDeleting] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [showFinancialDetails, setShowFinancialDetails] = useState(false);
 
   // Edit mode state
   const [editedJob, setEditedJob] = useState<Job>(initialJob);
@@ -138,6 +139,9 @@ export default function JobDetailScreen() {
   };
 
   const currentJob = isEditMode ? editedJob : initialJob;
+  const commissionRate = currentJob.employeeCommissionRate ??
+    (user?.role === 'owner' && !currentJob.isEmployeeJob ? 100 : (user?.commissionRate ?? 50));
+  const myEarnings = currentJob.amount * commissionRate / 100;
 
   return (
     <ScrollView style={styles.container}>
@@ -334,6 +338,37 @@ export default function JobDetailScreen() {
                 <View style={[styles.row, styles.totalRow]}>
                   <Text style={styles.totalLabel}>Total:</Text>
                   <Text style={styles.totalValue}>${currentJob.amount.toFixed(2)}</Text>
+                </View>
+              </>
+            )}
+          </Card.Content>
+        </Card>
+
+        {/* Expand only when the user wants their personal earnings breakdown. */}
+        <Card style={styles.card}>
+          <Card.Content>
+            <Button
+              mode="text"
+              icon={showFinancialDetails ? 'chevron-up' : 'chevron-down'}
+              onPress={() => setShowFinancialDetails(!showFinancialDetails)}
+              accessibilityLabel={showFinancialDetails ? 'Collapse financial details' : 'Expand financial details'}
+            >
+              {showFinancialDetails ? 'Hide Financial Details' : 'Show Financial Details'}
+            </Button>
+            {showFinancialDetails && (
+              <>
+                <Divider style={styles.divider} />
+                <View style={styles.row}>
+                  <Text style={styles.label}>Job Total:</Text>
+                  <Text style={styles.value}>${currentJob.amount.toFixed(2)}</Text>
+                </View>
+                <View style={styles.row}>
+                  <Text style={styles.label}>My Commission:</Text>
+                  <Text style={styles.value}>{commissionRate}%</Text>
+                </View>
+                <View style={styles.row}>
+                  <Text style={styles.label}>My Earnings:</Text>
+                  <Text style={styles.value}>${myEarnings.toFixed(2)}</Text>
                 </View>
               </>
             )}
