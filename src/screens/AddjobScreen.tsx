@@ -81,6 +81,10 @@ export default function AddJobScreen() {
   const [poNumber, setPoNumber] = useState(editingJob?.poNumber || '');
   const [notes, setNotes] = useState(editingJob?.notes || '');
   const [isSaving, setIsSaving] = useState(false);
+  const connectedToEmployer = user?.role === 'employee' && user?.ownerStatus === 'active' && !!user?.ownerId;
+  const isPrivateExisting = !!editingJob && !editingJob.isEmployeeJob && editingJob.jobType !== 'employee' && !editingJob.ownerId;
+  const [independentJob, setIndependentJob] = useState(isEditing ? isPrivateExisting : !connectedToEmployer);
+  const [jobCommission, setJobCommission] = useState(String(editingJob?.employeeCommissionRate ?? user?.commissionRate ?? (user?.role === 'owner' ? 100 : 50)));
 
   // Zelle fields
   const [zelleName, setZelleName] = useState(editingJob?.zelleName || '');
@@ -369,6 +373,11 @@ export default function AddJobScreen() {
       return;
     }
 
+    const rate = Number(jobCommission);
+    if (independentJob && (!Number.isFinite(rate) || rate < 0 || rate > 100)) {
+      Alert.alert('Invalid commission', 'Enter a percentage from 0 to 100.');
+      return;
+    }
     try {
       setIsSaving(true);
 
@@ -384,6 +393,10 @@ export default function AddJobScreen() {
         isPaidToMe,
         isPaid: isPaidToMe ? true : false,
         isFlatRate: isFlatRate,
+        ...(!isEditing || isPrivateExisting ? {
+          jobType: independentJob ? 'personal' : 'employee',
+          ...(independentJob ? { employeeCommissionRate: rate } : {}),
+        } : {}),
       };
 
       if (isFlatRate) {
@@ -643,6 +656,29 @@ else
 
         <Divider style={styles.divider} />
 
+        {(!isEditing || isPrivateExisting) && (
+          <View style={styles.switchRow}>
+            <View style={styles.switchContent}>
+              <Text style={styles.switchLabel}>Independent Job</Text>
+              <Text style={styles.switchSubtext}>
+                {connectedToEmployer ? 'Private job: only you can see it.' : 'Save to your personal records.'}
+              </Text>
+            </View>
+            <Switch value={independentJob} onValueChange={setIndependentJob} color={Colors.primary} />
+          </View>
+        )}
+        {independentJob && (
+          <TextInput
+            label="My commission for this job (%)"
+            value={jobCommission}
+            onChangeText={setJobCommission}
+            keyboardType="decimal-pad"
+            mode="outlined"
+            style={styles.input}
+            outlineColor={Colors.border}
+            activeOutlineColor={Colors.primary}
+          />
+        )}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Job Details</Text>
           <TextInput
