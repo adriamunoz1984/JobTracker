@@ -38,13 +38,14 @@ export default function InvoicePaperPreview({
       )}
       {!!invoice.clientAddress?.trim() && <InfoRow label="Billing Address" value={invoice.clientAddress} wide />}
 
-      <View style={styles.serviceRow}>
+      {!!(invoice.rmc?.trim() || invoice.dueTime?.trim() || invoice.arriveTime?.trim() ||
+        invoice.startTime?.trim() || invoice.finishTime?.trim()) && <View style={styles.serviceRow}>
         {!!invoice.rmc?.trim() && <Service label="RMC" value={invoice.rmc} />}
         {!!invoice.dueTime?.trim() && <Service label="Due" value={invoice.dueTime} />}
         {!!invoice.arriveTime?.trim() && <Service label="Arrive" value={invoice.arriveTime} />}
         {!!invoice.startTime?.trim() && <Service label="Start" value={invoice.startTime} />}
         {!!invoice.finishTime?.trim() && <Service label="Finish" value={invoice.finishTime} last />}
-      </View>
+      </View>}
 
       {!!invoice.jobReferences?.length && (
         <View>
