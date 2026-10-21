@@ -100,11 +100,21 @@ export default function InvoiceScreen() {
       });
 
       if (yardRate > 0) {
+        // The job records total yards, not how many exceeded the minimum.
+        // Do not guess the over-minimum quantity. Preserve the pumping charge
+        // separately so the invoice total continues to match the job total.
         items.push({
           id: 'yards-' + jobIndex,
           description: 'Yards Over Minimum' + suffix,
-          quantity: yards,
-          rate: yardRate,
+          quantity: 0,
+          rate: 0,
+          amount: 0,
+        });
+        items.push({
+          id: 'pumping-' + jobIndex,
+          description: 'Pumping Charges' + suffix,
+          quantity: 1,
+          rate: yardAmount,
           amount: yardAmount,
         });
       }
