@@ -150,13 +150,14 @@ export const JobsProvider: React.FC<{ children: React.ReactNode }> = ({ children
       user?.ownerStatus === 'active' &&
       !!user?.ownerId;
 
+    const privateJob = jobData.jobType === 'personal' || !isConnectedEmployee;
     const newJob: Job = {
       ...jobData,
       id: jobId,
       createdAt: now,
       updatedAt: now,
-      jobType: isConnectedEmployee ? 'employee' : 'owner',
-      ...(isConnectedEmployee
+      jobType: privateJob ? 'personal' : 'employee',
+      ...(isConnectedEmployee && !privateJob
         ? {
             ownerId: user!.ownerId!,
             assignedTo: user!.uid,
@@ -173,7 +174,7 @@ export const JobsProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (user?.uid && user.uid !== 'test-user-id') {
       const cleanJob = removeUndefined(newJob);
 
-      if (isConnectedEmployee) {
+      if (isConnectedEmployee && !privateJob) {
         // Security rules independently verify that this active owner/employee
         // relationship exists, so profile fields alone cannot grant access.
         await setDoc(doc(db, 'users', user.uid, 'ownerJobs', jobId), {
@@ -550,8 +551,12 @@ const updateJob = async (updatedJob: Job) => {
       .filter(job => job.isPaid && job.isPaidToMe)
       .reduce((sum, job) => sum + job.amount, 0);
       
-    const commissionRate = user?.role === 'owner' ? 100 : (user?.commissionRate || 50);
-    const netEarnings = (totalEarnings * commissionRate / 100) - paidToMeAmount;
+    const netEarnings = jobsInRange.reduce((sum, job) => {
+      const rate = job.jobType === 'personal'
+        ? (job.employeeCommissionRate ?? user?.commissionRate ?? (user?.role === 'owner' ? 100 : 50))
+        : (user?.role === 'owner' ? 100 : (user?.commissionRate ?? 50));
+      return sum + job.amount * rate / 100;
+    }, 0) - paidToMeAmount;
     
     return {
       startDate,
