@@ -488,7 +488,7 @@ export default function MonthlySummaryScreen() {
               </View>
 
               <View style={styles.earningsRow}>
-                <Text style={styles.earningsLabel}>Your Commission ({commissionRate}%):</Text>
+                <Text style={styles.earningsLabel}>Your Commission (per job):</Text>
                 <Text style={styles.earningsValue}>${totals.commission.toFixed(2)}</Text>
               </View>
 
