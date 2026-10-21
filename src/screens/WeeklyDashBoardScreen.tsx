@@ -23,7 +23,7 @@ import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 import { Spacing, BorderRadius, Shadows } from '../theme/colors';
 import { useAppTheme, makeStyles, withOpacity } from '../theme';
-import { calculateOwnerPay, calculateTaxEstimate, getEstimatedTaxForJob, getJobPumperName } from '../utils/jobMath';
+import { calculateJobCommissions, calculateOwnerPay, calculateTaxEstimate, getEstimatedTaxForJob, getJobPumperName } from '../utils/jobMath';
 
 const screenWidth = Dimensions.get('window').width;
 
@@ -73,7 +73,7 @@ export default function WeeklyDashboardScreen() {
   };
 
   const isOwner = user?.role === 'owner';
-  const commissionRate = user?.commissionRate || 50;
+  const commissionRate = user?.commissionRate ?? 50;
   const ownerPay = calculateOwnerPay(weekJobs);
   const taxEstimate = calculateTaxEstimate(
     weekJobs,
@@ -84,7 +84,7 @@ export default function WeeklyDashboardScreen() {
   );
 
   if (!isOwner) {
-    totals.commission = (totals.income * commissionRate) / 100;
+    totals.commission = calculateJobCommissions(weekJobs, commissionRate);
 
     // Take Home is the employee's full earned commission.
     // Direct payments only reduce the amount the employer still owes.
@@ -162,7 +162,7 @@ export default function WeeklyDashboardScreen() {
       jobs: weekJobs,
       timeLabel: `${format(weekStart, 'MMM d')} - ${format(weekEnd, 'MMM d')}`,
       isOwner: user?.role === 'owner',
-      commissionRate: user?.commissionRate || 50,
+      commissionRate: user?.commissionRate ?? 50,
       taxEstimateEnabled: user?.taxEstimateEnabled === true,
       estimatedTaxRate: user?.estimatedTaxRate || 0,
       includeCashInTaxEstimate: user?.includeCashInTaxEstimate !== false,
@@ -398,7 +398,7 @@ export default function WeeklyDashboardScreen() {
             </div>
             ${!isOwner ? `
               <div class="footer-row">
-                <div class="footer-label">× Commission (${commissionRate}%)</div>
+                <div class="footer-label">× Commission (per job)</div>
                 <div class="footer-value">$${totals.commission.toFixed(0)}</div>
               </div>
               <div class="footer-row">
