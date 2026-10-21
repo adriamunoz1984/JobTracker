@@ -9,6 +9,12 @@ const esc = (value: any) =>
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#039;');
 
+const hasValue = (v: unknown) => v !== null && v !== undefined && String(v).trim() !== '';
+const infoCells = (entries: Array<[string, unknown]>) =>
+  entries.filter(([, value]) => hasValue(value)).map(([label, value]) =>
+    '<tr><td class="label">' + esc(label) + '</td><td colspan="3">' + esc(value) + '</td></tr>'
+  ).join('');
+
 export const buildConcretePumpInvoiceHtml = (
   invoice: Invoice,
   fallbackIssuerName = 'Concrete Pumping',
@@ -17,18 +23,21 @@ export const buildConcretePumpInvoiceHtml = (
   const issuerName = invoice.issuerName || fallbackIssuerName;
   const issuerEmail = invoice.issuerEmail || fallbackIssuerEmail;
 
+  const showJobNumber = (invoice.jobReferences || []).some(ref => hasValue(ref.jobNumber));
+  const showPoNumber = (invoice.jobReferences || []).some(ref => hasValue(ref.poNumber));
   const jobReferenceRows = (invoice.jobReferences || []).map((ref: any) =>
     '<tr>' +
       '<td>' + esc(ref.date || '') + '</td>' +
       '<td>' + esc(ref.address || '') + '</td>' +
-      '<td>' + esc(ref.jobNumber || '') + '</td>' +
-      '<td>' + esc(ref.poNumber || '') + '</td>' +
+      (showJobNumber ? '<td>' + esc(ref.jobNumber || '') + '</td>' : '') +
+      (showPoNumber ? '<td>' + esc(ref.poNumber || '') + '</td>' : '') +
     '</tr>'
   ).join('');
 
   const jobReferencesSection = jobReferenceRows
     ? '<div class="refs-title">Job / PO References</div>' +
-      '<table class="refs"><thead><tr><th>Date</th><th>Job / Site</th><th>Job #</th><th>PO #</th></tr></thead>' +
+      '<table class="refs"><thead><tr><th>Date</th><th>Job / Site</th>' +
+      (showJobNumber ? '<th>Job #</th>' : '') + (showPoNumber ? '<th>PO #</th>' : '') + '</tr></thead>' +
       '<tbody>' + jobReferenceRows + '</tbody></table>'
     : '';
 
@@ -85,29 +94,43 @@ export const buildConcretePumpInvoiceHtml = (
     '<div class="sheet">' +
     '<div class="top">' +
       '<div><div class="company">' + esc(issuerName) + '</div>' +
-      '<div class="company-sub">' + esc(issuerEmail) + '</div></div>' +
+      (hasValue(issuerEmail) ? '<div class="company-sub">' + esc(issuerEmail) + '</div>' : '') + '</div>' +
       '<div class="invoice-box"><div class="invoice-label">Invoice</div>' +
-      '<div class="invoice-number">' + esc(invoice.invoiceNumber) + '</div></div>' +
+      (hasValue(invoice.invoiceNumber) ? '<div class="invoice-number">' + esc(invoice.invoiceNumber) + '</div>' : '') + '</div>' +
     '</div>' +
     '<table class="info">' +
-      '<tr><td class="label">Customer</td><td>' + esc(invoice.clientName) + '</td><td class="label">Date</td><td>' + esc(invoice.date) + '</td></tr>' +
-      '<tr><td class="label">Job Address</td><td colspan="3">' + esc(invoice.jobAddress || '') + '</td></tr>' +
-      '<tr><td class="label">Phone</td><td>' + esc(invoice.clientPhone || '') + '</td><td class="label">Due Date</td><td>' + esc(invoice.dueDate || '') + '</td></tr>' +
-      '<tr><td class="label">Billing Address</td><td colspan="3">' + esc(invoice.clientAddress || '') + '</td></tr>' +
+      infoCells([
+        ['Customer', invoice.clientName],
+        ['Date', invoice.date],
+        ['Job Address', invoice.jobAddress],
+        ['Phone', invoice.clientPhone],
+        ['Due Date', invoice.dueDate],
+        ['Billing Address', invoice.clientAddress],
+      ]) +
     '</table>' +
-    '<table class="service-strip"><tr>' +
-      '<td><strong>RMC</strong>' + esc(invoice.rmc || '') + '</td>' +
-      '<td><strong>Due</strong>' + esc(invoice.dueTime || '') + '</td>' +
-      '<td><strong>Arrive</strong>' + esc(invoice.arriveTime || '') + '</td>' +
-      '<td><strong>Start</strong>' + esc(invoice.startTime || '') + '</td>' +
-      '<td><strong>Finish</strong>' + esc(invoice.finishTime || '') + '</td>' +
-    '</tr></table>' +
+    ([
+      ['RMC', invoice.rmc], ['Due', invoice.dueTime],
+      ['Arrive', invoice.arriveTime], ['Start', invoice.startTime], ['Finish', invoice.finishTime],
+    ].some(([, value]) => hasValue(value))
+      ? '<table class="service-strip"><tr>' +
+        ([
+          ['RMC', invoice.rmc], ['Due', invoice.dueTime],
+          ['Arrive', invoice.arriveTime], ['Start', invoice.startTime], ['Finish', invoice.finishTime],
+        ] as Array<[string, unknown]>).filter(([, value]) => hasValue(value)).map(([label, value]) =>
+          '<td><strong>' + esc(label) + '</strong>' + esc(value) + '</td>'
+        ).join('') +
+        '</tr></table>'
+      : '') +
     jobReferencesSection +
     '<table class="charges"><thead><tr><th class="qty">Qty.</th><th>Description</th><th class="money">Unit Price</th><th class="money">Amount</th></tr></thead>' +
     '<tbody>' + rows + '</tbody></table>' +
     '<div class="bottom">' +
-      '<div class="terms"><strong>Terms / Notes</strong><div style="margin-top:6px;">' + esc(invoice.terms || '') + '</div>' +
-      '<div style="margin-top:6px;">' + esc(invoice.notes || '') + '</div></div>' +
+      (hasValue(invoice.terms) || hasValue(invoice.notes)
+        ? '<div class="terms"><strong>Terms / Notes</strong>' +
+          (hasValue(invoice.terms) ? '<div style="margin-top:6px;">' + esc(invoice.terms) + '</div>' : '') +
+          (hasValue(invoice.notes) ? '<div style="margin-top:6px;">' + esc(invoice.notes) + '</div>' : '') +
+          '</div>'
+        : '') +
       '<div class="total-box">' +
         '<div class="total-row"><span>Subtotal</span><strong>$' + Number(invoice.subtotal || 0).toFixed(2) + '</strong></div>' +
         (invoice.tax ? '<div class="total-row"><span>Tax</span><strong>$' + Number(invoice.tax).toFixed(2) + '</strong></div>' : '') +
