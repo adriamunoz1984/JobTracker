@@ -32,16 +32,18 @@ export default function InvoicePaperPreview({
       </View>
 
       <InfoRow label="Customer" value={invoice.clientName} rightLabel="Date" rightValue={invoice.date} />
-      <InfoRow label="Job Address" value={invoice.jobAddress || ''} wide />
-      <InfoRow label="Phone" value={invoice.clientPhone || ''} rightLabel="Due Date" rightValue={invoice.dueDate || ''} />
-      <InfoRow label="Billing Address" value={invoice.clientAddress || ''} wide />
+      {!!invoice.jobAddress?.trim() && <InfoRow label="Job Address" value={invoice.jobAddress} wide />}
+      {(!!invoice.clientPhone?.trim() || !!invoice.dueDate?.trim()) && (
+        <InfoRow label="Phone" value={invoice.clientPhone || ''} rightLabel="Due Date" rightValue={invoice.dueDate || ''} />
+      )}
+      {!!invoice.clientAddress?.trim() && <InfoRow label="Billing Address" value={invoice.clientAddress} wide />}
 
       <View style={styles.serviceRow}>
-        <Service label="RMC" value={invoice.rmc || ''} />
-        <Service label="Due" value={invoice.dueTime || ''} />
-        <Service label="Arrive" value={invoice.arriveTime || ''} />
-        <Service label="Start" value={invoice.startTime || ''} />
-        <Service label="Finish" value={invoice.finishTime || ''} last />
+        {!!invoice.rmc?.trim() && <Service label="RMC" value={invoice.rmc} />}
+        {!!invoice.dueTime?.trim() && <Service label="Due" value={invoice.dueTime} />}
+        {!!invoice.arriveTime?.trim() && <Service label="Arrive" value={invoice.arriveTime} />}
+        {!!invoice.startTime?.trim() && <Service label="Start" value={invoice.startTime} />}
+        {!!invoice.finishTime?.trim() && <Service label="Finish" value={invoice.finishTime} last />}
       </View>
 
       {!!invoice.jobReferences?.length && (
@@ -81,11 +83,13 @@ export default function InvoicePaperPreview({
       ))}
 
       <View style={styles.bottomRow}>
-        <View style={styles.terms}>
-          <Text style={styles.bold}>Terms / Notes</Text>
-          {!!invoice.terms && <Text style={styles.small}>{invoice.terms}</Text>}
-          {!!invoice.notes && <Text style={styles.small}>{invoice.notes}</Text>}
-        </View>
+        {(!!invoice.terms?.trim() || !!invoice.notes?.trim()) && (
+          <View style={styles.terms}>
+            <Text style={styles.bold}>Terms / Notes</Text>
+            {!!invoice.terms?.trim() && <Text style={styles.small}>{invoice.terms}</Text>}
+            {!!invoice.notes?.trim() && <Text style={styles.small}>{invoice.notes}</Text>}
+          </View>
+        )}
         <View style={styles.totals}>
           <TotalRow label="Subtotal" value={invoice.subtotal || 0} />
           {!!invoice.tax && <TotalRow label="Tax" value={invoice.tax} />}
@@ -117,6 +121,17 @@ function InfoRow({
   rightValue?: string;
   wide?: boolean;
 }) {
+  if (!value?.trim() && !rightValue?.trim()) return null;
+  if (!value?.trim() || !rightValue?.trim()) {
+    const displayedLabel = value?.trim() ? label : (rightLabel || label);
+    const displayedValue = value?.trim() ? value : rightValue;
+    return (
+      <View style={styles.infoRow}>
+        <View style={styles.labelBox}><Text style={styles.labelText}>{displayedLabel}</Text></View>
+        <View style={[styles.valueBox, styles.wideValue]}><Text style={styles.valueText}>{displayedValue}</Text></View>
+      </View>
+    );
+  }
   return (
     <View style={styles.infoRow}>
       <View style={styles.labelBox}><Text style={styles.labelText}>{label}</Text></View>
