@@ -493,8 +493,8 @@ export default function MonthlySummaryScreen() {
               </View>
 
               <View style={styles.earningsRow}>
-                <Text style={styles.earningsLabel}>- Direct Payments:</Text>
-                <Text style={styles.earningsValue}>-${totals.paidToMeAmount.toFixed(2)}</Text>
+                <Text style={styles.earningsLabel}>Direct Payments Received:</Text>
+                <Text style={styles.earningsValue}>${totals.paidToMeAmount.toFixed(2)}</Text>
               </View>
 
               <Divider style={styles.divider} />
@@ -503,8 +503,8 @@ export default function MonthlySummaryScreen() {
                 colors={gradients.success}
                 style={styles.totalBox}
               >
-                <Text style={styles.totalLabel}>Amount Owed:</Text>
-                <Text style={styles.totalValue}>${totals.yourPay.toFixed(2)}</Text>
+                <Text style={styles.totalLabel}>Earned:</Text>
+                <Text style={styles.totalValue}>${totals.commission.toFixed(2)}</Text>
               </LinearGradient>
             </Card.Content>
           </Card>
