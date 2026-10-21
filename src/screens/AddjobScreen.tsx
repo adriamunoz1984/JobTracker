@@ -43,7 +43,7 @@ export default function AddJobScreen() {
   const isEditing = !!editingJob;
 
   const FLAT_RATE_THRESHOLD = 10;
-  const FLAT_RATE_AMOUNT = 350;
+  // Short jobs can have different minimum charges depending on location.
 
   const [clients, setClients] = useState<Client[]>([]);
   const [isLoadingClients, setIsLoadingClients] = useState(true);
@@ -72,6 +72,9 @@ export default function AddJobScreen() {
   const [setupCharge, setSetupCharge] = useState(editingJob?.setupCharge?.toString() || '');
   const [manualOverride, setManualOverride] = useState(false);
   const [manualAmount, setManualAmount] = useState(editingJob?.amount?.toString() || '');
+  const [minimumCharge, setMinimumCharge] = useState(
+    editingJob?.isFlatRate ? String(editingJob.flatRateAmount ?? editingJob.amount ?? '') : ''
+  );
   const [paymentMethod, setPaymentMethod] = useState<'Cash' | 'Check' | 'Zelle' | 'Square' | 'Charge' | 'Card'>(
     editingJob?.paymentMethod || 'Cash'
   );
@@ -270,7 +273,7 @@ export default function AddJobScreen() {
     }
 
     if (isFlatRate) {
-      return FLAT_RATE_AMOUNT;
+      return parseFloat(minimumCharge) || 0;
     }
 
     const perYardNum = parseFloat(amountPerYard) || 0;
@@ -351,6 +354,12 @@ export default function AddJobScreen() {
       return;
     }
 
+    if (isFlatRate && !manualOverride &&
+        (!minimumCharge.trim() || !Number.isFinite(Number(minimumCharge)) || Number(minimumCharge) <= 0)) {
+      Alert.alert('Minimum Charge Required', 'Enter the minimum charge for this job and location.');
+      return;
+    }
+
     if (!isFlatRate && !manualOverride) {
       if (!amountPerYard.trim() || parseFloat(amountPerYard) <= 0) {
         Alert.alert('Invalid Input', 'Please enter a valid amount per yard');
@@ -400,7 +409,7 @@ export default function AddJobScreen() {
       };
 
       if (isFlatRate) {
-        jobData.flatRateAmount = FLAT_RATE_AMOUNT;
+        jobData.flatRateAmount = parseFloat(minimumCharge);
       } else if (!manualOverride) {
         jobData.amountPerYard = parseFloat(amountPerYard);
         jobData.setupCharge = parseFloat(setupCharge);
@@ -718,12 +727,18 @@ else
         </View>
 
         {isFlatRate && !manualOverride && (
-          <View style={styles.flatRateNotice}>
-            <IconButton icon="check-circle" iconColor={Colors.warning} size={20} />
-            <Text style={styles.flatRateText}>
-              Flat rate applied: {yardsNum} yards ≤ {FLAT_RATE_THRESHOLD} yards = ${FLAT_RATE_AMOUNT}
-            </Text>
-          </View>
+          <TextInput
+            label="Minimum Charge for This Job ($) *"
+            value={minimumCharge}
+            onChangeText={setMinimumCharge}
+            placeholder="Enter location-based minimum"
+            keyboardType="decimal-pad"
+            mode="outlined"
+            style={styles.input}
+            left={<TextInput.Icon icon="currency-usd" />}
+            outlineColor={Colors.border}
+            activeOutlineColor={Colors.primary}
+          />
         )}
 
         {!isFlatRate && !manualOverride && (
@@ -784,7 +799,7 @@ else
 
         {!manualOverride && yards && (
           <Text style={styles.calculation}>
-            {isFlatRate ? `Flat rate for ${yards} yards` : `(${yards} yards × $${amountPerYard || 0}) + $${setupCharge || 0}`}
+            {isFlatRate ? `Minimum charge for ${yards} yards` : `(${yards} yards × $${amountPerYard || 0}) + $${setupCharge || 0}`}
           </Text>
         )}
 
