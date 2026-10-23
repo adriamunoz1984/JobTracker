@@ -77,8 +77,14 @@ export default function InvoiceScreen() {
 
     jobs.forEach((job, jobIndex) => {
       let setup = Number(job.setupCharge || 0);
-      const yardRate = Number(job.amountPerYard || 0);
+      let yardRate = Number(job.amountPerYard || 0);
       const yards = Number(job.yards || 0);
+      // Saved totals are authoritative for legacy flat rates and manual overrides.
+      // Old jobs may still carry rates that would otherwise overstate the invoice.
+      if (job.isFlatRate || setup + yards * yardRate > Number(job.amount || 0)) {
+        setup = Number(job.amount || 0);
+        yardRate = 0;
+      }
       const yardAmount = yardRate > 0 ? yards * yardRate : 0;
       let remaining = Math.max(0, Number(job.amount || 0) - setup - yardAmount);
 

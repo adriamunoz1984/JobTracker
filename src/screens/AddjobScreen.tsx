@@ -42,8 +42,10 @@ export default function AddJobScreen() {
   const editingJob = (route.params as any)?.job as Job | undefined;
   const isEditing = !!editingJob;
 
-  const FLAT_RATE_THRESHOLD = 10;
-  // Short jobs can have different minimum charges depending on location.
+  // A zero yard rate plus the editable setup charge starts new jobs at $350.
+  // Preserve saved totals that cannot be reconstructed from their old rates.
+  const savedCalculatedAmount = (editingJob?.yards ?? 0) * (editingJob?.amountPerYard ?? 0)
+    + (editingJob?.setupCharge ?? 0);
 
   const [clients, setClients] = useState<Client[]>([]);
   const [isLoadingClients, setIsLoadingClients] = useState(true);
@@ -68,13 +70,12 @@ export default function AddJobScreen() {
   const [address, setAddress] = useState(editingJob?.address || '');
   const [city, setCity] = useState(editingJob?.city || '');
   const [yards, setYards] = useState(editingJob?.yards?.toString() || '');
-  const [amountPerYard, setAmountPerYard] = useState(editingJob?.amountPerYard?.toString() || '');
-  const [setupCharge, setSetupCharge] = useState(editingJob?.setupCharge?.toString() || '');
-  const [manualOverride, setManualOverride] = useState(false);
-  const [manualAmount, setManualAmount] = useState(editingJob?.amount?.toString() || '');
-  const [minimumCharge, setMinimumCharge] = useState(
-    editingJob?.isFlatRate ? String(editingJob.flatRateAmount ?? editingJob.amount ?? '') : ''
+  const [amountPerYard, setAmountPerYard] = useState(editingJob ? String(editingJob.amountPerYard ?? 0) : '0');
+  const [setupCharge, setSetupCharge] = useState(editingJob ? String(editingJob.setupCharge ?? 0) : '350');
+  const [manualOverride, setManualOverride] = useState(
+    !!editingJob && (editingJob.isFlatRate || Math.abs(savedCalculatedAmount - editingJob.amount) > 0.005)
   );
+  const [manualAmount, setManualAmount] = useState(editingJob?.amount?.toString() || '');
   const [paymentMethod, setPaymentMethod] = useState<'Cash' | 'Check' | 'Zelle' | 'Square' | 'Charge' | 'Card'>(
     editingJob?.paymentMethod || 'Cash'
   );
@@ -184,10 +185,10 @@ export default function AddJobScreen() {
     setShowClientDropdown(false);
     setShowAllSavedClients(false);
     
-    if (client.defaultPricePerYard && !amountPerYard) {
+    if (client.defaultPricePerYard != null && !isEditing) {
       setAmountPerYard(client.defaultPricePerYard.toString());
     }
-    if (client.defaultSetupCharge && !setupCharge) {
+    if (client.defaultSetupCharge != null && !isEditing) {
       setSetupCharge(client.defaultSetupCharge.toString());
     }
     
@@ -237,15 +238,15 @@ export default function AddJobScreen() {
     setCity(addr.city);
     setShowAddressDropdown(false);
     
-    if (addr.pricePerYard) {
+    if (addr.pricePerYard != null) {
       setAmountPerYard(addr.pricePerYard.toString());
-    } else if (selectedClient?.defaultPricePerYard) {
+    } else if (selectedClient?.defaultPricePerYard != null) {
       setAmountPerYard(selectedClient.defaultPricePerYard.toString());
     }
     
-    if (addr.setupCharge) {
+    if (addr.setupCharge != null) {
       setSetupCharge(addr.setupCharge.toString());
-    } else if (selectedClient?.defaultSetupCharge) {
+    } else if (selectedClient?.defaultSetupCharge != null) {
       setSetupCharge(selectedClient.defaultSetupCharge.toString());
     }
   };
@@ -265,15 +266,10 @@ export default function AddJobScreen() {
   };
 
   const yardsNum = parseFloat(yards) || 0;
-  const isFlatRate = yardsNum > 0 && yardsNum <= FLAT_RATE_THRESHOLD;
 
   const calculateTotal = (): number => {
     if (manualOverride) {
       return parseFloat(manualAmount) || 0;
-    }
-
-    if (isFlatRate) {
-      return parseFloat(minimumCharge) || 0;
     }
 
     const perYardNum = parseFloat(amountPerYard) || 0;
@@ -349,30 +345,24 @@ export default function AddJobScreen() {
       return;
     }
 
-    if (!yards.trim() || parseFloat(yards) <= 0) {
+    if (!yards.trim() || !Number.isFinite(Number(yards)) || Number(yards) <= 0) {
       Alert.alert('Invalid Input', 'Please enter a valid number of yards');
       return;
     }
 
-    if (isFlatRate && !manualOverride &&
-        (!minimumCharge.trim() || !Number.isFinite(Number(minimumCharge)) || Number(minimumCharge) <= 0)) {
-      Alert.alert('Minimum Charge Required', 'Enter the minimum charge for this job and location.');
-      return;
-    }
-
-    if (!isFlatRate && !manualOverride) {
-      if (!amountPerYard.trim() || parseFloat(amountPerYard) <= 0) {
-        Alert.alert('Invalid Input', 'Please enter a valid amount per yard');
+    if (!manualOverride) {
+      if (!amountPerYard.trim() || !Number.isFinite(Number(amountPerYard)) || Number(amountPerYard) < 0) {
+        Alert.alert('Invalid Input', 'Please enter a valid amount per yard (can be 0)');
         return;
       }
 
-      if (!setupCharge.trim() || parseFloat(setupCharge) < 0) {
+      if (!setupCharge.trim() || !Number.isFinite(Number(setupCharge)) || Number(setupCharge) < 0) {
         Alert.alert('Invalid Input', 'Please enter a valid setup charge (can be 0)');
         return;
       }
     }
 
-    if (manualOverride && (!manualAmount.trim() || parseFloat(manualAmount) <= 0)) {
+    if (manualOverride && (!manualAmount.trim() || !Number.isFinite(Number(manualAmount)) || Number(manualAmount) <= 0)) {
       Alert.alert('Invalid Input', 'Please enter a valid manual amount');
       return;
     }
@@ -401,19 +391,17 @@ export default function AddJobScreen() {
         paymentMethod,
         isPaidToMe,
         isPaid: isPaidToMe ? true : false,
-        isFlatRate: isFlatRate,
+        isFlatRate: false,
+        flatRateAmount: null,
         ...(!isEditing || isPrivateExisting ? {
           jobType: independentJob ? 'personal' : 'employee',
           ...(independentJob ? { employeeCommissionRate: rate } : {}),
         } : {}),
       };
 
-      if (isFlatRate) {
-        jobData.flatRateAmount = parseFloat(minimumCharge);
-      } else if (!manualOverride) {
-        jobData.amountPerYard = parseFloat(amountPerYard);
-        jobData.setupCharge = parseFloat(setupCharge);
-      }
+      // Overrides have no rate breakdown; clear stale values when editing.
+      jobData.amountPerYard = manualOverride ? 0 : Number(amountPerYard);
+      jobData.setupCharge = manualOverride ? total : Number(setupCharge);
 
       if (selectedClient) {
         jobData.clientId = selectedClient.id;
@@ -726,22 +714,7 @@ else
           </View>
         </View>
 
-        {isFlatRate && !manualOverride && (
-          <TextInput
-            label="Minimum Charge for This Job ($) *"
-            value={minimumCharge}
-            onChangeText={setMinimumCharge}
-            placeholder="Enter location-based minimum"
-            keyboardType="decimal-pad"
-            mode="outlined"
-            style={styles.input}
-            left={<TextInput.Icon icon="currency-usd" />}
-            outlineColor={Colors.border}
-            activeOutlineColor={Colors.primary}
-          />
-        )}
-
-        {!isFlatRate && !manualOverride && (
+        {!manualOverride && (
           <>
             <TextInput
               label="Amount Per Yard ($) *"
@@ -799,7 +772,7 @@ else
 
         {!manualOverride && yards && (
           <Text style={styles.calculation}>
-            {isFlatRate ? `Minimum charge for ${yards} yards` : `(${yards} yards × $${amountPerYard || 0}) + $${setupCharge || 0}`}
+            {`(${yards} yards × ${amountPerYard || 0}) + ${setupCharge || 0}`}
           </Text>
         )}
 
