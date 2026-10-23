@@ -14,7 +14,7 @@ export default function RegisterScreen() {
   const { register, error, clearError, isLoading } = useAuth();
   
   // Get role from route params (passed from RoleSelectionScreen)
-  const role = (route.params?.role as UserRole) || 'owner';
+  const role = (route.params as { role?: UserRole } | undefined)?.role || 'owner';
   
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -112,19 +112,6 @@ export default function RegisterScreen() {
       // Navigation will happen automatically after successful registration
     } catch (e) {
       // Error is handled by auth context
-    }
-    console.log('🔐 Starting registration...');
-    console.log('📧 Email:', email);
-    console.log('👤 Name:', name);
-    console.log('🚀 Calling register...');
-
-    try {
-      await register(email, password, name, roleData);
-      console.log('✅ Registration successful!');
-    } catch (e: any) {
-      console.error('❌ Error:', e.message);
-      console.error('📋 Error code:', e.code);
-      console.error('Full error:', e);
     }
   };
   

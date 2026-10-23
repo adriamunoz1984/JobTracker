@@ -28,7 +28,8 @@ const DraggableFAB: React.FC<DraggableFABProps> = ({ variant = 'default' }) => {
   
   // Track whether we're dragging
   const isDragging = useRef(false);
-  const timeoutRef = useRef(null);
+  const currentPosition = useRef({ x: width / 2 - 28, y: height - 120 });
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   
   const panResponder = useRef(
     PanResponder.create({
@@ -40,11 +41,7 @@ const DraggableFAB: React.FC<DraggableFABProps> = ({ variant = 'default' }) => {
         Vibration.vibrate(50);
         
         // Set up for potential dragging
-        position.setOffset({
-          x: position.x._value,
-          y: position.y._value
-        });
-        position.setValue({ x: 0, y: 0 });
+        position.extractOffset();
         
         // Start timer to detect long press
         isDragging.current = false;
@@ -96,8 +93,7 @@ const DraggableFAB: React.FC<DraggableFABProps> = ({ variant = 'default' }) => {
         position.flattenOffset();
         
         // Keep within bounds
-        const posX = position.x._value;
-        const posY = position.y._value;
+        const { x: posX, y: posY } = currentPosition.current;
         
         let toX = posX;
         let toY = posY;
@@ -122,7 +118,9 @@ const DraggableFAB: React.FC<DraggableFABProps> = ({ variant = 'default' }) => {
   
   // Clean up timeouts
   useEffect(() => {
+    const listener = position.addListener(value => { currentPosition.current = value; });
     return () => {
+      position.removeListener(listener);
       if (timeoutRef.current) {
         clearTimeout(timeoutRef.current);
       }

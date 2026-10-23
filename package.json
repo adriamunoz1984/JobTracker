@@ -3,6 +3,8 @@
   "version": "1.0.0",
   "main": "index.ts",
   "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test:release": "node scripts/check-release-regressions.cjs",
     "start": "expo start --android",
     "android": "expo run:android",
     "build": "expo build:android",

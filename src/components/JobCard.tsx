@@ -10,24 +10,7 @@ import { Spacing, BorderRadius, Shadows, Typography } from '../theme/colors';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAppTheme, makeStyles } from '../theme';
 
-interface Job {
-  id: string;
-  userId: string;
-  companyName?: string;
-  clientName: string;
-  address: string;
-  city: string;
-  yards: number;
-  isPaid: boolean;
-  isPaidToMe?: boolean;
-  paymentMethod: 'Cash' | 'Check' | 'Zelle' | 'Square' | 'Charge' | 'Card';
-  amount: number;
-  isFlatRate: boolean;
-  date: string;
-  sequenceNumber?: number;
-  totalJobsOnDate?: number;
-  notes?: string;
-}
+import { Job } from '../types';
 
 interface JobCardProps {
   job: Job;
@@ -92,7 +75,7 @@ const JobCard: React.FC<JobCardProps> = ({ job, onDelete, onTogglePaid }) => {
   };
 
   const showSequenceBadge = job.totalJobsOnDate && job.totalJobsOnDate > 1;
-  const shouldIndent = showSequenceBadge && job.sequenceNumber && job.sequenceNumber > 1;
+  const shouldIndent = !!showSequenceBadge && (job.sequenceNumber ?? 0) > 1;
   const pumperLabel =
     user?.role === 'owner'
       ? job.isEmployeeJob

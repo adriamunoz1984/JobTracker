@@ -55,7 +55,7 @@ export default function SwipeableTabNavigator() {
       }
     })
     .onEnd((e) => {
-      const updateIndex = (newIndex) => {
+      const updateIndex = (newIndex: number) => {
         setIndex(newIndex);
         prevIndexRef.current = newIndex;
       };
@@ -86,7 +86,7 @@ export default function SwipeableTabNavigator() {
   });
 
   // Render scene based on route
-  const renderScene = ({ route, jumpTo }) => {
+  const renderScene = ({ route }: { route: { key: string } }) => {
     switch (route.key) {
       case 'home':
         return <HomeScreen />;
@@ -102,8 +102,8 @@ export default function SwipeableTabNavigator() {
   };
 
   // Custom icon renderer for BottomNavigation
-  const renderIcon = ({ route, focused, color }) => {
-    let iconName;
+  const renderIcon = ({ route, focused, color }: { route: { key: string }; focused: boolean; color: string }) => {
+    let iconName: React.ComponentProps<typeof Ionicons>['name'];
 
     switch (route.key) {
       case 'home':
@@ -119,7 +119,7 @@ export default function SwipeableTabNavigator() {
         iconName = focused ? 'stats-chart' : 'stats-chart-outline';
         break;
       default:
-        iconName = 'circle';
+        iconName = 'ellipse';
     }
 
     return <Ionicons name={iconName} size={24} color={color} />;

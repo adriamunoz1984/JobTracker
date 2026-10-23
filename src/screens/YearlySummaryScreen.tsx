@@ -738,8 +738,8 @@ export default function YearlySummaryScreen() {
                   <Text style={styles.monthName}>{month.fullMonth}</Text>
                   {month.jobs > 0 && (
                     <View style={styles.monthChips}>
-                      <Chip compact style={styles.jobsChip} labelStyle={styles.jobsChipLabel}>{month.jobs} jobs</Chip>
-                      <Chip compact style={styles.yardsChip} labelStyle={styles.yardsChipLabel}>{month.yards.toFixed(0)} yds</Chip>
+                      <Chip compact style={styles.jobsChip} textStyle={styles.jobsChipLabel}>{month.jobs} jobs</Chip>
+                      <Chip compact style={styles.yardsChip} textStyle={styles.yardsChipLabel}>{month.yards.toFixed(0)} yds</Chip>
                     </View>
                   )}
                 </View>

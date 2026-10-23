@@ -82,7 +82,7 @@ export default function LoginScreen() {
               autoCapitalize="none"
               mode="outlined"
               style={styles.input}
-              left={<TextInput.Icon icon="email" iconColor={Colors.primary} />}
+              left={<TextInput.Icon icon="email" color={Colors.primary} />}
               outlineColor={Colors.border}
               activeOutlineColor={Colors.primary}
               editable={!loading}
@@ -96,12 +96,12 @@ export default function LoginScreen() {
               secureTextEntry={!showPassword}
               mode="outlined"
               style={styles.input}
-              left={<TextInput.Icon icon="lock" iconColor={Colors.primary} />}
+              left={<TextInput.Icon icon="lock" color={Colors.primary} />}
               right={
                 <TextInput.Icon 
                   icon={showPassword ? "eye-off" : "eye"} 
                   onPress={() => setShowPassword(!showPassword)}
-                  iconColor={Colors.textSecondary}
+                  color={Colors.textSecondary}
                 />
               }
               outlineColor={Colors.border}

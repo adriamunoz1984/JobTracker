@@ -345,6 +345,8 @@ export default function DashboardScreen() {
             </Text>
             {chartData.jobsData.length > 0 ? (
               <BarChart
+                yAxisLabel=""
+                yAxisSuffix=""
                 data={{
                   labels: chartData.labels,
                   datasets: [{ data: chartData.jobsData.length > 0 ? chartData.jobsData : [0] }],

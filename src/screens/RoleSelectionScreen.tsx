@@ -1,3 +1,4 @@
+import type { JobTrackerNavigation } from '../navigation/types';
 // src/screens/RoleSelectionScreen.tsx
 import React from 'react';
 import { View, StyleSheet, ScrollView } from 'react-native';
@@ -7,7 +8,7 @@ import { makeStyles } from '../theme';
 
 export default function RoleSelectionScreen() {
   const styles = useStyles();
-  const navigation = useNavigation();
+  const navigation = useNavigation<JobTrackerNavigation>();
 
   const handleOwnerSelection = () => {
     navigation.navigate('Register', { role: 'owner' });

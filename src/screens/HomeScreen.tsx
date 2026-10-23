@@ -197,7 +197,7 @@ export default function HomeScreen() {
         id: `week-${section.weekEnd}`,
         weekEnd: section.weekEnd
       },
-      ...(isCollapsed ? [] : section.jobs.map(job => ({ type: 'job', job })))
+      ...(isCollapsed ? [] : section.jobs.map(job => ({ type: 'job' as const, job })))
     ];
   });
 

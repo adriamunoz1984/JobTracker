@@ -137,6 +137,10 @@ export interface ClientAddress {
 }
 
 export interface Client {
+  phone?: string;
+  email?: string;
+  notes?: string;
+  isPrivate?: boolean;
   id: string;
   name: string;
   addresses: ClientAddress[];

@@ -252,7 +252,7 @@ export default function AssignJobScreen() {
           onChangeText={setAddress}
           style={styles.input}
           mode="outlined"
-          required
+
         />
         
         <TextInput
@@ -261,7 +261,7 @@ export default function AssignJobScreen() {
           onChangeText={setCity}
           style={styles.input}
           mode="outlined"
-          required
+
         />
 
         <TextInput

@@ -3,7 +3,6 @@ import { View, StyleSheet, useWindowDimensions, TouchableOpacity } from 'react-n
 import { TabView } from 'react-native-tab-view';
 import { Ionicons } from '@expo/vector-icons';
 import { Appbar } from 'react-native-paper';
-import { useNavigation } from '@react-navigation/native';
 
 // Import your screens directly
 import HomeScreen from '../screens/HomeScreen';
@@ -17,7 +16,6 @@ export default function TabViewNavigator() {
   const { colors: Colors } = useAppTheme();
   const styles = useStyles();
   const layout = useWindowDimensions();
-  const navigation = useNavigation();
 
   // Define the tabs
   const [index, setIndex] = useState(0);
@@ -26,12 +24,10 @@ export default function TabViewNavigator() {
     { key: 'weekly', title: 'Weekly' },
     { key: 'monthly', title: 'Monthly' },
     { key: 'yearly', title: 'Yearly' },
-    { key: 'expenses', title: 'Expenses' },
   ]);
 
-  // Create scene renderers with navigation properly passed through
-  const renderScene = ({ route }) => {
-    // Pass the navigation object to all screens
+  // Screens obtain navigation from their own hooks.
+  const renderScene = ({ route }: { route: { key: string } }) => {
     switch (route.key) {
       case 'home':
         return (
@@ -40,7 +36,7 @@ export default function TabViewNavigator() {
               <Appbar.Content title="My Jobs" style={styles.headerContent} />
             </Appbar.Header>
             <View style={styles.content}>
-              <HomeScreen navigation={navigation} />
+              <HomeScreen />
             </View>
           </View>
         );
@@ -51,7 +47,7 @@ export default function TabViewNavigator() {
               <Appbar.Content title="Weekly Dashboard" style={styles.headerContent} />
             </Appbar.Header>
             <View style={styles.content}>
-              <WeeklyDashboardScreen navigation={navigation} />
+              <WeeklyDashboardScreen />
             </View>
           </View>
         );
@@ -62,7 +58,7 @@ export default function TabViewNavigator() {
               <Appbar.Content title="Monthly Summary" style={styles.headerContent} />
             </Appbar.Header>
             <View style={styles.content}>
-              <MonthlySummaryScreen navigation={navigation} />
+              <MonthlySummaryScreen />
             </View>
           </View>
         );
@@ -73,18 +69,7 @@ export default function TabViewNavigator() {
               <Appbar.Content title="Yearly Summary" style={styles.headerContent} />
             </Appbar.Header>
             <View style={styles.content}>
-              <YearlySummaryScreen navigation={navigation} />
-            </View>
-          </View>
-        );
-      case 'expenses':
-        return (
-          <View style={styles.sceneContainer}>
-            <Appbar.Header style={styles.header}>
-              <Appbar.Content title="My Expenses" style={styles.headerContent} />
-            </Appbar.Header>
-            <View style={styles.content}>
-              <ExpensesListScreen navigation={navigation} />
+              <YearlySummaryScreen />
             </View>
           </View>
         );
@@ -94,14 +79,14 @@ export default function TabViewNavigator() {
   };
 
   // Custom Tab Bar Component with only icons
-  const CustomTabBar = ({ navigationState, jumpTo }) => {
+  const CustomTabBar = ({ navigationState, jumpTo }: { navigationState: { index: number; routes: { key: string; title: string }[] }; jumpTo: (key: string) => void }) => {
     return (
       <View style={styles.tabBar}>
         {navigationState.routes.map((route, i) => {
           const isFocused = navigationState.index === i;
           const color = isFocused ? Colors.primary : Colors.textLight;
           
-          let iconName;
+          let iconName: React.ComponentProps<typeof Ionicons>['name'];
           switch (route.key) {
             case 'home':
               iconName = isFocused ? 'home' : 'home-outline';
@@ -115,11 +100,8 @@ export default function TabViewNavigator() {
             case 'yearly':
               iconName = isFocused ? 'stats-chart' : 'stats-chart-outline';
               break;
-            case 'expenses':
-              iconName = isFocused ? 'cash' : 'cash-outline';
-              break;
             default:
-              iconName = 'circle';
+              iconName = 'ellipse';
           }
           
           return (

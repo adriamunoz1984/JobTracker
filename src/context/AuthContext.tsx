@@ -123,7 +123,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           
           if (profileDoc.exists()) {
             const firestoreData = profileDoc.data();
-            const completeUser = {
+            const completeUser: User = {
+              role: 'employee',
               uid: firebaseUser.uid,
               email: firebaseUser.email,
               displayName: firebaseUser.displayName,

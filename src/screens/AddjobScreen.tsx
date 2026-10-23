@@ -546,7 +546,7 @@ else
             onFocus={handleCompanyNameFocus}
             mode="outlined"
             style={styles.input}
-            right={selectedClient ? <TextInput.Icon icon="check-circle" iconColor={Colors.success} /> : undefined}
+            right={selectedClient ? <TextInput.Icon icon="check-circle" color={Colors.success} /> : undefined}
             outlineColor={Colors.border}
             activeOutlineColor={Colors.primary}
           />
@@ -609,7 +609,7 @@ else
             onFocus={handleAddressFocus}
             mode="outlined"
             style={styles.input}
-            right={selectedAddress ? <TextInput.Icon icon="check-circle" iconColor={Colors.success} /> : undefined}
+            right={selectedAddress ? <TextInput.Icon icon="check-circle" color={Colors.success} /> : undefined}
             outlineColor={Colors.border}
             activeOutlineColor={Colors.primary}
           />
@@ -686,7 +686,7 @@ else
             keyboardType="decimal-pad"
             mode="outlined"
             style={styles.input}
-            left={<TextInput.Icon icon="truck-delivery" iconColor={Colors.primary} />}
+            left={<TextInput.Icon icon="truck-delivery" color={Colors.primary} />}
             outlineColor={Colors.border}
             activeOutlineColor={Colors.primary}
           />
@@ -940,7 +940,7 @@ else
                     keyboardType="email-address"
                     autoCapitalize="none"
                     style={styles.input}
-                    left={<TextInput.Icon icon="email" iconColor={Colors.primary} />}
+                    left={<TextInput.Icon icon="email" color={Colors.primary} />}
                     outlineColor={Colors.border}
                     activeOutlineColor={Colors.primary}
                   />
@@ -952,7 +952,7 @@ else
                     mode="outlined"
                     keyboardType="phone-pad"
                     style={styles.input}
-                    left={<TextInput.Icon icon="phone" iconColor={Colors.primary} />}
+                    left={<TextInput.Icon icon="phone" color={Colors.primary} />}
                     outlineColor={Colors.border}
                     activeOutlineColor={Colors.primary}
                   />

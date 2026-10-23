@@ -221,7 +221,8 @@ export default function InvoiceDetailScreen() {
             invoiceForRender.issuerEmail
           );
 
-    return await Print.printToFileAsync({ html: htmlContent });
+    const { uri } = await Print.printToFileAsync({ html: htmlContent });
+    return uri;
   };
 
   const handleViewPDF = async () => {

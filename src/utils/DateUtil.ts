@@ -58,7 +58,7 @@ export const createSafeDate = (dateString: string): Date => {
  * @param weekStartsOn Day of week that starts the week (0 = Sunday)
  * @returns Object with start and end ISO strings
  */
-export const getWeekRange = (date: Date, weekStartsOn: number = 0): { start: string, end: string } => {
+export const getWeekRange = (date: Date, weekStartsOn: 0 | 1 | 2 | 3 | 4 | 5 | 6 = 0): { start: string, end: string } => {
   const start = startOfWeek(date, { weekStartsOn });
   const end = endOfWeek(date, { weekStartsOn });
   

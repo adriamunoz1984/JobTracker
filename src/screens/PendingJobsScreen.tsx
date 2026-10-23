@@ -1,3 +1,4 @@
+import type { JobTrackerNavigation } from '../navigation/types';
 // src/screens/PendingJobsScreen.tsx
 import React, { useState, useEffect } from 'react';
 import { View, StyleSheet, ScrollView, Alert } from 'react-native';
@@ -38,7 +39,7 @@ interface PendingJob {
 export default function PendingJobsScreen() {
   const { colors: Colors } = useAppTheme();
   const styles = useStyles();
-  const navigation = useNavigation();
+  const navigation = useNavigation<JobTrackerNavigation>();
   const { user } = useAuth();
   const [pendingJobs, setPendingJobs] = useState<PendingJob[]>([]);
   const [acceptedJobs, setAcceptedJobs] = useState<PendingJob[]>([]);
@@ -96,7 +97,7 @@ export default function PendingJobsScreen() {
         [
           {
             text: 'Complete Now',
-            onPress: () => navigation.navigate('CompleteJob' as never, { jobId: job.id } as never)
+            onPress: () => navigation.navigate('CompleteJob', { jobId: job.id })
           },
           {
             text: 'Later',
@@ -111,7 +112,7 @@ export default function PendingJobsScreen() {
   };
 
   const handleCompleteJob = (job: PendingJob) => {
-    navigation.navigate('CompleteJob' as never, { jobId: job.id } as never);
+    navigation.navigate('CompleteJob', { jobId: job.id });
   };
 
   const handleDeclineJob = (job: PendingJob) => {

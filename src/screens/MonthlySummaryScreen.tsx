@@ -634,6 +634,7 @@ export default function MonthlySummaryScreen() {
 
             {weeklyData.length > 0 ? (
               <BarChart
+                yAxisSuffix=""
                 data={chartData}
                 width={screenWidth - 60}
                 height={220}
