@@ -390,7 +390,8 @@ export default function AddJobScreen() {
         amount: total,
         paymentMethod,
         isPaidToMe,
-        isPaid: isPaidToMe ? true : false,
+        // Editing job details must not undo a payment recorded elsewhere.
+        isPaid: isPaidToMe || editingJob?.isPaid || false,
         isFlatRate: false,
         flatRateAmount: null,
         ...(!isEditing || isPrivateExisting ? {
@@ -468,7 +469,7 @@ export default function AddJobScreen() {
 } 
 else 
   {
-  await addJob(jobData);
+  const savedJobId = await addJob(jobData);
   
   await promptUpdateClientBilling();
   
@@ -477,7 +478,7 @@ else
     {
       const jobForInvoice = 
       {
-        id: `job_${Date.now()}`,
+        id: savedJobId,
         ...jobData,
         date: jobData.date || date.toISOString(),
       };
