@@ -21,7 +21,6 @@ import {
   getDocs,
   query,
   runTransaction,
-  updateDoc,
   where,
 } from 'firebase/firestore';
 import { db } from '../firebase/config';
@@ -348,7 +347,7 @@ export default function InvoiceScreen() {
 
       Alert.alert(
         'Invoice Created',
-        'Invoice ' + invoiceNumber + ' has been saved. Send it now?',
+        'Invoice ' + invoiceNumber + ' has been saved as a draft. Share it now? After sending, mark it Sent from invoice details.',
         [
           {
             text: 'Later',
@@ -365,10 +364,8 @@ export default function InvoiceScreen() {
                   UTI: 'com.adobe.pdf',
                 });
 
-                await updateDoc(doc(db, 'invoices', docRef.id), {
-                  status: 'sent',
-                  sentDate: new Date().toISOString(),
-                });
+                // The share menu also returns when cancelled. Keep the saved
+                // draft until the user explicitly marks it Sent in invoice details.
               }
               navigation.goBack();
             },

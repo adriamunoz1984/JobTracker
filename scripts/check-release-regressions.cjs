@@ -47,8 +47,9 @@ async function registration() {
 }
 
 async function invoiceSharing() {
-  const shares = [], updates = [];
-  const screen = loadScreen('src/screens/InvoiceDetailScreen.tsx', 'handleViewPDF, handleSend', {
+  const shares = [], updates = [], alerts = [];
+  const screen = loadScreen('src/screens/InvoiceDetailScreen.tsx', 'handleViewPDF, handleSend, updateStatus', {
+    'react-native': { Alert: { alert: (...args) => alerts.push(args) } },
     '../context/AuthContext': { useAuth: () => ({ user: { displayName: 'Pumps' } }) },
     'firebase/firestore': { getFirestore() {}, doc() {}, updateDoc: async (_ref, data) => updates.push(data) },
     'expo-print': { printToFileAsync: async () => ({ uri: 'file:///invoice.pdf', numberOfPages: 1 }) },
@@ -56,7 +57,39 @@ async function invoiceSharing() {
   }, { invoice: { id: 'i', clientName: 'Customer', lineItems: [], renderedHtml: '<html>saved invoice</html>' } });
   const h = screen.render(); await h.handleViewPDF(); await h.handleSend();
   assert.deepEqual(shares, ['file:///invoice.pdf', 'file:///invoice.pdf']);
+  // Expo resolves with no result on Back as well as when a target is chosen.
+  assert.equal(updates.length, 0, 'closing sharing must not mark an invoice sent');
+  assert.equal(alerts.length, 0, 'closing sharing must not show a send-success alert');
+  await h.updateStatus('sent');
   assert.equal(updates[0].status, 'sent');
+  assert.equal(typeof updates[0].sentDate, 'string');
+  assert.equal(alerts[0][0], 'Success', 'explicit status changes still confirm success');
+}
+
+async function newInvoiceSharing() {
+  const alerts = [], writes = [], shares = [], updates = [];
+  const screen = loadScreen('src/screens/InvoiceScreen.tsx', 'handleGenerateInvoice, setClientName', {
+    'react-native': { Alert: { alert: (...args) => alerts.push(args) } },
+    '../context/AuthContext': { useAuth: () => ({ user: { uid: 'u' } }) },
+    'date-fns': { format: () => '2026-10-23', addDays: () => new Date() },
+    'firebase/firestore': {
+      doc() {}, collection() {}, getDoc: async () => ({ exists: () => true }),
+      runTransaction: async () => 1,
+      addDoc: async (_ref, invoice) => { writes.push(invoice); return { id: 'new-invoice' }; },
+      updateDoc: async (_ref, data) => updates.push(data),
+    },
+    '../utils/invoiceTemplate': { buildConcretePumpInvoiceHtml: () => '<html>invoice</html>' },
+    'expo-print': { printToFileAsync: async () => ({ uri: 'file:///new-invoice.pdf' }) },
+    'expo-sharing': { isAvailableAsync: async () => true, shareAsync: async uri => shares.push(uri) },
+  });
+  screen.render().setClientName('Customer');
+  await screen.render().handleGenerateInvoice();
+  assert.equal(writes.length, 1); assert.equal(writes[0].status, 'draft');
+  assert.equal(alerts.length, 1);
+  await alerts[0][2].find(button => button.text === 'Send Now').onPress();
+  assert.deepEqual(shares, ['file:///new-invoice.pdf']);
+  assert.equal(updates.length, 0, 'backing out of Send Now leaves the saved draft unchanged');
+  assert.equal(alerts.length, 1, 'no extra success alert after closing sharing');
 }
 
 function dragButton() {
@@ -90,6 +123,7 @@ function dragButton() {
 }
 
 (async () => {
-  await registration(); await invoiceSharing(); dragButton();
-  console.log('PASS: single registration request, owner/employee registration data, PDF sharing URI, repeated drag, bounds, invoice button action and cleanup.');
+  await registration(); await invoiceSharing(); await newInvoiceSharing(); dragButton();
+  console.log('PASS: registration, PDF sharing URI, cancelled sharing leaves new/existing invoice status unchanged without false success, explicit Sent update, repeated drag, bounds and cleanup.');
 })().catch(error => { console.error(error); process.exitCode = 1; });
+

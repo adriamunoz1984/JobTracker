@@ -246,7 +246,8 @@ export default function InvoiceDetailScreen() {
           mimeType: 'application/pdf',
           dialogTitle: `Send Invoice ${initialInvoice.invoiceNumber}`,
         });
-        await updateStatus('sent');
+        // Closing the share menu does not prove that the invoice was sent.
+        // Leave status changes to the explicit Sent control.
       }
     } catch (error) {
       console.error('Error sending invoice:', error);
@@ -583,6 +584,9 @@ export default function InvoiceDetailScreen() {
               >
                 Send Invoice
               </Button>
+              <Text style={styles.previewSubtitle}>
+                After sending your invoice, select Sent above to update its status.
+              </Text>
             </>
           )}
 
