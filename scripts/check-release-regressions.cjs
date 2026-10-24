@@ -92,6 +92,47 @@ async function newInvoiceSharing() {
   assert.equal(alerts.length, 1, 'no extra success alert after closing sharing');
 }
 
+async function savedJobInvoiceNavigation() {
+  const { StackRouter, StackActions, CommonActions } = require('@react-navigation/routers');
+  for (const fromDetail of [false, true]) {
+    const router = StackRouter({ initialRouteName: 'MainApp' });
+    const options = { routeNames: ['MainApp', 'AddJob', 'Invoice', 'JobDetail'], routeParamList: {}, routeGetIdList: {} };
+    let state = router.getInitialState(options);
+    if (fromDetail) state = router.getStateForAction(state, StackActions.push('JobDetail'), options);
+    state = router.getStateForAction(state, StackActions.push('AddJob'), options);
+    let saves = 0, releaseSave;
+    const pendingSave = new Promise(resolve => { releaseSave = resolve; });
+    const screen = loadScreen('src/screens/AddjobScreen.tsx', 'handleSave, setAddress, setCity, setYards, setGenerateInvoice', {
+      '@react-navigation/native': {
+        CommonActions,
+        useRoute: () => ({ params: {} }),
+        useNavigation: () => ({ dispatch: action => { state = router.getStateForAction(state, action, options); } }),
+      },
+      '../context/AuthContext': { useAuth: () => ({ user: { uid: 'u', role: 'owner' } }) },
+      '../context/JobsContext': { useJobs: () => ({ addJob: async () => { saves++; await pendingSave; return 'saved-job-id'; } }) },
+      'firebase/firestore': { getFirestore() {} },
+      'date-fns': { format: () => '2026-10-24' },
+    });
+    const h = screen.render(); h.setAddress('123 Main'); h.setCity('Test'); h.setYards('8'); h.setGenerateInvoice(true);
+    const ready = screen.render();
+    const saving = ready.handleSave();
+    await ready.handleSave();
+    assert.equal(saves, 1, 'rapid second Save must not create another job');
+    assert.equal(state.routes[state.index].name, 'AddJob', 'wait for job persistence before invoice navigation');
+    releaseSave(); await saving;
+    assert.equal(state.routes.length, 2);
+    assert.equal(state.routes[0].name, 'MainApp');
+    assert.equal(state.routes[0].params.screen, 'Home');
+    assert.equal(state.routes[state.index].name, 'Invoice');
+    assert.equal(state.routes[state.index].params.jobs[0].id, 'saved-job-id');
+    assert.equal(state.routes[state.index].params.jobs[0].amount, 350);
+    state = router.getStateForAction(state, CommonActions.goBack(), options);
+    assert.equal(state.routes[state.index].name, 'MainApp', 'Back and invoice completion return home');
+    assert.equal(state.routes.some(route => route.name === 'AddJob'), false, 'saved form is no longer reachable');
+    assert.equal(saves, 1);
+  }
+}
+
 function dragButton() {
   let responder, position, cleanup;
   const routes = [];
@@ -123,7 +164,8 @@ function dragButton() {
 }
 
 (async () => {
-  await registration(); await invoiceSharing(); await newInvoiceSharing(); dragButton();
-  console.log('PASS: registration, PDF sharing URI, cancelled sharing leaves new/existing invoice status unchanged without false success, explicit Sent update, repeated drag, bounds and cleanup.');
+  await registration(); await invoiceSharing(); await newInvoiceSharing(); await savedJobInvoiceNavigation(); dragButton();
+  console.log('PASS: save once before invoice creation, return Home without saved form, registration, cancelled sharing, explicit Sent update, PDF URI, drag and cleanup.');
 })().catch(error => { console.error(error); process.exitCode = 1; });
+
 

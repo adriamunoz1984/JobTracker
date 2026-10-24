@@ -1,5 +1,5 @@
 // src/screens/AddjobScreen.tsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { View, StyleSheet, ScrollView, Alert, Platform, TouchableOpacity } from 'react-native';
 import { 
   TextInput, 
@@ -12,7 +12,7 @@ import {
   Card,
   Checkbox
 } from 'react-native-paper';
-import { useNavigation, useRoute } from '@react-navigation/native';
+import { CommonActions, useNavigation, useRoute } from '@react-navigation/native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { format, parseISO } from 'date-fns';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -85,6 +85,7 @@ export default function AddJobScreen() {
   const [poNumber, setPoNumber] = useState(editingJob?.poNumber || '');
   const [notes, setNotes] = useState(editingJob?.notes || '');
   const [isSaving, setIsSaving] = useState(false);
+  const saveInProgress = useRef(false);
   const connectedToEmployer = user?.role === 'employee' && user?.ownerStatus === 'active' && !!user?.ownerId;
   const isPrivateExisting = !!editingJob && !editingJob.isEmployeeJob && editingJob.jobType !== 'employee' && !editingJob.ownerId;
   const [independentJob, setIndependentJob] = useState(isEditing ? isPrivateExisting : !connectedToEmployer);
@@ -335,6 +336,7 @@ export default function AddJobScreen() {
   };
 
   const handleSave = async () => {
+    if (saveInProgress.current) return;
     if (!address.trim()) {
       Alert.alert('Missing Information', 'Please enter an address');
       return;
@@ -378,6 +380,7 @@ export default function AddJobScreen() {
       return;
     }
     try {
+      saveInProgress.current = true;
       setIsSaving(true);
 
       const jobData: any = {
@@ -483,9 +486,15 @@ else
         date: jobData.date || date.toISOString(),
       };
     
-      (navigation as any).navigate('Invoice', { 
-        jobs: [jobForInvoice] 
-      });
+      // The saved form must not remain behind invoice creation: Back and
+      // invoice completion should return to Home without offering another save.
+      navigation.dispatch(CommonActions.reset({
+        index: 1,
+        routes: [
+          { name: 'MainApp', params: { screen: 'Home' } },
+          { name: 'Invoice', params: { jobs: [jobForInvoice] } },
+        ],
+      }));
     } 
     else 
       {
@@ -497,6 +506,7 @@ else
       console.error('Error saving job:', error);
       Alert.alert('Error', 'Failed to save job');
     } finally {
+      saveInProgress.current = false;
       setIsSaving(false);
     }
   };
