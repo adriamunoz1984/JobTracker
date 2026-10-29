@@ -438,7 +438,7 @@ export default function ReportsScreen() {
             onPress: async () => {
               try {
                 if (await Sharing.isAvailableAsync()) {
-                  await Sharing.shareAsync(await nameExportedPdf(uri, `JobTracker-Report-${format(getDateRange().start, 'yyyy-MM-dd')}-to-${format(getDateRange().end, 'yyyy-MM-dd')}`));
+                  await Sharing.shareAsync(await nameExportedPdf(uri, `JT-Report-${format(getDateRange().start, 'yyyy-MM-dd')}-to-${format(getDateRange().end, 'yyyy-MM-dd')}`));
                 }
               } catch (error) {
                 console.error('Error sharing:', error);
