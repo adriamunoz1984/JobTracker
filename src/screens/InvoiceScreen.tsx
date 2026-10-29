@@ -26,6 +26,7 @@ import {
 import { db } from '../firebase/config';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
+import { nameExportedPdf } from '../utils/exportFileName';
 import { makeStyles } from '../theme';
 import { buildConcretePumpInvoiceHtml } from '../utils/invoiceTemplate';
 
@@ -273,7 +274,7 @@ export default function InvoiceScreen() {
       );
 
     const { uri } = await Print.printToFileAsync({ html: htmlContent });
-    return uri;
+    return nameExportedPdf(uri, `Invoice-${invoice.invoiceNumber || 'Draft'}`);
   };
 
   const handleGenerateInvoice = async () => {
