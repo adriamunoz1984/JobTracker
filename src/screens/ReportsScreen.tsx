@@ -19,6 +19,7 @@ import { Job } from '../types';
 import { format, startOfWeek, endOfWeek, isWithinInterval, parseISO } from 'date-fns';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
+import { nameExportedPdf } from '../utils/exportFileName';
 import { Spacing, BorderRadius, Shadows } from '../theme/colors';
 import { useAppTheme, makeStyles, withOpacity } from '../theme';
 import { calculateOwnerPay, calculateTaxEstimate, getEstimatedTaxForJob, getJobPumperName } from '../utils/jobMath';
@@ -437,7 +438,7 @@ export default function ReportsScreen() {
             onPress: async () => {
               try {
                 if (await Sharing.isAvailableAsync()) {
-                  await Sharing.shareAsync(uri);
+                  await Sharing.shareAsync(await nameExportedPdf(uri, `JobTracker-Report-${format(getDateRange().start, 'yyyy-MM-dd')}-to-${format(getDateRange().end, 'yyyy-MM-dd')}`));
                 }
               } catch (error) {
                 console.error('Error sharing:', error);
