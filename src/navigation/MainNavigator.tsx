@@ -63,7 +63,7 @@ const SettingsButton = () => {
 const TAB_TITLES: Record<string, string> = {
   Home: 'My Jobs',
   Finder: 'Pump Finder',
-  Weekly: 'Weekly Dashboard',
+  Weekly: 'Weekly',
   Monthly: 'Monthly Summary',
   Yearly: 'Yearly Summary',
   Invoices: 'Invoices',
