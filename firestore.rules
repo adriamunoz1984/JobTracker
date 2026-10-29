@@ -76,6 +76,26 @@ service cloud.firestore {
       allow read, create, update, delete: if isSelf(uid);
     }
 
+    // Personal saved pumper-friendly places. The community place remains
+    // public to signed-in Finder users, while each user's saved list is private.
+    match /users/{uid}/finderPlaceFavorites/{placeId} {
+      allow read: if isSelf(uid);
+
+      allow create: if isSelf(uid)
+        && request.resource.data.placeId == placeId
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.keys().hasOnly([
+          'placeId',
+          'createdAt'
+        ])
+        && exists(
+          /databases/$(database)/documents/finderPlaces/$(placeId)
+        );
+
+      allow update: if false;
+      allow delete: if isSelf(uid);
+    }
+
     // Client records belong to the business owner. Active employees may use
     // them because JobTracker currently lets employees select saved clients
     // and update billing information while completing work.
@@ -253,9 +273,450 @@ service cloud.firestore {
         && request.resource.data.createdBy == resource.data.createdBy;
     }
 
-    // Pump Finder is intentionally not enabled in the JobTracker v1 release.
-    // Its future collections receive no allow rule here. The deny-by-default
-    // fallback below prevents app code or a direct client from exposing them.
+    // ---------------------------------------------------------------------
+    // Pump Finder marketplace rules.
+    // These are the production Firestore rules used by firebase.json.
+    // Keep firestore.finder.rules in sync for local emulator testing.
+    // ---------------------------------------------------------------------
+
+    function finderJob(jobId) {
+      return get(/databases/$(database)/documents/finderJobs/$(jobId));
+    }
+
+    function finderRequest(jobId, pumperUid) {
+      return get(
+        /databases/$(database)/documents/finderJobs/$(jobId)/requests/$(pumperUid)
+      );
+    }
+
+    function isFinderPoster(jobId) {
+      return signedIn()
+        && exists(/databases/$(database)/documents/finderJobs/$(jobId))
+        && finderJob(jobId).data.posterId == request.auth.uid;
+    }
+
+    function isConfirmedFinderPumper(jobId) {
+      return signedIn()
+        && finderJob(jobId).data.awardedPumperId == request.auth.uid
+        && finderJob(jobId).data.status in ['assigned', 'in-progress', 'completed']
+        && exists(
+          /databases/$(database)/documents/finderJobs/$(jobId)/requests/$(request.auth.uid)
+        )
+        && finderRequest(jobId, request.auth.uid).data.status == 'confirmed';
+    }
+
+    function validFinderPublicProfile(uid) {
+      return signedIn()
+        && request.auth.uid == uid
+        && request.resource.data.pumperId == uid
+        && request.resource.data.displayName is string
+        && request.resource.data.businessName is string
+        && request.resource.data.pumpType is string
+        && request.resource.data.serviceArea is string
+        && request.resource.data.hoseIncludedFt is number
+        && request.resource.data.hoseIncludedFt >= 0
+        && request.resource.data.extraHoseRatePerFt is number
+        && request.resource.data.extraHoseRatePerFt >= 0
+        && request.resource.data.standardPsiMax is number
+        && request.resource.data.standardPsiMax >= 0
+        && (
+          request.resource.data.highPsiSurcharge == null
+          || (
+            request.resource.data.highPsiSurcharge is number
+            && request.resource.data.highPsiSurcharge >= 0
+          )
+        )
+        && request.resource.data.ppeAvailable is list
+        && request.resource.data.updatedAt == request.time
+        && request.resource.data.keys().hasOnly([
+          'pumperId',
+          'displayName',
+          'businessName',
+          'pumpType',
+          'serviceArea',
+          'hoseIncludedFt',
+          'extraHoseRatePerFt',
+          'standardPsiMax',
+          'highPsiSurcharge',
+          'ppeAvailable',
+          'updatedAt'
+        ]);
+    }
+
+    // Sanitized Pump Finder profile. This is deliberately separate from the
+    // private JobTracker users/{uid}/profile/data document.
+    match /finderPumperProfiles/{pumperUid} {
+      allow read: if signedIn();
+      allow create, update: if validFinderPublicProfile(pumperUid);
+      allow delete: if false;
+    }
+
+    // Community pumper-friendly stops. These records contain public business/
+    // place information only; no customer/job addresses belong here.
+    match /finderPlaces/{placeId} {
+      allow read: if signedIn();
+
+      allow create: if signedIn()
+        && request.resource.data.createdBy == request.auth.uid
+        && request.resource.data.name is string
+        && request.resource.data.category in [
+          'Diesel / Fuel',
+          'Food / Restaurant',
+          'Truck Stop',
+          'Parking / Staging',
+          'Supply / Parts',
+          'Other'
+        ]
+        && request.resource.data.address is string
+        && request.resource.data.generalArea is string
+        && request.resource.data.latitude is number
+        && request.resource.data.latitude >= -90
+        && request.resource.data.latitude <= 90
+        && request.resource.data.longitude is number
+        && request.resource.data.longitude >= -180
+        && request.resource.data.longitude <= 180
+        && request.resource.data.features is list
+        && request.resource.data.pumperRating is number
+        && request.resource.data.pumperRating >= 1
+        && request.resource.data.pumperRating <= 5
+        && (
+          request.resource.data.dieselPrice == null
+          || (
+            request.resource.data.dieselPrice is number
+            && request.resource.data.dieselPrice > 0
+          )
+        )
+        && (
+          request.resource.data.dieselPriceUpdatedAt == null
+          || request.resource.data.dieselPriceUpdatedAt == request.time
+        )
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.updatedAt == request.time
+        && request.resource.data.keys().hasOnly([
+          'createdBy',
+          'name',
+          'category',
+          'address',
+          'generalArea',
+          'latitude',
+          'longitude',
+          'features',
+          'notes',
+          'pumperRating',
+          'dieselPrice',
+          'dieselPriceUpdatedAt',
+          'createdAt',
+          'updatedAt'
+        ]);
+
+      allow update: if signedIn()
+        && resource.data.createdBy == request.auth.uid
+        && request.resource.data.createdBy == resource.data.createdBy
+        && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data.name is string
+        && request.resource.data.category in [
+          'Diesel / Fuel',
+          'Food / Restaurant',
+          'Truck Stop',
+          'Parking / Staging',
+          'Supply / Parts',
+          'Other'
+        ]
+        && request.resource.data.address is string
+        && request.resource.data.generalArea is string
+        && request.resource.data.latitude is number
+        && request.resource.data.latitude >= -90
+        && request.resource.data.latitude <= 90
+        && request.resource.data.longitude is number
+        && request.resource.data.longitude >= -180
+        && request.resource.data.longitude <= 180
+        && request.resource.data.features is list
+        && request.resource.data.pumperRating is number
+        && request.resource.data.pumperRating >= 1
+        && request.resource.data.pumperRating <= 5
+        && (
+          request.resource.data.dieselPrice == null
+          || (
+            request.resource.data.dieselPrice is number
+            && request.resource.data.dieselPrice > 0
+          )
+        )
+        && (
+          request.resource.data.dieselPriceUpdatedAt == null
+          || request.resource.data.dieselPriceUpdatedAt == resource.data.dieselPriceUpdatedAt
+          || request.resource.data.dieselPriceUpdatedAt == request.time
+        )
+        && request.resource.data.updatedAt == request.time
+        && request.resource.data.keys().hasOnly([
+          'createdBy',
+          'name',
+          'category',
+          'address',
+          'generalArea',
+          'latitude',
+          'longitude',
+          'features',
+          'notes',
+          'pumperRating',
+          'dieselPrice',
+          'dieselPriceUpdatedAt',
+          'createdAt',
+          'updatedAt'
+        ]);
+
+      allow delete: if signedIn()
+        && resource.data.createdBy == request.auth.uid;
+    }
+
+    match /finderJobs/{jobId} {
+      // Finder browsing is authenticated in the first marketplace version.
+      allow read: if signedIn();
+
+      // Public job records must never contain customer identity, exact address,
+      // access codes, or other private location/contact details.
+      allow create: if signedIn()
+        && request.resource.data.posterId == request.auth.uid
+        && request.resource.data.status == 'unassigned'
+        && request.resource.data.generalArea is string
+        && request.resource.data.jobDate is string
+        && request.resource.data.startTime is string
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.updatedAt == request.time
+        && request.resource.data.keys().hasOnly([
+          'posterId',
+          'jobDate',
+          'startTime',
+          'generalArea',
+          'yards',
+          'pumpType',
+          'concretePsi',
+          'pricingMode',
+          'extraHoseRequired',
+          'totalHoseFeet',
+          'ppeRequired',
+          'requiredPpe',
+          'notes',
+          'status',
+          'createdAt',
+          'updatedAt'
+        ]);
+
+      // The poster controls job details and awarding. The selected pumper may
+      // only move an award-pending job to assigned while confirming their own
+      // request in the same atomic write.
+      allow update: if (
+          signedIn()
+          && resource.data.posterId == request.auth.uid
+          && request.resource.data.posterId == resource.data.posterId
+          && request.resource.data.jobDate is string
+          && request.resource.data.startTime is string
+          && request.resource.data.generalArea is string
+          && request.resource.data.pricingMode is string
+          && request.resource.data.extraHoseRequired is bool
+          && request.resource.data.ppeRequired is bool
+          && request.resource.data.requiredPpe is list
+          && request.resource.data.status in [
+            'unassigned',
+            'award-pending',
+            'assigned',
+            'in-progress',
+            'completed',
+            'canceled'
+          ]
+          && request.resource.data.createdAt == resource.data.createdAt
+          && request.resource.data.updatedAt == request.time
+          && request.resource.data.keys().hasOnly([
+            'posterId',
+            'jobDate',
+            'startTime',
+            'generalArea',
+            'yards',
+            'pumpType',
+            'concretePsi',
+            'pricingMode',
+            'extraHoseRequired',
+            'totalHoseFeet',
+            'ppeRequired',
+            'requiredPpe',
+            'notes',
+            'status',
+            'awardedPumperId',
+            'awardedAt',
+            'createdAt',
+            'updatedAt'
+          ])
+        )
+        || (
+          signedIn()
+          && resource.data.status == 'award-pending'
+          && resource.data.awardedPumperId == request.auth.uid
+          && request.resource.data.posterId == resource.data.posterId
+          && request.resource.data.awardedPumperId == resource.data.awardedPumperId
+          && request.resource.data.status == 'assigned'
+          && request.resource.data.updatedAt == request.time
+          && request.resource.data
+            .diff(resource.data)
+            .affectedKeys()
+            .hasOnly(['status', 'updatedAt'])
+          && getAfter(
+            /databases/$(database)/documents/finderJobs/$(jobId)/requests/$(request.auth.uid)
+          ).data.status == 'confirmed'
+        );
+
+      allow delete: if signedIn()
+        && resource.data.posterId == request.auth.uid;
+
+      match /requests/{pumperUid} {
+        // Direct reads are allowed to the pumper who owns the request or the
+        // poster who owns the parent job. Collection/list reads are poster-only.
+        // Splitting get/list avoids Firestore trying to prove a document-id
+        // condition such as request.auth.uid == pumperUid across a list query.
+        allow get: if signedIn()
+          && (
+            request.auth.uid == pumperUid
+            || isFinderPoster(jobId)
+          );
+
+        allow list: if isFinderPoster(jobId);
+
+        allow create: if signedIn()
+          && request.auth.uid == pumperUid
+          && finderJob(jobId).data.posterId != request.auth.uid
+          && finderJob(jobId).data.status == 'unassigned'
+          && request.resource.data.jobId == jobId
+          && request.resource.data.pumperId == pumperUid
+          && request.resource.data.status == 'pending'
+          && request.resource.data.pumperName is string
+          && request.resource.data.businessName is string
+          && request.resource.data.pumpType is string
+          && request.resource.data.serviceArea is string
+          && request.resource.data.hoseIncludedFt is number
+          && request.resource.data.hoseIncludedFt >= 0
+          && request.resource.data.extraHoseRatePerFt is number
+          && request.resource.data.extraHoseRatePerFt >= 0
+          && request.resource.data.standardPsiMax is number
+          && request.resource.data.standardPsiMax >= 0
+          && (
+            request.resource.data.highPsiSurcharge == null
+            || (
+              request.resource.data.highPsiSurcharge is number
+              && request.resource.data.highPsiSurcharge >= 0
+            )
+          )
+          && request.resource.data.ppeAvailable is list
+          && request.resource.data.createdAt == request.time
+          && request.resource.data.updatedAt == request.time
+          && request.resource.data.keys().hasOnly([
+            'jobId',
+            'pumperId',
+            'status',
+            'pumperName',
+            'businessName',
+            'pumpType',
+            'serviceArea',
+            'hoseIncludedFt',
+            'extraHoseRatePerFt',
+            'standardPsiMax',
+            'highPsiSurcharge',
+            'ppeAvailable',
+            'createdAt',
+            'updatedAt'
+          ]);
+
+        // A pumper can withdraw a pending request. A poster can award/decline
+        // requests on their own job. An awarded pumper can confirm only their
+        // own award and must assign the parent job atomically.
+        allow update: if (
+            signedIn()
+            && request.auth.uid == pumperUid
+            && resource.data.pumperId == pumperUid
+            && resource.data.status == 'pending'
+            && request.resource.data.status == 'withdrawn'
+            && request.resource.data
+              .diff(resource.data)
+              .affectedKeys()
+              .hasOnly(['status', 'updatedAt'])
+          )
+          || (
+            isFinderPoster(jobId)
+            && resource.data.status == 'pending'
+            && request.resource.data.status in ['awarded', 'declined']
+            && request.resource.data
+              .diff(resource.data)
+              .affectedKeys()
+              .hasOnly(['status', 'updatedAt'])
+          )
+          || (
+            signedIn()
+            && request.auth.uid == pumperUid
+            && resource.data.status == 'awarded'
+            && request.resource.data.status == 'confirmed'
+            && request.resource.data
+              .diff(resource.data)
+              .affectedKeys()
+              .hasOnly(['status', 'updatedAt'])
+            && getAfter(
+              /databases/$(database)/documents/finderJobs/$(jobId)
+            ).data.awardedPumperId == pumperUid
+            && getAfter(
+              /databases/$(database)/documents/finderJobs/$(jobId)
+            ).data.status == 'assigned'
+          );
+
+        allow delete: if false;
+      }
+    }
+
+    match /finderJobPrivate/{jobId} {
+      allow create: if signedIn()
+        && request.resource.data.posterId == request.auth.uid
+        && request.resource.data.jobId == jobId
+        && request.resource.data.customerName is string
+        && request.resource.data.exactAddress is string
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.updatedAt == request.time
+        && getAfter(
+          /databases/$(database)/documents/finderJobs/$(jobId)
+        ).data.posterId == request.auth.uid
+        && request.resource.data.keys().hasOnly([
+          'jobId',
+          'posterId',
+          'customerName',
+          'exactAddress',
+          'privateNotes',
+          'createdAt',
+          'updatedAt'
+        ]);
+
+      // The exact address unlocks only to the poster or to the selected pumper
+      // after that pumper has explicitly confirmed the award.
+      allow read: if signedIn()
+        && (
+          resource.data.posterId == request.auth.uid
+          || isConfirmedFinderPumper(jobId)
+        );
+
+      allow update: if signedIn()
+        && resource.data.posterId == request.auth.uid
+        && request.resource.data.posterId == resource.data.posterId
+        && request.resource.data.jobId == resource.data.jobId
+        && request.resource.data.customerName is string
+        && request.resource.data.exactAddress is string
+        && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data.updatedAt == request.time
+        && request.resource.data.keys().hasOnly([
+          'jobId',
+          'posterId',
+          'customerName',
+          'exactAddress',
+          'privateNotes',
+          'createdAt',
+          'updatedAt'
+        ]);
+
+      allow delete: if signedIn()
+        && resource.data.posterId == request.auth.uid;
+    }
 
     // Deny every collection/path that was not explicitly approved above.
     match /{document=**} {
