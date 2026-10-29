@@ -77,9 +77,8 @@ function FixedTopBar({ title }: { title: string }) {
   return (
     <Header
       title={title}
-      // Keep longer titles clear of the right-hand controls; offset the title
-      // toward the center without fully centering it over the action icons.
-      headerTitleAlign="left"
+      // Center the compact tab titles while keeping header actions on the right.
+      headerTitleAlign="center"
       headerStyle={{ backgroundColor: colors.header }}
       headerTintColor={colors.onHeader}
       headerTitle={() => (
@@ -87,7 +86,7 @@ function FixedTopBar({ title }: { title: string }) {
           numberOfLines={1}
           adjustsFontSizeToFit
           minimumFontScale={0.7}
-          style={[headerTitleStyle, { color: colors.onHeader, marginLeft: 24 }]}
+          style={[headerTitleStyle, { color: colors.onHeader, textAlign: 'center' }]}
           accessibilityRole="header"
         >
           {title}
