@@ -397,7 +397,7 @@ export default function YearlySummaryScreen() {
       const { uri } = await Print.printToFileAsync({ html: htmlContent });
       
       if (await Sharing.isAvailableAsync()) {
-        await Sharing.shareAsync(await nameExportedPdf(uri, `JobTracker-Yearly-${format(adjustedDate, 'yyyy')}`));
+        await Sharing.shareAsync(await nameExportedPdf(uri, `JT-Yearly-${format(adjustedDate, 'yyyy')}`));
       }
     } catch (error) {
       console.error('Error exporting PDF:', error);
