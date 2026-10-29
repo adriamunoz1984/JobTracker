@@ -368,7 +368,7 @@ export default function MonthlySummaryScreen() {
       const { uri } = await Print.printToFileAsync({ html: htmlContent });
       
       if (await Sharing.isAvailableAsync()) {
-        await Sharing.shareAsync(await nameExportedPdf(uri, `JobTracker-Monthly-${format(adjustedDate, 'yyyy-MM')}`));
+        await Sharing.shareAsync(await nameExportedPdf(uri, `JT-Monthly-${format(adjustedDate, 'yyyy-MM')}`));
       }
     } catch (error) {
       console.error('Error exporting PDF:', error);
