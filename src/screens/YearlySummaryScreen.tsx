@@ -53,7 +53,7 @@ export default function YearlySummaryScreen() {
     income: yearJobs.reduce((sum, job) => sum + (job.amount || 0), 0),
     commission: 0,
     cashPayments: yearJobs.filter(j => j.paymentMethod === 'Cash').reduce((sum, job) => sum + (job.amount || 0), 0),
-    paidToMeAmount: yearJobs.filter(j => j.isPaidToMe).reduce((sum, job) => sum + (job.amount || 0), 0),
+    paidToMeAmount: yearJobs.filter(j => j.isPaidToMe && j.jobType !== 'personal').reduce((sum, job) => sum + (job.amount || 0), 0),
     yourPay: 0,
     totalUnpaid: yearJobs.filter(j => !j.isPaid).reduce((sum, job) => sum + (job.amount || 0), 0),
     finalTakeHome: 0,
