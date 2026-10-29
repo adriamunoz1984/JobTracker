@@ -139,8 +139,8 @@ export default function JobDetailScreen() {
   };
 
   const currentJob = isEditMode ? editedJob : initialJob;
-  const commissionRate = currentJob.employeeCommissionRate ??
-    (user?.role === 'owner' && !currentJob.isEmployeeJob ? 100 : (user?.commissionRate ?? 50));
+  const commissionRate = currentJob.jobType === 'personal' ? 100 : (currentJob.employeeCommissionRate ??
+    (user?.role === 'owner' && !currentJob.isEmployeeJob ? 100 : (user?.commissionRate ?? 50)));
   const myEarnings = currentJob.amount * commissionRate / 100;
 
   return (
