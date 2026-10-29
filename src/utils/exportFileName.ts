@@ -6,7 +6,7 @@ export async function nameExportedPdf(uri: string, label: string): Promise<strin
     .trim()
     .replace(/[^a-zA-Z0-9_-]+/g, '-')
     .replace(/^-+|-+$/g, '')
-    .slice(0, 100) || 'JobTracker-Export';
+    .slice(0, 100) || 'JT-Export';
   const destination = `${FileSystem.cacheDirectory}${safeLabel}.pdf`;
   // expo-print generates randomly named PDF files; copy to a readable name.
   await FileSystem.copyAsync({ from: uri, to: destination });
