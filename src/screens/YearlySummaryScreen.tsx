@@ -21,6 +21,7 @@ import {
 } from 'date-fns';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
+import { nameExportedPdf } from '../utils/exportFileName';
 import { Spacing, BorderRadius, Shadows } from '../theme/colors';
 import { useAppTheme, makeStyles, withOpacity } from '../theme';
 import { calculateJobCommissions, calculateOwnerPay, calculateTaxEstimate, getEstimatedTaxForJob, getJobPumperName, getTaxableShareForJob } from '../utils/jobMath';
@@ -396,7 +397,7 @@ export default function YearlySummaryScreen() {
       const { uri } = await Print.printToFileAsync({ html: htmlContent });
       
       if (await Sharing.isAvailableAsync()) {
-        await Sharing.shareAsync(uri);
+        await Sharing.shareAsync(await nameExportedPdf(uri, `JobTracker-Yearly-${format(adjustedDate, 'yyyy')}`));
       }
     } catch (error) {
       console.error('Error exporting PDF:', error);
