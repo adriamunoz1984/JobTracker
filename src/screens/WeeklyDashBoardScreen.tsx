@@ -61,7 +61,7 @@ export default function WeeklyDashboardScreen() {
     commission: 0,
     cashPayments: weekJobs.filter(j => j.paymentMethod === 'Cash').reduce((sum, job) => sum + (job.amount || 0), 0),
     checkPayments: weekJobs.filter(j => j.paymentMethod === 'Check').reduce((sum, job) => sum + (job.amount || 0), 0),
-    paidToMeAmount: weekJobs.filter(j => j.isPaidToMe).reduce((sum, job) => sum + (job.amount || 0), 0),
+    paidToMeAmount: weekJobs.filter(j => j.isPaidToMe && j.jobType !== 'personal').reduce((sum, job) => sum + (job.amount || 0), 0),
     yourPay: 0,
     totalUnpaid: weekJobs.filter(j => !j.isPaid).reduce((sum, job) => sum + (job.amount || 0), 0),
     finalTakeHome: 0,
@@ -201,7 +201,7 @@ export default function WeeklyDashboardScreen() {
                   <div class="client-name">${job.companyName || job.clientName || 'Job'}</div>
                   <div class="address">${job.address}</div>
                   <div class="city">${job.city}</div>
-                  ${isOwner ? `<div class="pumper"><strong>Pumper:</strong> ${getJobPumperName(job, user?.displayName || 'Owner')}</div>` : ''}
+                  ${isOwner ? `<div class="pumper">${getJobPumperName(job, user?.displayName || 'Owner').slice(0, 4)}</div>` : ''}
                   ${job.jobNumber || job.poNumber ? `
                     <div class="job-refs">
                       ${job.jobNumber ? `<span><strong>Job #:</strong> ${job.jobNumber}</span>` : ''}
