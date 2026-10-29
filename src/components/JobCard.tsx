@@ -79,7 +79,7 @@ const JobCard: React.FC<JobCardProps> = ({ job, onDelete, onTogglePaid }) => {
   const pumperLabel =
     user?.role === 'owner'
       ? job.isEmployeeJob
-        ? `Pumper: ${getJobPumperName(job as any, 'Employee')}`
+        ? getJobPumperName(job as any, 'Employee').slice(0, 4)
         : 'My Job'
       : null;
   const taxEnabled = user?.taxEstimateEnabled === true;
