@@ -374,11 +374,6 @@ export default function AddJobScreen() {
       return;
     }
 
-    const rate = Number(jobCommission);
-    if (independentJob && (!Number.isFinite(rate) || rate < 0 || rate > 100)) {
-      Alert.alert('Invalid commission', 'Enter a percentage from 0 to 100.');
-      return;
-    }
     try {
       saveInProgress.current = true;
       setIsSaving(true);
@@ -392,14 +387,14 @@ export default function AddJobScreen() {
         yards: parseFloat(yards),
         amount: total,
         paymentMethod,
-        isPaidToMe,
-        // Editing job details must not undo a payment recorded elsewhere.
-        isPaid: isPaidToMe || editingJob?.isPaid || false,
+        isPaidToMe: independentJob ? false : isPaidToMe,
+        // Independent income does not count as a payment received from an employer.
+        isPaid: (independentJob ? false : isPaidToMe) || editingJob?.isPaid || false,
         isFlatRate: false,
         flatRateAmount: null,
         ...(!isEditing || isPrivateExisting ? {
           jobType: independentJob ? 'personal' : 'employee',
-          ...(independentJob ? { employeeCommissionRate: rate } : {}),
+          ...(independentJob ? { employeeCommissionRate: 100 } : {}),
         } : {}),
       };
 
@@ -674,18 +669,6 @@ else
             </View>
             <Switch value={independentJob} onValueChange={setIndependentJob} color={Colors.primary} />
           </View>
-        )}
-        {independentJob && (
-          <TextInput
-            label="My commission for this job (%)"
-            value={jobCommission}
-            onChangeText={setJobCommission}
-            keyboardType="decimal-pad"
-            mode="outlined"
-            style={styles.input}
-            outlineColor={Colors.border}
-            activeOutlineColor={Colors.primary}
-          />
         )}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Job Details</Text>
@@ -983,8 +966,8 @@ else
           </View>
         )}
 
-      {/* Direct Payment Switch */}
-        <View style={styles.switchRow}>
+      {/* Direct payments only apply to jobs shared with an employer. */}
+        {!independentJob && <View style={styles.switchRow}>
           <View style={styles.switchContent}>
             <Text style={styles.switchLabel}>Direct Payment</Text>
             <Text style={styles.switchSubtext}>
@@ -996,7 +979,7 @@ else
             onValueChange={setIsPaidToMe}
             color={Colors.primary}
           />
-        </View>
+        </View>}
         
       
       {/* Auto-Generate Invoice - NEW */}
