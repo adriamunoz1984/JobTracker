@@ -23,6 +23,7 @@ import {
 } from 'firebase/firestore';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
+import { nameExportedPdf } from '../utils/exportFileName';
 import { Spacing, BorderRadius, Shadows } from '../theme/colors';
 import { useAppTheme, makeStyles } from '../theme';
 import InvoicePaperPreview from '../components/InvoicePaperPreview';
@@ -222,7 +223,7 @@ export default function InvoiceDetailScreen() {
           );
 
     const { uri } = await Print.printToFileAsync({ html: htmlContent });
-    return uri;
+    return nameExportedPdf(uri, `Invoice-${invoiceForRender.invoiceNumber || 'Draft'}`);
   };
 
   const handleViewPDF = async () => {
