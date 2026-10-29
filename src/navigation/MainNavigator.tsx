@@ -64,8 +64,8 @@ const TAB_TITLES: Record<string, string> = {
   Home: 'My Jobs',
   Finder: 'Pump Finder',
   Weekly: 'Weekly',
-  Monthly: 'Monthly Summary',
-  Yearly: 'Yearly Summary',
+  Monthly: 'Monthly',
+  Yearly: 'Yearly',
   Invoices: 'Invoices',
 };
 
