@@ -456,7 +456,7 @@ export default function WeeklyDashboardScreen() {
       const { uri } = await Print.printToFileAsync({ html: htmlContent });
       
       if (await Sharing.isAvailableAsync()) {
-        await Sharing.shareAsync(await nameExportedPdf(uri, `JobTracker-Weekly-${format(weekStart, 'yyyy-MM-dd')}`));
+        await Sharing.shareAsync(await nameExportedPdf(uri, `JT-Weekly-${format(weekStart, 'yyyy-MM-dd')}`));
       }
     } catch (error) {
       console.error('Error exporting PDF:', error);
