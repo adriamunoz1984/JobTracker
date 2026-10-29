@@ -548,12 +548,12 @@ const updateJob = async (updatedJob: Job) => {
       .reduce((sum, job) => sum + job.amount, 0);
     
     const paidToMeAmount = jobsInRange
-      .filter(job => job.isPaid && job.isPaidToMe)
+      .filter(job => job.isPaid && job.isPaidToMe && job.jobType !== 'personal')
       .reduce((sum, job) => sum + job.amount, 0);
       
     const netEarnings = jobsInRange.reduce((sum, job) => {
       const rate = job.jobType === 'personal'
-        ? (job.employeeCommissionRate ?? user?.commissionRate ?? (user?.role === 'owner' ? 100 : 50))
+        ? 100
         : (user?.role === 'owner' ? 100 : (user?.commissionRate ?? 50));
       return sum + job.amount * rate / 100;
     }, 0) - paidToMeAmount;
