@@ -803,6 +803,11 @@ const useStyles = makeStyles((Colors) => ({
   },
   navButtonText: {
     fontSize: 32,
+    lineHeight: 36,
+    includeFontPadding: false,
+    textAlign: 'center',
+    textAlignVertical: 'center',
+    transform: [{ translateY: -3 }],
     color: Colors.textInverse,
     fontWeight: 'bold',
   },
@@ -1046,8 +1051,12 @@ const useStyles = makeStyles((Colors) => ({
   },
   jobsChipLabel: {
     fontSize: 11,
-    lineHeight: 14,
-    marginTop: -4,
+    lineHeight: 18,
+    marginTop: 0,
+    marginBottom: 0,
+    textAlign: 'center',
+    textAlignVertical: 'center',
+    includeFontPadding: false,
   },
   yardsChip: {
     backgroundColor: Colors.warningBg,
@@ -1055,8 +1064,12 @@ const useStyles = makeStyles((Colors) => ({
   },
   yardsChipLabel: {
     fontSize: 11,
-    lineHeight: 14,
-    marginTop: -4,
+    lineHeight: 18,
+    marginTop: 0,
+    marginBottom: 0,
+    textAlign: 'center',
+    textAlignVertical: 'center',
+    includeFontPadding: false,
   },
   monthRevenue: {
     minWidth: 100,
