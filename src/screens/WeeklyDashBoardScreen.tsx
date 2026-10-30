@@ -803,6 +803,11 @@ const useStyles = makeStyles((Colors) => ({
   },
   navButtonText: {
     fontSize: 32,
+    lineHeight: 36,
+    includeFontPadding: false,
+    textAlign: 'center',
+    textAlignVertical: 'center',
+    transform: [{ translateY: -3 }],
     color: Colors.textInverse,
     fontWeight: 'bold',
   },
