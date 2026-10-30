@@ -9,6 +9,23 @@ export function calculateJobCommissions(jobs: Job[], defaultRate: number): numbe
   }, 0);
 }
 
+/** Employer balance excludes independent jobs; earned includes all jobs at their proper rates. */
+export function calculateEmployeeEarnings(jobs: Job[], defaultRate: number) {
+  const companyJobs = jobs.filter(job => job.jobType !== 'personal');
+  const companyCommission = calculateJobCommissions(companyJobs, defaultRate);
+  const independentEarnings = jobs.filter(job => job.jobType === 'personal')
+    .reduce((sum, job) => sum + Number(job.amount || 0), 0);
+  const directPayments = companyJobs.filter(job => job.isPaidToMe)
+    .reduce((sum, job) => sum + Number(job.amount || 0), 0);
+  return {
+    companyCommission,
+    independentEarnings,
+    directPayments,
+    owed: companyCommission - directPayments,
+    earned: companyCommission + independentEarnings,
+  };
+}
+
 export interface PumperPayRow {
   key: string;
   name: string;
