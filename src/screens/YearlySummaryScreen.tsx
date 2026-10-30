@@ -176,10 +176,10 @@ export default function YearlySummaryScreen() {
     legend: [],
   };
   const selectedWeekIndex = selectedWeek != null && selectedWeek < weeklyStarts.length ? selectedWeek : null;
-  const weeklyChartWidth = screenWidth - 60;
+  const weeklyChartWidth = Math.max(screenWidth - 60, weeklyStarts.length * 34);
   // Match the chart plot area so the weekly markers line up with the data points.
-  const graphLeft = 60;
-  const graphRight = 12;
+  const graphLeft = 64;
+  const graphRight = 16;
   const graphPlotWidth = weeklyChartWidth - graphLeft - graphRight;
   const markerX = (index: number) =>
     graphLeft + index * graphPlotWidth / Math.max(1, weeklyStarts.length - 1);
@@ -852,7 +852,8 @@ export default function YearlySummaryScreen() {
                     })}
                   </View>
                   {visibleSeries.length > 0 ? (
-                    <View style={{ width: weeklyChartWidth }}>
+                    <ScrollView horizontal showsHorizontalScrollIndicator>
+                      <View style={{ width: weeklyChartWidth }}>
                       <LineChart
                         data={employeeChartData}
                         width={weeklyChartWidth}
@@ -862,8 +863,6 @@ export default function YearlySummaryScreen() {
                         yAxisLabel="$"
                         fromZero
                         withShadow={false}
-                        withDots={false}
-                        withInnerLines={false}
                         onDataPointClick={({ index }) => setSelectedWeek(index)}
                         decorator={() => (
                           <>
@@ -884,12 +883,13 @@ export default function YearlySummaryScreen() {
                         {monthMarkers.map(marker => (
                           <Text key={marker.monthIndex} style={{
                             position: 'absolute',
-                            left: markerX(marker.index) - 6,
-                            top: 2, fontSize: 9, fontWeight: 'bold', color: Colors.text,
+                            left: markerX(marker.index) - 10,
+                            top: 2, fontSize: 12, fontWeight: 'bold', color: Colors.text,
                           }}>{marker.label}</Text>
                         ))}
                       </View>
                       </View>
+                    </ScrollView>
                   ) : <Text style={styles.noDataText}>Select an employee above to display the graph.</Text>}
                   {selectedWeekIndex !== null && (
                     <View style={{ marginTop: Spacing.sm, padding: Spacing.md, backgroundColor: Colors.surfaceDark, borderRadius: BorderRadius.medium }}>
