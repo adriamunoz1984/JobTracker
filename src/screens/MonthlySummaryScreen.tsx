@@ -557,7 +557,7 @@ export default function MonthlySummaryScreen() {
 
               {ownerTakeHomePay.byPumper.map(pumper => (
                 <View key={pumper.key} style={styles.earningsRow}>
-                  <Text style={styles.earningsLabel}>{pumper.name} ({pumper.jobs} jobs):</Text>
+                  <Text style={styles.earningsLabel}>{pumper.name.slice(0, 6)} ({pumper.jobs} jobs):</Text>
                   <Text style={styles.earningsValue}>${pumper.grossPay.toFixed(2)}</Text>
                 </View>
               ))}
@@ -815,16 +815,20 @@ const useStyles = makeStyles((Colors) => ({
     marginVertical: Spacing.sm,
   },
   earningsLabel: {
-    fontSize: 16,
+    flexShrink: 1,
+    marginRight: Spacing.sm,
+    fontSize: 15,
     color: Colors.text,
   },
   earningsValue: {
-    fontSize: 16,
+    flexShrink: 0,
+    textAlign: 'right',
+    fontSize: 15,
     fontWeight: '600',
     color: Colors.text,
   },
   totalBox: {
-    flexDirection: 'row',
+    flexDirection: 'column',
     justifyContent: 'space-between',
     alignItems: 'center',
     padding: Spacing.lg,
@@ -837,7 +841,9 @@ const useStyles = makeStyles((Colors) => ({
     color: Colors.textInverse,
   },
   totalValue: {
-    fontSize: 28,
+    fontSize: 24,
+    flexShrink: 1,
+    textAlign: 'center',
     fontWeight: 'bold',
     color: Colors.textInverse,
   },
