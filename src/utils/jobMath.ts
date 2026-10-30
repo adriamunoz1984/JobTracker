@@ -39,6 +39,8 @@ export interface PumperPayRow {
 export interface OwnerPaySummary {
   totalRevenue: number;
   employeeRevenue: number;
+  ownerJobRevenue: number;
+  ownerShareOfEmployeeJobs: number;
   grossPumperPay: number;
   directPaymentsToPumpers: number;
   amountOwedToPumpers: number;
@@ -115,6 +117,8 @@ export const calculateOwnerPay = (jobs: Job[]): OwnerPaySummary => {
   return {
     totalRevenue,
     employeeRevenue,
+    ownerJobRevenue: totalRevenue - employeeRevenue,
+    ownerShareOfEmployeeJobs: employeeRevenue - grossPumperPay,
     grossPumperPay,
     directPaymentsToPumpers,
     amountOwedToPumpers: grossPumperPay - directPaymentsToPumpers,
