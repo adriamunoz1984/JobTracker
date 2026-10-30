@@ -627,26 +627,32 @@ export default function WeeklyDashboardScreen() {
         {isOwner && (
           <Card style={styles.card}>
             <Card.Content>
-              <Text variant="titleMedium" style={styles.sectionTitle}>💼 Earnings</Text>
+              <Text variant="titleMedium" style={styles.sectionTitle}>💼 Earnings Breakdown</Text>
               <Divider style={styles.divider} />
-
               <View style={styles.earningsRow}>
-                <Text style={styles.earningsLabel}>Total Income:</Text>
-                <Text style={styles.earningsValue}>${totals.income.toFixed(2)}</Text>
+                <Text style={styles.earningsLabel}>Your Jobs:</Text>
+                <Text style={styles.earningsValue}>${ownerPay.ownerJobRevenue.toFixed(2)}</Text>
               </View>
 
+              <Divider style={styles.divider} />
               <View style={styles.earningsRow}>
-                <Text style={styles.earningsLabel}>Pumper Gross Pay:</Text>
-                <Text style={styles.earningsValue}>-${ownerPay.grossPumperPay.toFixed(2)}</Text>
+                <Text style={styles.earningsLabel}>Employee Job Revenue:</Text>
+                <Text style={styles.earningsValue}>${ownerPay.employeeRevenue.toFixed(2)}</Text>
               </View>
-
               <View style={styles.earningsRow}>
-                <Text style={styles.earningsLabel}>Direct Payments to Pumpers:</Text>
+                <Text style={styles.earningsLabel}>Your Share of Employee Jobs:</Text>
+                <Text style={styles.earningsValue}>${ownerPay.ownerShareOfEmployeeJobs.toFixed(2)}</Text>
+              </View>
+              <View style={styles.earningsRow}>
+                <Text style={styles.earningsLabel}>Employees Earned:</Text>
+                <Text style={styles.earningsValue}>${ownerPay.grossPumperPay.toFixed(2)}</Text>
+              </View>
+              <View style={styles.earningsRow}>
+                <Text style={styles.earningsLabel}>Direct Payments:</Text>
                 <Text style={styles.earningsValue}>${ownerPay.directPaymentsToPumpers.toFixed(2)}</Text>
               </View>
-
               <View style={styles.earningsRow}>
-                <Text style={styles.earningsLabel}>Amount Owed to Pumpers:</Text>
+                <Text style={styles.earningsLabel}>Owed to Employees:</Text>
                 <Text style={styles.earningsValue}>${ownerPay.amountOwedToPumpers.toFixed(2)}</Text>
               </View>
 
@@ -656,15 +662,10 @@ export default function WeeklyDashboardScreen() {
                   <Text style={styles.earningsValue}>${pumper.grossPay.toFixed(2)}</Text>
                 </View>
               ))}
-
               <Divider style={styles.divider} />
-
-              <LinearGradient
-                colors={gradients.success}
-                style={styles.totalBox}
-              >
-                <Text style={styles.totalLabel}>Take Home:</Text>
-                <Text style={styles.totalValue}>${totals.finalTakeHome.toFixed(2)}</Text>
+              <LinearGradient colors={gradients.success} style={styles.totalBox}>
+                <Text style={styles.totalLabel}>Total Earned:</Text>
+                <Text style={styles.totalValue}>${ownerPay.ownerAfterPumperPay.toFixed(2)}</Text>
               </LinearGradient>
             </Card.Content>
           </Card>
