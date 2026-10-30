@@ -502,6 +502,7 @@ export default function MonthlySummaryScreen() {
 
               <Divider style={styles.divider} />
 
+              <TouchableOpacity activeOpacity={0.8} onPress={() => (navigation as any).navigate('EarningsDetails', { startDate: format(monthStart, 'yyyy-MM-dd'), endDate: format(monthEnd, 'yyyy-MM-dd'), periodLabel: format(adjustedDate, 'MMMM yyyy'), paidOnly: isOwner && ownerTakeHomeMode === 'paid' })} accessibilityRole="button" accessibilityLabel="View earnings breakdown">
               <LinearGradient
                 colors={gradients.success}
                 style={styles.totalBox}
@@ -511,6 +512,7 @@ export default function MonthlySummaryScreen() {
                 <Text style={styles.totalLabel}>Earned:</Text>
                 <Text style={styles.totalValue}>${totals.finalTakeHome.toFixed(2)}</Text>
               </LinearGradient>
+              </TouchableOpacity>
             </Card.Content>
           </Card>
         )}
@@ -562,10 +564,12 @@ export default function MonthlySummaryScreen() {
                 </View>
               ))}
               <Divider style={styles.divider} />
+              <TouchableOpacity activeOpacity={0.8} onPress={() => (navigation as any).navigate('EarningsDetails', { startDate: format(monthStart, 'yyyy-MM-dd'), endDate: format(monthEnd, 'yyyy-MM-dd'), periodLabel: format(adjustedDate, 'MMMM yyyy'), paidOnly: isOwner && ownerTakeHomeMode === 'paid' })} accessibilityRole="button" accessibilityLabel="View earnings breakdown">
               <LinearGradient colors={gradients.success} style={styles.totalBox}>
                 <Text style={styles.totalLabel}>Total Earned ({ownerTakeHomeMode === 'paid' ? 'Paid Jobs' : 'All Jobs'}):</Text>
                 <Text style={styles.totalValue}>${ownerTakeHomePay.ownerAfterPumperPay.toFixed(2)}</Text>
               </LinearGradient>
+              </TouchableOpacity>
             </Card.Content>
           </Card>
         )}
