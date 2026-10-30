@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { View, StyleSheet, ScrollView, Dimensions, TouchableOpacity } from 'react-native';
 import { Card, Text, Button, Divider, Chip, SegmentedButtons } from 'react-native-paper';
 import { LineChart } from 'react-native-chart-kit';
+import { Line as SvgLine } from 'react-native-svg';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useNavigation } from '@react-navigation/native';
 import { useJobs } from '../context/JobsContext';
@@ -166,7 +167,7 @@ export default function YearlySummaryScreen() {
   const graphColors = ['#4F8EF7', '#E17750', '#42A88A', '#A56FD1', '#DAAD38', '#DB629A', '#34A2B9', '#8A9E45'];
   const visibleSeries = employeeSeries.filter(series => !hiddenEmployeeIds.includes(series.id));
   const employeeChartData = {
-    labels: weeklyStarts.map((date, index) => index % 4 === 0 ? format(date, 'MMM d') : ''),
+    labels: weeklyStarts.map(() => ''),
     datasets: visibleSeries.map((series, index) => ({
       data: series.amounts,
       color: (opacity = 1) => withOpacity(graphColors[employeeSeries.indexOf(series) % graphColors.length], opacity),
@@ -175,6 +176,22 @@ export default function YearlySummaryScreen() {
     legend: [],
   };
   const selectedWeekIndex = selectedWeek != null && selectedWeek < weeklyStarts.length ? selectedWeek : null;
+  const weeklyChartWidth = Math.max(screenWidth - 60, weeklyStarts.length * 34);
+  // Match the chart plot area so the weekly markers line up with the data points.
+  const graphLeft = 64;
+  const graphRight = 16;
+  const graphPlotWidth = weeklyChartWidth - graphLeft - graphRight;
+  const markerX = (index: number) =>
+    graphLeft + index * graphPlotWidth / Math.max(1, weeklyStarts.length - 1);
+  const monthMarkers = months.map((month, monthIndex) => {
+    const index = weeklyStarts.findIndex((week, i) => {
+      const nextWeek = weeklyStarts[i + 1];
+      return (nextWeek == null || nextWeek > month) && week <= month;
+    });
+    return { index: Math.max(0, index), label: format(month, 'MMM'), monthIndex };
+  });
+  const monthBoundaryIndices = new Set(monthMarkers.map(marker => marker.index));
+
 
   // Find best and worst months
   const bestMonth = monthlyData.reduce((max, month) => 
@@ -836,9 +853,10 @@ export default function YearlySummaryScreen() {
                   </View>
                   {visibleSeries.length > 0 ? (
                     <ScrollView horizontal showsHorizontalScrollIndicator>
+                      <View style={{ width: weeklyChartWidth }}>
                       <LineChart
                         data={employeeChartData}
-                        width={Math.max(screenWidth - 60, weeklyStarts.length * 34)}
+                        width={weeklyChartWidth}
                         height={240}
                         chartConfig={{ ...chartConfig, propsForDots: { r: '3', strokeWidth: '1' } }}
                         style={styles.chart}
@@ -846,7 +864,31 @@ export default function YearlySummaryScreen() {
                         fromZero
                         withShadow={false}
                         onDataPointClick={({ index }) => setSelectedWeek(index)}
+                        decorator={() => (
+                          <>
+                            {weeklyStarts.map((week, index) => (
+                              <SvgLine key={index}
+                                x1={markerX(index)} x2={markerX(index)}
+                                y1={20} y2={205}
+                                stroke={Colors.textSecondary}
+                                strokeOpacity={monthBoundaryIndices.has(index) ? 0.48 : 0.20}
+                                strokeWidth={monthBoundaryIndices.has(index) ? 2.5 : 1}
+                                strokeDasharray={monthBoundaryIndices.has(index) ? undefined : '3,6'}
+                              />
+                            ))}
+                          </>
+                        )}
                       />
+                      <View style={{ height: 30, width: weeklyChartWidth, position: 'relative' }}>
+                        {monthMarkers.map(marker => (
+                          <Text key={marker.monthIndex} style={{
+                            position: 'absolute',
+                            left: markerX(marker.index) - 10,
+                            top: 2, fontSize: 12, fontWeight: 'bold', color: Colors.text,
+                          }}>{marker.label}</Text>
+                        ))}
+                      </View>
+                      </View>
                     </ScrollView>
                   ) : <Text style={styles.noDataText}>Select an employee above to display the graph.</Text>}
                   {selectedWeekIndex !== null && (
