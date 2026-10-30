@@ -610,6 +610,7 @@ export default function WeeklyDashboardScreen() {
 
               <Divider style={styles.divider} />
 
+              <TouchableOpacity activeOpacity={0.8} onPress={() => (navigation as any).navigate('EarningsDetails', { startDate: format(weekStart, 'yyyy-MM-dd'), endDate: format(weekEnd, 'yyyy-MM-dd'), periodLabel: `Week of ${format(weekStart, 'MMM d, yyyy')}`, paidOnly: false })} accessibilityRole="button" accessibilityLabel="View earnings breakdown">
               <LinearGradient
                 colors={gradients.success}
                 style={styles.totalBox}
@@ -619,6 +620,7 @@ export default function WeeklyDashboardScreen() {
                 <Text style={styles.totalLabel}>Earned:</Text>
                 <Text style={styles.totalValue}>${totals.finalTakeHome.toFixed(2)}</Text>
               </LinearGradient>
+              </TouchableOpacity>
             </Card.Content>
           </Card>
         )}
@@ -663,10 +665,12 @@ export default function WeeklyDashboardScreen() {
                 </View>
               ))}
               <Divider style={styles.divider} />
+              <TouchableOpacity activeOpacity={0.8} onPress={() => (navigation as any).navigate('EarningsDetails', { startDate: format(weekStart, 'yyyy-MM-dd'), endDate: format(weekEnd, 'yyyy-MM-dd'), periodLabel: `Week of ${format(weekStart, 'MMM d, yyyy')}`, paidOnly: false })} accessibilityRole="button" accessibilityLabel="View earnings breakdown">
               <LinearGradient colors={gradients.success} style={styles.totalBox}>
                 <Text style={styles.totalLabel}>Total Earned:</Text>
                 <Text style={styles.totalValue}>${ownerPay.ownerAfterPumperPay.toFixed(2)}</Text>
               </LinearGradient>
+              </TouchableOpacity>
             </Card.Content>
           </Card>
         )}
