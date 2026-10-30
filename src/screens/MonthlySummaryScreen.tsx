@@ -24,7 +24,7 @@ import * as Sharing from 'expo-sharing';
 import { nameExportedPdf } from '../utils/exportFileName';
 import { Spacing, BorderRadius, Shadows } from '../theme/colors';
 import { useAppTheme, makeStyles, withOpacity } from '../theme';
-import { calculateJobCommissions, calculateOwnerPay, calculateTaxEstimate, getEstimatedTaxForJob, getJobPumperName, getTaxableShareForJob } from '../utils/jobMath';
+import { calculateEmployeeEarnings, calculateJobCommissions, calculateOwnerPay, calculateTaxEstimate, getEstimatedTaxForJob, getJobPumperName, getTaxableShareForJob } from '../utils/jobMath';
 
 const screenWidth = Dimensions.get('window').width;
 
@@ -80,11 +80,13 @@ export default function MonthlySummaryScreen() {
   const referenceJobs = monthJobs.filter(job => job.jobNumber || job.poNumber);
 
   if (!isOwner) {
-    totals.commission = calculateJobCommissions(monthJobs, commissionRate);
+    const earnings = calculateEmployeeEarnings(monthJobs, commissionRate);
+    totals.commission = earnings.companyCommission;
+    totals.paidToMeAmount = earnings.directPayments;
     // Take Home is the employee's earned commission across all jobs.
     // Direct payments only reduce what the employer still owes them.
-    totals.yourPay = totals.commission - totals.paidToMeAmount;
-    totals.finalTakeHome = totals.commission;
+    totals.yourPay = earnings.owed;
+    totals.finalTakeHome = earnings.earned;
   } else {
     totals.finalTakeHome = ownerTakeHomePay.ownerAfterPumperPay;
   }
@@ -294,7 +296,7 @@ export default function MonthlySummaryScreen() {
             ${!isOwner ? `
               <p><strong>Commission (per job):</strong> $${totals.commission.toFixed(2)}</p>
               <p><strong>Direct Payments:</strong> $${totals.paidToMeAmount.toFixed(2)}</p>
-              <p><strong>Still Owed by Employer:</strong> $${totals.yourPay.toFixed(2)}</p>
+              <p><strong>Owed (Employer):</strong> ${totals.yourPay.toFixed(2)}</p>\n          <p><strong>Earned (Including Independent):</strong> ${totals.finalTakeHome.toFixed(2)}</p>
             ` : `
               <p><strong>Pumper Gross Pay:</strong> $${ownerPay.grossPumperPay.toFixed(2)}</p>
               <p><strong>Direct Payments to Pumpers:</strong> $${ownerPay.directPaymentsToPumpers.toFixed(2)}</p>
@@ -489,7 +491,7 @@ export default function MonthlySummaryScreen() {
               </View>
 
               <View style={styles.earningsRow}>
-                <Text style={styles.earningsLabel}>Your Commission:</Text>
+                <Text style={styles.earningsLabel}>Company Commission:</Text>
                 <Text style={styles.earningsValue}>${totals.commission.toFixed(2)}</Text>
               </View>
 
@@ -504,8 +506,10 @@ export default function MonthlySummaryScreen() {
                 colors={gradients.success}
                 style={styles.totalBox}
               >
+                <Text style={styles.totalLabel}>Owed:</Text>
+                <Text style={styles.totalValue}>${totals.yourPay.toFixed(2)}</Text>
                 <Text style={styles.totalLabel}>Earned:</Text>
-                <Text style={styles.totalValue}>${totals.commission.toFixed(2)}</Text>
+                <Text style={styles.totalValue}>${totals.finalTakeHome.toFixed(2)}</Text>
               </LinearGradient>
             </Card.Content>
           </Card>
