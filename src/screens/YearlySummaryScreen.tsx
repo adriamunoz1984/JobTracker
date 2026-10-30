@@ -13,6 +13,8 @@ import {
   startOfYear, 
   endOfYear,
   eachMonthOfInterval,
+  eachWeekOfInterval,
+  endOfWeek,
   startOfMonth,
   endOfMonth,
   isWithinInterval,
@@ -24,7 +26,7 @@ import * as Sharing from 'expo-sharing';
 import { nameExportedPdf } from '../utils/exportFileName';
 import { Spacing, BorderRadius, Shadows } from '../theme/colors';
 import { useAppTheme, makeStyles, withOpacity } from '../theme';
-import { calculateEmployeeEarnings, calculateJobCommissions, calculateOwnerPay, calculateTaxEstimate, getEstimatedTaxForJob, getJobPumperName, getTaxableShareForJob } from '../utils/jobMath';
+import { calculateEmployeeEarnings, calculateJobCommissions, calculateOwnerPay, calculateTaxEstimate, getEstimatedTaxForJob, getJobPumperName, getJobPumperGrossPay, isEmployeeJob, getTaxableShareForJob } from '../utils/jobMath';
 
 const screenWidth = Dimensions.get('window').width;
 
@@ -37,6 +39,9 @@ export default function YearlySummaryScreen() {
   const [isExporting, setIsExporting] = useState(false);
   const [yearOffset, setYearOffset] = useState(0);
   const [ownerTakeHomeMode, setOwnerTakeHomeMode] = useState<'paid' | 'all'>('paid');
+  const [employeeGraphMode, setEmployeeGraphMode] = useState<'earnings' | 'revenue'>('earnings');
+  const [hiddenEmployeeIds, setHiddenEmployeeIds] = useState<string[]>([]);
+  const [selectedWeek, setSelectedWeek] = useState<number | null>(null);
 
   const currentDate = new Date();
   const adjustedDate = addYears(currentDate, yearOffset);
@@ -133,6 +138,43 @@ export default function YearlySummaryScreen() {
       stroke: Colors.info,
     },
   };
+
+  // Employee comparison is always based on all completed work, not payment status.
+  // Direct payments do not reduce an employee's earned commission.
+  const weeklyStarts = eachWeekOfInterval({ start: yearStart, end: yearEnd });
+  const employeeJobs = yearJobs.filter(isEmployeeJob);
+  const employeeLookup = new Map<string, { name: string; jobs: Job[] }>();
+  employeeJobs.forEach(job => {
+    const id = job.employeeId || job.assignedTo || job.employeeName || 'Unknown';
+    const entry = employeeLookup.get(id) || { name: getJobPumperName(job), jobs: [] };
+    entry.jobs.push(job);
+    employeeLookup.set(id, entry);
+  });
+  const employeeSeries = Array.from(employeeLookup, ([id, data]) => ({
+    id,
+    name: data.name,
+    amounts: weeklyStarts.map(start => {
+      const end = endOfWeek(start);
+      const weekJobs = data.jobs.filter(job =>
+        isWithinInterval(parseISO(job.date), { start, end })
+      );
+      return weekJobs.reduce((sum, job) => sum + (
+        employeeGraphMode === 'earnings' ? getJobPumperGrossPay(job) : Number(job.amount || 0)
+      ), 0);
+    }),
+  }));
+  const graphColors = ['#4F8EF7', '#E17750', '#42A88A', '#A56FD1', '#DAAD38', '#DB629A', '#34A2B9', '#8A9E45'];
+  const visibleSeries = employeeSeries.filter(series => !hiddenEmployeeIds.includes(series.id));
+  const employeeChartData = {
+    labels: weeklyStarts.map((date, index) => index % 4 === 0 ? format(date, 'MMM d') : ''),
+    datasets: visibleSeries.map((series, index) => ({
+      data: series.amounts,
+      color: (opacity = 1) => withOpacity(graphColors[employeeSeries.indexOf(series) % graphColors.length], opacity),
+      strokeWidth: 2,
+    })),
+    legend: [],
+  };
+  const selectedWeekIndex = selectedWeek != null && selectedWeek < weeklyStarts.length ? selectedWeek : null;
 
   // Find best and worst months
   const bestMonth = monthlyData.reduce((max, month) => 
@@ -758,6 +800,73 @@ export default function YearlySummaryScreen() {
             ))}
           </Card.Content>
         </Card>
+
+        {/* Owner-only weekly employee comparison */}
+        {isOwner && (
+          <Card style={styles.card}>
+            <Card.Content>
+              <Text variant="titleMedium" style={styles.sectionTitle}>📈 Weekly Employee Comparison</Text>
+              <Text style={{ color: Colors.textSecondary, marginBottom: Spacing.sm }}>
+                Compare weekly commissions or job revenue. Tap a name to show or hide its line.
+              </Text>
+              <SegmentedButtons
+                value={employeeGraphMode}
+                onValueChange={value => { setEmployeeGraphMode(value as 'earnings' | 'revenue'); setSelectedWeek(null); }}
+                buttons={[{ value: 'earnings', label: 'Earnings' }, { value: 'revenue', label: 'Revenue' }]}
+                style={{ marginBottom: Spacing.md }}
+              />
+              {employeeSeries.length > 0 ? (
+                <>
+                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginBottom: Spacing.sm }}>
+                    {employeeSeries.map((series, index) => {
+                      const shown = !hiddenEmployeeIds.includes(series.id);
+                      return (
+                        <TouchableOpacity key={series.id} onPress={() => setHiddenEmployeeIds(current =>
+                          current.includes(series.id) ? current.filter(id => id !== series.id) : [...current, series.id]
+                        )} style={{
+                          flexDirection: 'row', alignItems: 'center', padding: 8,
+                          marginRight: 6, marginBottom: 6, borderRadius: 8,
+                          backgroundColor: Colors.surfaceDark, opacity: shown ? 1 : 0.45,
+                        }}>
+                          <View style={{ width: 10, height: 10, borderRadius: 5, marginRight: 6, backgroundColor: graphColors[index % graphColors.length] }} />
+                          <Text style={{ color: Colors.text }}>{series.name.slice(0, 6)}</Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                  {visibleSeries.length > 0 ? (
+                    <ScrollView horizontal showsHorizontalScrollIndicator>
+                      <LineChart
+                        data={employeeChartData}
+                        width={Math.max(screenWidth - 60, weeklyStarts.length * 34)}
+                        height={240}
+                        chartConfig={{ ...chartConfig, propsForDots: { r: '3', strokeWidth: '1' } }}
+                        style={styles.chart}
+                        yAxisLabel="$"
+                        fromZero
+                        withShadow={false}
+                        onDataPointClick={({ index }) => setSelectedWeek(index)}
+                      />
+                    </ScrollView>
+                  ) : <Text style={styles.noDataText}>Select an employee above to display the graph.</Text>}
+                  {selectedWeekIndex !== null && (
+                    <View style={{ marginTop: Spacing.sm, padding: Spacing.md, backgroundColor: Colors.surfaceDark, borderRadius: BorderRadius.medium }}>
+                      <Text style={{ color: Colors.text, fontWeight: 'bold' }}>
+                        Week of {format(weeklyStarts[selectedWeekIndex], 'MMM d, yyyy')}
+                      </Text>
+                      {visibleSeries.map(series => (
+                        <View key={series.id} style={styles.earningsRow}>
+                          <Text style={styles.earningsLabel}>{series.name.slice(0, 6)}</Text>
+                          <Text style={styles.earningsValue}>${series.amounts[selectedWeekIndex].toFixed(2)}</Text>
+                        </View>
+                      ))}
+                    </View>
+                  )}
+                </>
+              ) : <Text style={styles.noDataText}>No employee jobs recorded for this year.</Text>}
+            </Card.Content>
+          </Card>
+        )}
 
         {/* Export Button */}
         <Button
