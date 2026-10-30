@@ -46,6 +46,7 @@ import RoleSelectionScreen  from './src/screens/RoleSelectionScreen';
 // Screen imports for individual screens that aren't in MainNavigator
 import AddJobScreen    from './src/screens/AddjobScreen';
 import JobDetailScreen from './src/screens/JobDetailScreen';
+import EarningsDetailsScreen from './src/screens/EarningsDetailsScreen';
 import DummyDataSeeder from './src/screens/DummyDataSeeder';
 import DashboardScreen from './src/screens/DashboardScreen';
 // Invoice Screen
@@ -229,6 +230,7 @@ function AppNavigatorWithFAB({ user }: { user: any }) {
                 headerTitleAlign: 'center'
               }}
             />
+            <Stack.Screen name="EarningsDetails" component={EarningsDetailsScreen} options={{ headerShown: true, title: 'Earnings Details', headerTitleAlign: 'center' }} />
             <Stack.Screen 
               name="InvoiceDetail" 
               component={InvoiceDetailScreen}
