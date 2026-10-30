@@ -556,7 +556,7 @@ const updateJob = async (updatedJob: Job) => {
         ? 100
         : (user?.role === 'owner' ? 100 : (user?.commissionRate ?? 50));
       return sum + job.amount * rate / 100;
-    }, 0) - paidToMeAmount;
+    }, 0);
     
     return {
       startDate,
