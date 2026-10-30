@@ -24,7 +24,7 @@ import * as Sharing from 'expo-sharing';
 import { nameExportedPdf } from '../utils/exportFileName';
 import { Spacing, BorderRadius, Shadows } from '../theme/colors';
 import { useAppTheme, makeStyles, withOpacity } from '../theme';
-import { calculateJobCommissions, calculateOwnerPay, calculateTaxEstimate, getEstimatedTaxForJob, getJobPumperName } from '../utils/jobMath';
+import { calculateEmployeeEarnings, calculateJobCommissions, calculateOwnerPay, calculateTaxEstimate, getEstimatedTaxForJob, getJobPumperName } from '../utils/jobMath';
 
 const screenWidth = Dimensions.get('window').width;
 
@@ -85,12 +85,14 @@ export default function WeeklyDashboardScreen() {
   );
 
   if (!isOwner) {
-    totals.commission = calculateJobCommissions(weekJobs, commissionRate);
+    const earnings = calculateEmployeeEarnings(weekJobs, commissionRate);
+    totals.commission = earnings.companyCommission;
+    totals.paidToMeAmount = earnings.directPayments;
 
     // Take Home is the employee's full earned commission.
     // Direct payments only reduce the amount the employer still owes.
-    totals.yourPay = totals.commission - totals.paidToMeAmount;
-    totals.finalTakeHome = totals.commission;
+    totals.yourPay = earnings.owed;
+    totals.finalTakeHome = earnings.earned;
   } else {
     totals.finalTakeHome = ownerPay.ownerAfterPumperPay;
   }
@@ -407,8 +409,8 @@ export default function WeeklyDashboardScreen() {
                 <div class="footer-value">-${totals.paidToMeAmount.toFixed(0)}</div>
               </div>
               <div class="footer-row footer-total">
-                <div class="footer-label">Amount Owed</div>
-                <div class="footer-value">$${totals.yourPay.toFixed(0)}</div>
+                <div class="footer-label">Owed (Employer)</div>
+                <div class="footer-value">${totals.yourPay.toFixed(0)}</div>\n            <div class="footer-label">Earned (Including Independent)</div>\n            <div class="footer-value">${totals.finalTakeHome.toFixed(0)}</div>
               </div>
             ` : `
               <div class="footer-row">
@@ -595,7 +597,7 @@ export default function WeeklyDashboardScreen() {
               </View>
 
               <View style={styles.earningsRow}>
-                <Text style={styles.earningsLabel}>Your Commission:</Text>
+                <Text style={styles.earningsLabel}>Company Commission:</Text>
                 <Text style={styles.earningsValue}>${totals.commission.toFixed(2)}</Text>
               </View>
 
@@ -612,8 +614,10 @@ export default function WeeklyDashboardScreen() {
                 colors={gradients.success}
                 style={styles.totalBox}
               >
-                <Text style={styles.totalLabel}>Amount Owed:</Text>
+                <Text style={styles.totalLabel}>Owed:</Text>
                 <Text style={styles.totalValue}>${totals.yourPay.toFixed(2)}</Text>
+                <Text style={styles.totalLabel}>Earned:</Text>
+                <Text style={styles.totalValue}>${totals.finalTakeHome.toFixed(2)}</Text>
               </LinearGradient>
             </Card.Content>
           </Card>
