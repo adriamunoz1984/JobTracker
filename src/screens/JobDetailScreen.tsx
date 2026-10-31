@@ -556,7 +556,7 @@ export default function JobDetailScreen() {
                   {currentJob.billingAddress && (
                     <View style={styles.row}>
                       <Text style={styles.label}>Address:</Text>
-                      <Text style={styles.value}>{currentJob.billingAddress}</Text>
+                      <Text onPress={() => chooseMapApp(currentJob.billingAddress || '', [currentJob.billingCity, currentJob.billingState, currentJob.billingZip].filter(Boolean).join(', '))} style={[styles.value, { color: Colors.primary, textDecorationLine: 'underline' }]}>{currentJob.billingAddress}</Text>
                     </View>
                   )}
 
