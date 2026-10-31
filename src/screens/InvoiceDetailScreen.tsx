@@ -1,3 +1,4 @@
+import { chooseMapApp } from '../utils/openMap';
 // src/screens/InvoiceDetailScreen.tsx
 import React, { useState } from 'react';
 import { View, StyleSheet, ScrollView, Alert } from 'react-native';
@@ -336,7 +337,7 @@ export default function InvoiceDetailScreen() {
               <>
                 <Text style={styles.clientName}>{clientName}</Text>
                 {clientAddress && (
-                  <Text style={styles.clientDetail}>{clientAddress}</Text>
+                  <Text onPress={() => chooseMapApp(clientAddress)} style={[styles.clientDetail, { textDecorationLine: 'underline' }]}>{clientAddress}</Text>
                 )}
                 {clientEmail && (
                   <Text style={styles.clientDetail}>📧 {clientEmail}</Text>
