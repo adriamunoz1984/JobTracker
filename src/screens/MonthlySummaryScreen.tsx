@@ -165,8 +165,28 @@ export default function MonthlySummaryScreen() {
   const exportPDF = async () => {
     try {
       setIsExporting(true);
+      const pdfJobs = monthJobs.filter(j => j.jobType !== 'personal');
+      const pdfOwnerPay = calculateOwnerPay(pdfJobs);
+      const pdfEmployeePay = calculateEmployeeEarnings(pdfJobs, commissionRate);
+      const pdfTotals = {
+        ...totals,
+        income: pdfJobs.reduce((n,j) => n + Number(j.amount || 0), 0),
+        commission: pdfEmployeePay.companyCommission,
+        paidToMeAmount: pdfEmployeePay.directPayments,
+        yourPay: pdfEmployeePay.owed,
+        finalTakeHome: isOwner ? calculateOwnerPay(pdfJobs.filter(j => ownerTakeHomeMode === 'all' || j.isPaid)).ownerAfterPumperPay : pdfEmployeePay.companyCommission,
+        totalJobs: pdfJobs.length,
+        totalYards: pdfJobs.reduce((n,j) => n + Number(j.yards || 0), 0),
+        paidJobs: pdfJobs.filter(j => j.isPaid).length,
+        unpaidJobs: pdfJobs.filter(j => !j.isPaid).length,
+        totalUnpaid: pdfJobs.filter(j => !j.isPaid).reduce((n,j) => n + Number(j.amount || 0), 0),
+      };
+      const pdfTaxEstimate = calculateTaxEstimate(pdfJobs, isOwner ? 'owner' : 'employee', user?.estimatedTaxRate, user?.includeCashInTaxEstimate !== false, commissionRate);
+      const pdfReferenceJobs = pdfJobs.filter(j => j.jobNumber || j.poNumber);
+      const pdfRows = weeks.map((date, index) => { const included = pdfJobs.filter(j => isWithinInterval(parseISO(j.date), { start: date, end: endOfWeek(date) })); return { week: `W${index + 1}`, jobs: included.length, yards: included.reduce((n,j) => n + Number(j.yards || 0), 0), revenue: included.reduce((n,j) => n + Number(j.amount || 0), 0) }; });
 
-      const weeklyRows = weeklyData.map(week => `
+
+      const weeklyRows = pdfRows.map(week => `
         <tr>
           <td>${week.week}</td>
           <td>${week.jobs}</td>
@@ -175,7 +195,7 @@ export default function MonthlySummaryScreen() {
         </tr>
       `).join('');
 
-      const referenceRows = referenceJobs.map(job => `
+      const referenceRows = pdfReferenceJobs.map(job => `
         <tr>
           <td>${format(parseISO(job.date), 'MMM d, yyyy')}</td>
           <td>${job.companyName || job.clientName || 'Job'}</td>
@@ -185,7 +205,7 @@ export default function MonthlySummaryScreen() {
         </tr>
       `).join('');
 
-      const taxRows = monthJobs.map(job => {
+      const taxRows = pdfJobs.map(job => {
         const cashExcluded =
           job.paymentMethod === 'Cash' &&
           user?.includeCashInTaxEstimate === false;
@@ -214,7 +234,7 @@ export default function MonthlySummaryScreen() {
         `;
       }).join('');
 
-      const pumperRows = ownerPay.byPumper.map(pumper => `
+      const pumperRows = pdfOwnerPay.byPumper.map(pumper => `
         <tr>
           <td>${pumper.name}</td>
           <td>${pumper.jobs}</td>
@@ -287,28 +307,28 @@ export default function MonthlySummaryScreen() {
           
           <div class="summary">
             <h2>Monthly Totals</h2>
-            <p><strong>Total Jobs:</strong> ${totals.totalJobs}</p>
-            <p><strong>Total Yards:</strong> ${totals.totalYards.toFixed(1)}</p>
-            <p><strong>Total Income:</strong> $${totals.income.toFixed(2)}</p>
-            <p><strong>Paid Jobs:</strong> ${totals.paidJobs}</p>
-            <p><strong>Unpaid Jobs:</strong> ${totals.unpaidJobs}</p>
-            <p><strong>Total Unpaid:</strong> $${totals.totalUnpaid.toFixed(2)}</p>
+            <p><strong>Total Jobs:</strong> ${pdfTotals.totalJobs}</p>
+            <p><strong>Total Yards:</strong> ${pdfTotals.totalYards.toFixed(1)}</p>
+            <p><strong>Total Income:</strong> $${pdfTotals.income.toFixed(2)}</p>
+            <p><strong>Paid Jobs:</strong> ${pdfTotals.paidJobs}</p>
+            <p><strong>Unpaid Jobs:</strong> ${pdfTotals.unpaidJobs}</p>
+            <p><strong>Total Unpaid:</strong> $${pdfTotals.totalUnpaid.toFixed(2)}</p>
             ${!isOwner ? `
-              <p><strong>Commission (per job):</strong> $${totals.commission.toFixed(2)}</p>
-              <p><strong>Direct Payments:</strong> $${totals.paidToMeAmount.toFixed(2)}</p>
-              <p><strong>Owed (Employer):</strong> ${totals.yourPay.toFixed(2)}</p>\n          <p><strong>Earned (Including Independent):</strong> ${totals.finalTakeHome.toFixed(2)}</p>
+              <p><strong>Commission (per job):</strong> $${pdfTotals.commission.toFixed(2)}</p>
+              <p><strong>Direct Payments:</strong> $${pdfTotals.paidToMeAmount.toFixed(2)}</p>
+              <p><strong>Owed:</strong> ${pdfTotals.yourPay.toFixed(2)}</p>
             ` : `
-              <p><strong>Pumper Gross Pay:</strong> $${ownerPay.grossPumperPay.toFixed(2)}</p>
-              <p><strong>Direct Payments to Pumpers:</strong> $${ownerPay.directPaymentsToPumpers.toFixed(2)}</p>
-              <p><strong>Amount Owed to Pumpers:</strong> $${ownerPay.amountOwedToPumpers.toFixed(2)}</p>
+              <p><strong>Pumper Gross Pay:</strong> $${pdfOwnerPay.grossPumperPay.toFixed(2)}</p>
+              <p><strong>Direct Payments to Pumpers:</strong> $${pdfOwnerPay.directPaymentsToPumpers.toFixed(2)}</p>
+              <p><strong>Amount Owed to Pumpers:</strong> $${pdfOwnerPay.amountOwedToPumpers.toFixed(2)}</p>
             `}
-            <div class="total">${isOwner ? `Take Home (${ownerTakeHomeMode === 'paid' ? 'Paid Jobs' : 'All Jobs'})` : 'Take Home'}: $${totals.finalTakeHome.toFixed(2)}</div>
+            <div class="total">${isOwner ? `Take Home (${ownerTakeHomeMode === 'paid' ? 'Paid Jobs' : 'All Jobs'})` : 'Take Home'}: $${pdfTotals.finalTakeHome.toFixed(2)}</div>
             ${user?.taxEstimateEnabled === true && (user?.estimatedTaxRate || 0) > 0 ? `
-              <p><strong>Taxable Share:</strong> $${taxEstimate.taxableBase.toFixed(2)}</p>
-              <p><strong>Estimated Tax Reserve (${user?.estimatedTaxRate}%):</strong> $${taxEstimate.estimatedTax.toFixed(2)}</p>
-              <p><strong>After Tax Reserve:</strong> $${taxEstimate.afterTax.toFixed(2)}</p>
-              ${taxEstimate.excludedCashBase > 0 ? `
-                <p><strong>Cash Excluded From Estimate:</strong> $${taxEstimate.excludedCashBase.toFixed(2)}</p>
+              <p><strong>Taxable Share:</strong> $${pdfTaxEstimate.taxableBase.toFixed(2)}</p>
+              <p><strong>Estimated Tax Reserve (${user?.estimatedTaxRate}%):</strong> $${pdfTaxEstimate.estimatedTax.toFixed(2)}</p>
+              <p><strong>After Tax Reserve:</strong> $${pdfTaxEstimate.afterTax.toFixed(2)}</p>
+              ${pdfTaxEstimate.excludedCashBase > 0 ? `
+                <p><strong>Cash Excluded From Estimate:</strong> $${pdfTaxEstimate.excludedCashBase.toFixed(2)}</p>
               ` : ''}
             ` : ''}
           </div>
