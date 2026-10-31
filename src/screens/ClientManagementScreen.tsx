@@ -14,6 +14,7 @@ import {
   FAB
 } from 'react-native-paper';
 import { useNavigation } from '@react-navigation/native';
+import { chooseMapApp } from '../utils/openMap';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '../context/AuthContext';
 import { Client } from '../types';
@@ -214,8 +215,8 @@ export default function ClientManagementScreen() {
                           <IconButton icon="currency-usd" size={16} iconColor={Colors.info} />
                         )}
                       </View>
-                      <Text style={styles.addressText}>
-                        {addr.address}, {addr.city}
+                      <Text onPress={() => chooseMapApp(addr.address, addr.city)} style={[styles.addressText, { color: Colors.primary, textDecorationLine: 'underline' }]}>
+                        📍 {addr.address}, {addr.city}
                       </Text>
                       {(addr.pricePerYard || addr.setupCharge) && (
                         <Text style={styles.customPricing}>
