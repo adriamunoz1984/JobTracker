@@ -69,7 +69,7 @@ const DraggableFAB: React.FC<DraggableFABProps> = ({ variant = 'default' }) => {
         }];
         lastMark.current = now;
       }
-      if (elapsed > 3000) scrollRef.current += 1.5;
+      if (elapsed > 3000) scrollRef.current += 12;
       setGame({ active: true, ending: false, marks: marksRef.current, scroll: scrollRef.current, elapsed, score: 0, now });
     }, 110);
   };
