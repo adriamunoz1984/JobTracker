@@ -786,7 +786,8 @@ export default function YearlySummaryScreen() {
                     {employeeSeries.map((series, index) => {
                       const shown = !hiddenEmployeeIds.includes(series.id);
                       return (
-                        <TouchableOpacity key={series.id} onPress={() => setHiddenEmployeeIds(current =>
+                        <View key={series.id} style={{ flexDirection: 'row', alignItems: 'center' }}>
+                        <TouchableOpacity onPress={() => setHiddenEmployeeIds(current =>
                           current.includes(series.id) ? current.filter(id => id !== series.id) : [...current, series.id]
                         )} style={{
                           flexDirection: 'row', alignItems: 'center', padding: 8,
@@ -808,6 +809,7 @@ export default function YearlySummaryScreen() {
                         >
                           <Text style={{ color: Colors.primary, fontWeight: 'bold' }}>Profile ›</Text>
                         </TouchableOpacity>
+                        </View>
                       );
                     })}
                   </View>
