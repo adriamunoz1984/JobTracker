@@ -11,6 +11,7 @@ import { format, parseISO } from 'date-fns';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Spacing, BorderRadius, Shadows } from '../theme/colors';
 import { useAppTheme, makeStyles } from '../theme';
+import { chooseMapApp } from '../utils/openMap';
 
 const db = getFirestore();
 
@@ -235,8 +236,8 @@ export default function JobDetailScreen() {
                   </Text>
                 )}
 
-                <Text style={{ fontSize: 14, color: Colors.text, marginBottom: Spacing.xs }}>
-                  {currentJob.address}
+                <Text onPress={() => chooseMapApp(currentJob.address, currentJob.city)} style={{ fontSize: 14, color: Colors.primary, textDecorationLine: 'underline', marginBottom: Spacing.xs }}>
+                  📍 {currentJob.address}
                 </Text>
                 
                 <Text style={{ fontSize: 14, color: Colors.text, marginBottom: Spacing.md }}>
