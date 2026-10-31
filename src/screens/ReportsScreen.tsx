@@ -195,6 +195,24 @@ export default function ReportsScreen() {
   const exportPDF = async () => {
     try {
       setIsExporting(true);
+      // Employer-facing exports never contain independent/personal jobs.
+      const pdfJobs = filteredJobs.filter(j => j.jobType !== 'personal');
+      const pdfOwnerPay = calculateOwnerPay(pdfJobs);
+      const pdfStats = {
+        totalJobs: pdfJobs.length,
+        totalYards: pdfJobs.reduce((n,j) => n + Number(j.yards || 0), 0),
+        totalCharged: pdfJobs.reduce((n,j) => n + Number(j.amount || 0), 0),
+        totalPaid: pdfJobs.filter(j => j.isPaid).reduce((n,j) => n + Number(j.amount || 0), 0),
+        totalUnpaid: pdfJobs.filter(j => !j.isPaid).reduce((n,j) => n + Number(j.amount || 0), 0),
+        cash: pdfJobs.filter(j => j.paymentMethod === 'Cash').reduce((n,j) => n + Number(j.amount || 0), 0),
+        check: pdfJobs.filter(j => j.paymentMethod === 'Check').reduce((n,j) => n + Number(j.amount || 0), 0),
+        charge: pdfJobs.filter(j => j.paymentMethod === 'Charge').reduce((n,j) => n + Number(j.amount || 0), 0),
+        cashCount: pdfJobs.filter(j => j.paymentMethod === 'Cash').length,
+        checkCount: pdfJobs.filter(j => j.paymentMethod === 'Check').length,
+        chargeCount: pdfJobs.filter(j => j.paymentMethod === 'Charge').length,
+      };
+      const pdfTaxEstimate = calculateTaxEstimate(pdfJobs, user?.role === 'owner' ? 'owner' : 'employee', user?.estimatedTaxRate, user?.includeCashInTaxEstimate !== false, user?.commissionRate || 50);
+
       
       // Build table headers based on selected columns
       let tableHeaders = '';
@@ -214,7 +232,7 @@ export default function ReportsScreen() {
       if (columns.notes) tableHeaders += '<th>Notes</th>';
 
       // Build table rows based on selected columns
-      const tableRows = filteredJobs.map(job => {
+      const tableRows = pdfJobs.map(job => {
         const jobDate = parseISO(job.date);
         const weekStart = startOfWeek(jobDate);
         
@@ -252,7 +270,7 @@ export default function ReportsScreen() {
         return row;
       }).join('');
       
-      const pumperRows = ownerPay.byPumper.map(pumper => `
+      const pumperRows = pdfOwnerPay.byPumper.map(pumper => `
         <tr>
           <td>${pumper.name}</td>
           <td>${pumper.jobs}</td>
@@ -359,28 +377,28 @@ export default function ReportsScreen() {
           
           <div class="summary">
             <h2>Summary Statistics</h2>
-            <p><strong>Total Jobs:</strong> ${stats.totalJobs}</p>
-            <p><strong>Total Yards:</strong> ${stats.totalYards.toFixed(1)} yards</p>
-            <p><strong>Total Charged:</strong> $${stats.totalCharged.toFixed(2)}</p>
-            <p><strong>Total Paid:</strong> <span class="paid">$${stats.totalPaid.toFixed(2)}</span></p>
-            <p><strong>Total Unpaid:</strong> <span class="unpaid">$${stats.totalUnpaid.toFixed(2)}</span></p>
+            <p><strong>Total Jobs:</strong> ${pdfStats.totalJobs}</p>
+            <p><strong>Total Yards:</strong> ${pdfStats.totalYards.toFixed(1)} yards</p>
+            <p><strong>Total Charged:</strong> $${pdfStats.totalCharged.toFixed(2)}</p>
+            <p><strong>Total Paid:</strong> <span class="paid">$${pdfStats.totalPaid.toFixed(2)}</span></p>
+            <p><strong>Total Unpaid:</strong> <span class="unpaid">$${pdfStats.totalUnpaid.toFixed(2)}</span></p>
           </div>
           
           <h2>💰 Payment Method Breakdown</h2>
           <div class="breakdown">
-            <p>💵 <strong>Cash:</strong> $${stats.cash.toFixed(2)} (${stats.cashCount} jobs)</p>
-            <p>📝 <strong>Check:</strong> $${stats.check.toFixed(2)} (${stats.checkCount} jobs)</p>
-            <p>📋 <strong>Charge:</strong> $${stats.charge.toFixed(2)} (${stats.chargeCount} jobs)</p>
+            <p>💵 <strong>Cash:</strong> $${pdfStats.cash.toFixed(2)} (${pdfStats.cashCount} jobs)</p>
+            <p>📝 <strong>Check:</strong> $${pdfStats.check.toFixed(2)} (${pdfStats.checkCount} jobs)</p>
+            <p>📋 <strong>Charge:</strong> $${pdfStats.charge.toFixed(2)} (${pdfStats.chargeCount} jobs)</p>
           </div>
           
           ${user?.role === 'owner' ? `
             <h2>💼 Owner Earnings</h2>
             <div class="breakdown">
-              <p>Total Charged: $${stats.totalCharged.toFixed(2)}</p>
-              <p>Pumper Gross Pay: -$${ownerPay.grossPumperPay.toFixed(2)}</p>
-              <p>Direct Payments to Pumpers: $${ownerPay.directPaymentsToPumpers.toFixed(2)}</p>
-              <p>Still Owed to Pumpers: $${ownerPay.amountOwedToPumpers.toFixed(2)}</p>
-              <div class="total">Owner After Pumper Pay: $${netEarnings.toFixed(2)}</div>
+              <p>Total Charged: $${pdfStats.totalCharged.toFixed(2)}</p>
+              <p>Pumper Gross Pay: -$${pdfOwnerPay.grossPumperPay.toFixed(2)}</p>
+              <p>Direct Payments to Pumpers: $${pdfOwnerPay.directPaymentsToPumpers.toFixed(2)}</p>
+              <p>Still Owed to Pumpers: $${pdfOwnerPay.amountOwedToPumpers.toFixed(2)}</p>
+              <div class="total">Owner After Pumper Pay: $${pdfOwnerPay.ownerAfterPumperPay.toFixed(2)}</div>
             </div>
             ${pumperRows ? `
               <h2>Pumper Breakdown</h2>
@@ -396,11 +414,11 @@ export default function ReportsScreen() {
           ${user?.taxEstimateEnabled === true && (user?.estimatedTaxRate || 0) > 0 ? `
             <h2>Tax Estimate</h2>
             <div class="breakdown">
-              <p>Taxable Share: $${taxEstimate.taxableBase.toFixed(2)}</p>
-              <p>Estimated Tax Reserve (${user?.estimatedTaxRate}%): $${taxEstimate.estimatedTax.toFixed(2)}</p>
-              <p>After Tax Reserve: $${taxEstimate.afterTax.toFixed(2)}</p>
-              ${taxEstimate.excludedCashBase > 0 ? `
-                <p>Cash Excluded From Estimate: $${taxEstimate.excludedCashBase.toFixed(2)}</p>
+              <p>Taxable Share: $${pdfTaxEstimate.taxableBase.toFixed(2)}</p>
+              <p>Estimated Tax Reserve (${user?.estimatedTaxRate}%): $${pdfTaxEstimate.estimatedTax.toFixed(2)}</p>
+              <p>After Tax Reserve: $${pdfTaxEstimate.afterTax.toFixed(2)}</p>
+              ${pdfTaxEstimate.excludedCashBase > 0 ? `
+                <p>Cash Excluded From Estimate: $${pdfTaxEstimate.excludedCashBase.toFixed(2)}</p>
               ` : ''}
             </div>
           ` : ''}
