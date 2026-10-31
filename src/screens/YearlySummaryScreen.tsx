@@ -766,67 +766,13 @@ export default function YearlySummaryScreen() {
           </Card>
         )}
 
-        {/* Monthly Revenue Chart */}
-        <Card style={styles.card}>
-          <Card.Content>
-            <Text variant="titleMedium" style={styles.sectionTitle}>📊 Monthly Revenue Trend</Text>
-            <Divider style={styles.divider} />
-
-            {monthlyData.some(m => m.revenue > 0) ? (
-              <LineChart
-                data={chartData}
-                width={screenWidth - 60}
-                height={220}
-                chartConfig={chartConfig}
-                bezier
-                style={styles.chart}
-                yAxisLabel="$"
-                formatYLabel={(value) => `${parseFloat(value).toFixed(0)}`}
-                withVerticalLines={false}
-                withDots={true}
-              />
-            ) : (
-              <Text style={styles.noDataText}>No revenue data for this year</Text>
-            )}
-          </Card.Content>
-        </Card>
-
-        {/* Monthly Breakdown Table */}
-        <Card style={styles.card}>
-          <Card.Content>
-            <Text variant="titleMedium" style={styles.sectionTitle}>📋 Monthly Breakdown</Text>
-            <Divider style={styles.divider} />
-
-            {monthlyData.map((month, index) => (
-              <View key={index} style={styles.monthRow}>
-                <View style={styles.monthInfo}>
-                  <Text style={styles.monthName}>{month.fullMonth}</Text>
-                  {month.jobs > 0 && (
-                    <View style={styles.monthChips}>
-                      <Chip compact style={styles.jobsChip} textStyle={styles.jobsChipLabel}>{month.jobs} jobs</Chip>
-                      <Chip compact style={styles.yardsChip} textStyle={styles.yardsChipLabel}>{month.yards.toFixed(0)} yds</Chip>
-                    </View>
-                  )}
-                </View>
-                <View style={styles.monthRevenue}>
-                  {month.revenue > 0 ? (
-                    <Text style={styles.revenueValue}>${month.revenue.toLocaleString()}</Text>
-                  ) : (
-                    <Text style={styles.noRevenueText}>-</Text>
-                  )}
-                </View>
-              </View>
-            ))}
-          </Card.Content>
-        </Card>
-
         {/* Owner-only weekly employee comparison */}
         {isOwner && (
           <Card style={styles.card}>
             <Card.Content>
-              <Text variant="titleMedium" style={styles.sectionTitle}>📈 Weekly Employee Comparison</Text>
+              <Text variant="titleMedium" style={styles.sectionTitle}>📈 Employee Earnings Comparison</Text>
               <Text style={{ color: Colors.textSecondary, marginBottom: Spacing.sm }}>
-                Compare weekly commissions or job revenue. Tap a name to show or hide its line.
+                Swipe sideways through Jan–Dec to compare weekly employee earnings. Tap a name to show or hide its line.
               </Text>
               <SegmentedButtons
                 value={employeeGraphMode}
@@ -911,6 +857,60 @@ export default function YearlySummaryScreen() {
             </Card.Content>
           </Card>
         )}
+
+        {/* Monthly Breakdown Table */}
+        <Card style={styles.card}>
+          <Card.Content>
+            <Text variant="titleMedium" style={styles.sectionTitle}>📋 Monthly Breakdown</Text>
+            <Divider style={styles.divider} />
+
+            {monthlyData.map((month, index) => (
+              <View key={index} style={styles.monthRow}>
+                <View style={styles.monthInfo}>
+                  <Text style={styles.monthName}>{month.fullMonth}</Text>
+                  {month.jobs > 0 && (
+                    <View style={styles.monthChips}>
+                      <Chip compact style={styles.jobsChip} textStyle={styles.jobsChipLabel}>{month.jobs} jobs</Chip>
+                      <Chip compact style={styles.yardsChip} textStyle={styles.yardsChipLabel}>{month.yards.toFixed(0)} yds</Chip>
+                    </View>
+                  )}
+                </View>
+                <View style={styles.monthRevenue}>
+                  {month.revenue > 0 ? (
+                    <Text style={styles.revenueValue}>${month.revenue.toLocaleString()}</Text>
+                  ) : (
+                    <Text style={styles.noRevenueText}>-</Text>
+                  )}
+                </View>
+              </View>
+            ))}
+          </Card.Content>
+        </Card>
+
+        {/* Monthly Revenue Chart */}
+        <Card style={styles.card}>
+          <Card.Content>
+            <Text variant="titleMedium" style={styles.sectionTitle}>📊 Monthly Revenue Trend</Text>
+            <Divider style={styles.divider} />
+
+            {monthlyData.some(m => m.revenue > 0) ? (
+              <LineChart
+                data={chartData}
+                width={screenWidth - 60}
+                height={220}
+                chartConfig={chartConfig}
+                bezier
+                style={styles.chart}
+                yAxisLabel="$"
+                formatYLabel={(value) => `${parseFloat(value).toFixed(0)}`}
+                withVerticalLines={false}
+                withDots={true}
+              />
+            ) : (
+              <Text style={styles.noDataText}>No revenue data for this year</Text>
+            )}
+          </Card.Content>
+        </Card>
 
         {/* Export Button */}
         <Button
