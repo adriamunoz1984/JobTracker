@@ -796,6 +796,18 @@ export default function YearlySummaryScreen() {
                           <View style={{ width: 10, height: 10, borderRadius: 5, marginRight: 6, backgroundColor: graphColors[index % graphColors.length] }} />
                           <Text style={{ color: Colors.text }}>{series.name.slice(0, 6)}</Text>
                         </TouchableOpacity>
+                        <TouchableOpacity
+                          accessibilityRole="button"
+                          accessibilityLabel={`Open ${series.name} employee profile`}
+                          onPress={() => (navigation as any).navigate('EmployeePerformance', {
+                            employeeId: series.id,
+                            employeeName: series.name,
+                            year: adjustedDate.getFullYear(),
+                          })}
+                          style={{ paddingVertical: 8, paddingHorizontal: 6, marginRight: 8, marginBottom: 6 }}
+                        >
+                          <Text style={{ color: Colors.primary, fontWeight: 'bold' }}>Profile ›</Text>
+                        </TouchableOpacity>
                       );
                     })}
                   </View>
