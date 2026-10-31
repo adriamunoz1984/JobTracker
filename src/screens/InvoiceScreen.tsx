@@ -1,3 +1,4 @@
+import { chooseMapApp } from '../utils/openMap';
 // src/screens/InvoiceScreen.tsx
 import React, { useEffect, useState } from 'react';
 import { View, ScrollView, Alert, KeyboardAvoidingView, Platform } from 'react-native';
@@ -446,8 +447,8 @@ export default function InvoiceScreen() {
                     .filter(job => job.jobNumber || job.poNumber)
                     .map(job => (
                       <View key={job.id} style={styles.referenceRow}>
-                        <Text style={styles.referenceJob}>
-                          {format(parseISO(job.date), 'MMM d')} · {job.address}
+                        <Text onPress={() => chooseMapApp(job.address, job.city)} style={styles.referenceJob}>
+                          {format(parseISO(job.date), 'MMM d')} · 📍 {job.address}
                         </Text>
                         <Text style={styles.referenceValue}>
                           {[
