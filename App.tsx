@@ -47,6 +47,7 @@ import RoleSelectionScreen  from './src/screens/RoleSelectionScreen';
 import AddJobScreen    from './src/screens/AddjobScreen';
 import JobDetailScreen from './src/screens/JobDetailScreen';
 import EarningsDetailsScreen from './src/screens/EarningsDetailsScreen';
+import EmployeePerformanceScreen from './src/screens/EmployeePerformanceScreen';
 import DummyDataSeeder from './src/screens/DummyDataSeeder';
 import DashboardScreen from './src/screens/DashboardScreen';
 // Invoice Screen
@@ -230,6 +231,7 @@ function AppNavigatorWithFAB({ user }: { user: any }) {
                 headerTitleAlign: 'center'
               }}
             />
+            <Stack.Screen name="EmployeePerformance" component={EmployeePerformanceScreen} options={{ headerShown: true, title: 'Employee Profile', headerTitleAlign: 'center' }} />
             <Stack.Screen name="EarningsDetails" component={EarningsDetailsScreen} options={{ headerShown: true, title: 'Earnings Details', headerTitleAlign: 'center' }} />
             <Stack.Screen 
               name="InvoiceDetail" 
