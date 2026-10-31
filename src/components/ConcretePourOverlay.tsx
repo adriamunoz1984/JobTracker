@@ -7,15 +7,18 @@ type Props = { width: number; height: number; marks: PourMark[]; scroll: number;
 
 const RADIUS = 42;
 const SCREED = 0.25;
-const formatColor = (depth: number) => {
-  const shade = Math.round(54 + Math.min(depth, 5) * 28);
-  return `rgb(${shade},${shade},${shade})`;
+// Retro 32-bit-inspired concrete palette: deeper = darker, piled = lighter.
+const CONCRETE = ['#41464A', '#555B60', '#697176', '#80898C', '#98A2A3', '#B2B9B6', '#CDD1C9', '#E1DED1'];
+const formatColor = (depth: number, x: number, y: number) => {
+  const grain = ((x * 19 + y * 13) % 7 === 0) ? 1 : 0;
+  const index = Math.max(0, Math.min(CONCRETE.length - 1, Math.floor(depth * 1.9) + grain));
+  return CONCRETE[index];
 };
 
 export default function ConcretePourOverlay({ width, height, marks, scroll, elapsed, ending, score, now }: Props) {
-  const screedY = elapsed < 3000 ? 72 : height * SCREED;
-  const started = elapsed >= 3000;
-  const cell = 13;
+  const screedY = elapsed < 4000 ? 72 : height * SCREED;
+  const started = elapsed >= 4000;
+  const cell = 11;
   const countX = Math.ceil(width / cell);
   const countY = Math.ceil(height / cell);
   const tiles: React.ReactNode[] = [];
@@ -30,7 +33,7 @@ export default function ConcretePourOverlay({ width, height, marks, scroll, elap
       });
       if (depth > 0.08) {
         const leveled = started && cy < screedY;
-        const color = leveled ? (depth >= 1.5 && depth <= 3.2 ? '#929292' : depth < 1.5 ? '#686868' : '#bababa') : formatColor(depth);
+        const color = leveled ? (depth >= 1.5 && depth <= 3.2 ? '#929C99' : depth < 1.5 ? '#515E65' : '#D1C7B6') : formatColor(depth, x, y);
         tiles.push(<Rect key={x + '-' + y} x={x * cell} y={y * cell} width={cell + 0.4} height={cell + 0.4} fill={color} />);
       }
     }
@@ -41,8 +44,9 @@ export default function ConcretePourOverlay({ width, height, marks, scroll, elap
         {tiles}
         {marks.filter(mark => now - mark.created < 650).map(mark => (
           <Circle key={'ring-' + mark.id} cx={mark.x} cy={mark.y - scroll} r={mark.radius * Math.min(1, (now - mark.created) / 450)}
-            stroke="#d8d8d8" strokeWidth={1.5} fill="none" opacity={Math.max(0, 1 - (now - mark.created) / 650)} />
+            stroke="#D8E0DA" strokeWidth={2} fill="none" opacity={Math.max(0, 1 - (now - mark.created) / 650)} />
         ))}
+        <Line x1={0} y1={screedY + 4} x2={width} y2={screedY + 4} stroke="#182126" strokeOpacity={0.85} strokeWidth={7} />
         <Line x1={0} y1={screedY} x2={width} y2={screedY} stroke={started && marks.some(mark => Math.abs(mark.y - scroll - screedY) < mark.radius) ? '#72dc83' : '#eb6060'} strokeWidth={4} />
       </Svg>
       <View style={{ position: 'absolute', top: screedY + 10, alignSelf: 'center' }}>
