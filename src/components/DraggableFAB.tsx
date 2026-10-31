@@ -69,7 +69,14 @@ const DraggableFAB: React.FC<DraggableFABProps> = ({ variant = 'default' }) => {
         }];
         lastMark.current = now;
       }
-      if (elapsed > 3000) scrollRef.current += 12;
+      // Give the player time to fill the slab. Every 3 seconds, gently
+      // advance the pour area by 18px over the following 1.5 seconds.
+      // This is intentionally much slower than the original 12px/tick.
+      const moveElapsed = Math.max(0, elapsed - 3000);
+      const cycle = moveElapsed % 3000;
+      const completedCycles = Math.floor(moveElapsed / 3000);
+      const eased = Math.min(1, cycle / 1500);
+      scrollRef.current = completedCycles * 18 + eased * 18;
       setGame({ active: true, ending: false, marks: marksRef.current, scroll: scrollRef.current, elapsed, score: 0, now });
     }, 110);
   };
