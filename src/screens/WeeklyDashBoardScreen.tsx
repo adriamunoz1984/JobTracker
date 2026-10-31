@@ -717,7 +717,7 @@ export default function WeeklyDashboardScreen() {
                 bezier
                 style={styles.chart}
                 yAxisLabel="$"
-                formatYLabel={(value) => `$${parseFloat(value).toFixed(0)}`}
+                formatYLabel={(value) => `${parseFloat(value).toFixed(0)}`}
               />
             ) : (
               <Text style={styles.noDataText}>No revenue data for this week</Text>
