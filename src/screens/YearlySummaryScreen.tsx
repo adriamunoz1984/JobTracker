@@ -252,6 +252,8 @@ export default function YearlySummaryScreen() {
         paidJobs: pdfJobs.filter(j => j.isPaid).length,
         unpaidJobs: pdfJobs.filter(j => !j.isPaid).length,
         totalUnpaid: pdfJobs.filter(j => !j.isPaid).reduce((n,j) => n + Number(j.amount || 0), 0),
+        avgJobSize: pdfJobs.length ? pdfJobs.reduce((n,j) => n + Number(j.amount || 0), 0) / pdfJobs.length : 0,
+        avgYardsPerJob: pdfJobs.length ? pdfJobs.reduce((n,j) => n + Number(j.yards || 0), 0) / pdfJobs.length : 0,
       };
       const pdfTaxEstimate = calculateTaxEstimate(pdfJobs, isOwner ? 'owner' : 'employee', user?.estimatedTaxRate, user?.includeCashInTaxEstimate !== false, commissionRate);
       const pdfReferenceJobs = pdfJobs.filter(j => j.jobNumber || j.poNumber);
