@@ -175,6 +175,26 @@ export default function WeeklyDashboardScreen() {
   const exportPDF = async () => {
     try {
       setIsExporting(true);
+      const pdfJobs = weekJobs.filter(j => j.jobType !== 'personal');
+      const pdfOwnerPay = calculateOwnerPay(pdfJobs);
+      const pdfEmployeePay = calculateEmployeeEarnings(pdfJobs, commissionRate);
+      const pdfTotals = {
+        ...totals,
+        income: pdfJobs.reduce((n,j) => n + Number(j.amount || 0), 0),
+        commission: pdfEmployeePay.companyCommission,
+        paidToMeAmount: pdfEmployeePay.directPayments,
+        yourPay: pdfEmployeePay.owed,
+        finalTakeHome: isOwner ? calculateOwnerPay(pdfJobs).ownerAfterPumperPay : pdfEmployeePay.companyCommission,
+        totalJobs: pdfJobs.length,
+        totalYards: pdfJobs.reduce((n,j) => n + Number(j.yards || 0), 0),
+        paidJobs: pdfJobs.filter(j => j.isPaid).length,
+        unpaidJobs: pdfJobs.filter(j => !j.isPaid).length,
+        totalUnpaid: pdfJobs.filter(j => !j.isPaid).reduce((n,j) => n + Number(j.amount || 0), 0),
+      };
+      const pdfTaxEstimate = calculateTaxEstimate(pdfJobs, isOwner ? 'owner' : 'employee', user?.estimatedTaxRate, user?.includeCashInTaxEstimate !== false, commissionRate);
+      const pdfReferenceJobs = pdfJobs.filter(j => j.jobNumber || j.poNumber);
+      const pdfRows = days.map(dateValue => ({ dateValue, day: format(dateValue, 'EEE'), date: format(dateValue, 'MMM d'), jobs: pdfJobs.filter(j => format(parseISO(j.date), 'yyyy-MM-dd') === format(dateValue, 'yyyy-MM-dd')).length }));
+
 
       // Export only calendar days that actually contain jobs.
       // This naturally includes Saturday, and Sunday only when a Sunday job exists.
@@ -184,7 +204,7 @@ export default function WeeklyDashboardScreen() {
 
       const jobRows = workedDays.length > 0
         ? workedDays.map(day => {
-            const dayJobs = weekJobs.filter(job => {
+            const dayJobs = pdfJobs.filter(job => {
               const jobDate = parseISO(job.date);
               return format(jobDate, 'yyyy-MM-dd') === format(day.dateValue, 'yyyy-MM-dd');
             });
@@ -397,52 +417,52 @@ export default function WeeklyDashboardScreen() {
           <div class="footer">
             <div class="footer-row">
               <div class="footer-label">Total Revenue</div>
-              <div class="footer-value">$${totals.income.toFixed(0)}</div>
+              <div class="footer-value">$${pdfTotals.income.toFixed(0)}</div>
             </div>
             ${!isOwner ? `
               <div class="footer-row">
                 <div class="footer-label">× Commission (per job)</div>
-                <div class="footer-value">$${totals.commission.toFixed(0)}</div>
+                <div class="footer-value">$${pdfTotals.commission.toFixed(0)}</div>
               </div>
               <div class="footer-row">
                 <div class="footer-label">- Direct Payments</div>
-                <div class="footer-value">-${totals.paidToMeAmount.toFixed(0)}</div>
+                <div class="footer-value">-${pdfTotals.paidToMeAmount.toFixed(0)}</div>
               </div>
               <div class="footer-row footer-total">
-                <div class="footer-label">Owed (Employer)</div>
-                <div class="footer-value">${totals.yourPay.toFixed(0)}</div>\n            <div class="footer-label">Earned (Including Independent)</div>\n            <div class="footer-value">${totals.finalTakeHome.toFixed(0)}</div>
+                <div class="footer-label">Owed</div>
+                <div class="footer-value">${pdfTotals.yourPay.toFixed(0)}</div>
               </div>
             ` : `
               <div class="footer-row">
                 <div class="footer-label">Pumper Gross Pay</div>
-                <div class="footer-value">-$${ownerPay.grossPumperPay.toFixed(0)}</div>
+                <div class="footer-value">-$${pdfOwnerPay.grossPumperPay.toFixed(0)}</div>
               </div>
               <div class="footer-row">
                 <div class="footer-label">Direct Payments to Pumpers</div>
-                <div class="footer-value">$${ownerPay.directPaymentsToPumpers.toFixed(0)}</div>
+                <div class="footer-value">$${pdfOwnerPay.directPaymentsToPumpers.toFixed(0)}</div>
               </div>
               <div class="footer-row">
                 <div class="footer-label">Amount Owed to Pumpers</div>
-                <div class="footer-value">$${ownerPay.amountOwedToPumpers.toFixed(0)}</div>
+                <div class="footer-value">$${pdfOwnerPay.amountOwedToPumpers.toFixed(0)}</div>
               </div>
               <div class="footer-row footer-total">
                 <div class="footer-label">Take Home</div>
-                <div class="footer-value">$${ownerPay.ownerAfterPumperPay.toFixed(0)}</div>
+                <div class="footer-value">$${pdfOwnerPay.ownerAfterPumperPay.toFixed(0)}</div>
               </div>
             `}
             ${user?.taxEstimateEnabled === true && (user?.estimatedTaxRate || 0) > 0 ? `
               <div class="footer-row">
                 <div class="footer-label">Estimated Tax Reserve (${user?.estimatedTaxRate}%)</div>
-                <div class="footer-value">-$${taxEstimate.estimatedTax.toFixed(0)}</div>
+                <div class="footer-value">-$${pdfTaxEstimate.estimatedTax.toFixed(0)}</div>
               </div>
               <div class="footer-row">
                 <div class="footer-label">Taxable Share After Reserve</div>
-                <div class="footer-value">$${taxEstimate.afterTax.toFixed(0)}</div>
+                <div class="footer-value">$${pdfTaxEstimate.afterTax.toFixed(0)}</div>
               </div>
-              ${taxEstimate.excludedCashBase > 0 ? `
+              ${pdfTaxEstimate.excludedCashBase > 0 ? `
                 <div class="footer-row">
                   <div class="footer-label">Cash Excluded From Estimate</div>
-                  <div class="footer-value">$${taxEstimate.excludedCashBase.toFixed(0)}</div>
+                  <div class="footer-value">$${pdfTaxEstimate.excludedCashBase.toFixed(0)}</div>
                 </div>
               ` : ''}
             ` : ''}
