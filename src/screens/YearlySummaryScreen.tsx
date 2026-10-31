@@ -117,7 +117,7 @@ export default function YearlySummaryScreen() {
   });
 
   const chartData = {
-    labels: monthlyData.map(m => m.month),
+    labels: monthlyData.map((m, index) => index % 2 === 0 ? m.month : ''),
     datasets: [{
       data: monthlyData.map(m => m.revenue > 0 ? m.revenue : 0),
     }],
@@ -781,7 +781,9 @@ export default function YearlySummaryScreen() {
                 bezier
                 style={styles.chart}
                 yAxisLabel="$"
-                formatYLabel={(value) => `$${parseFloat(value).toFixed(0)}`}
+                formatYLabel={(value) => `${parseFloat(value).toFixed(0)}`}
+                withVerticalLines={false}
+                withDots={true}
               />
             ) : (
               <Text style={styles.noDataText}>No revenue data for this year</Text>
