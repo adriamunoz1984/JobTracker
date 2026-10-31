@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, StyleSheet, Text } from 'react-native';
-import Svg, { Circle, Rect, Line } from 'react-native-svg';
+import Svg, { Circle, Rect, Line, G } from 'react-native-svg';
 
 export type PourMark = { id: number; x: number; y: number; radius: number; created: number };
 type Props = { width: number; height: number; marks: PourMark[]; scroll: number; elapsed: number; ending: boolean; score: number; now: number };
@@ -16,8 +16,10 @@ const formatColor = (depth: number, x: number, y: number) => {
 };
 
 export default function ConcretePourOverlay({ width, height, marks, scroll, elapsed, ending, score, now }: Props) {
-  const screedY = elapsed < 4000 ? 72 : height * SCREED;
-  const started = elapsed >= 4000;
+  // The secret starts with rings only; after five more seconds they become poured concrete.
+  const solidStarted = elapsed >= 5000;
+  const screedY = elapsed < 9000 ? 72 : height * SCREED;
+  const started = elapsed >= 9000;
   const cell = 11;
   const countX = Math.ceil(width / cell);
   const countY = Math.ceil(height / cell);
@@ -41,16 +43,16 @@ export default function ConcretePourOverlay({ width, height, marks, scroll, elap
   return (
     <View pointerEvents="none" style={[StyleSheet.absoluteFill, { zIndex: 10000, backgroundColor: 'rgba(20,22,24,0.70)' }]}>
       <Svg width={width} height={height}>
-        {tiles}
-        {marks.filter(mark => now - mark.created < 650).map(mark => (
+        {solidStarted && <G opacity={Math.min(1, (elapsed - 5000) / 650)}>{tiles}</G>}
+        {marks.filter(mark => now - mark.created < (solidStarted ? 650 : 1200)).map(mark => (
           <Circle key={'ring-' + mark.id} cx={mark.x} cy={mark.y - scroll} r={mark.radius * Math.min(1, (now - mark.created) / 450)}
-            stroke="#D8E0DA" strokeWidth={2} fill="none" opacity={Math.max(0, 1 - (now - mark.created) / 650)} />
+            stroke="#D8E0DA" strokeWidth={2} fill="none" opacity={Math.max(0, 1 - (now - mark.created) / (solidStarted ? 650 : 1200))} />
         ))}
         <Line x1={0} y1={screedY + 4} x2={width} y2={screedY + 4} stroke="#182126" strokeOpacity={0.85} strokeWidth={7} />
         <Line x1={0} y1={screedY} x2={width} y2={screedY} stroke={started && marks.some(mark => Math.abs(mark.y - scroll - screedY) < mark.radius) ? '#72dc83' : '#eb6060'} strokeWidth={4} />
       </Svg>
       <View style={{ position: 'absolute', top: screedY + 10, alignSelf: 'center' }}>
-        <Text style={{ color: '#fff', fontSize: 12, fontWeight: 'bold' }}>{started ? 'KEEP THE GRADE' : 'PUMP TO THE RED LINE'}</Text>
+        <Text style={{ color: '#fff', fontSize: 12, fontWeight: 'bold' }}>{started ? 'KEEP THE GRADE' : solidStarted ? 'BUILD THE DEPTH' : 'HOLD TO POUR'}</Text>
       </View>
       {ending && (
         <View style={{ position: 'absolute', top: height * .42, alignSelf: 'center', alignItems: 'center', padding: 20, backgroundColor: 'rgba(0,0,0,0.72)', borderRadius: 16 }}>
