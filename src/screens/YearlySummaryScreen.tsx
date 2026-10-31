@@ -1219,7 +1219,7 @@ const useStyles = makeStyles((Colors) => ({
   jobsChipLabel: {
     fontSize: 11,
     lineHeight: 18,
-    marginTop: 0,
+    marginTop: 4,
     marginBottom: 0,
     textAlign: 'center',
     textAlignVertical: 'center',
@@ -1232,7 +1232,7 @@ const useStyles = makeStyles((Colors) => ({
   yardsChipLabel: {
     fontSize: 11,
     lineHeight: 18,
-    marginTop: 0,
+    marginTop: 4,
     marginBottom: 0,
     textAlign: 'center',
     textAlignVertical: 'center',
