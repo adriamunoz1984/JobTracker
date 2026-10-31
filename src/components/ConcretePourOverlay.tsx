@@ -13,7 +13,7 @@ const formatColor = (depth: number) => {
 };
 
 export default function ConcretePourOverlay({ width, height, marks, scroll, elapsed, ending, score, now }: Props) {
-  const screedY = height * SCREED;
+  const screedY = elapsed < 3000 ? 72 : height * SCREED;
   const started = elapsed >= 3000;
   const cell = 13;
   const countX = Math.ceil(width / cell);
@@ -43,10 +43,10 @@ export default function ConcretePourOverlay({ width, height, marks, scroll, elap
           <Circle key={'ring-' + mark.id} cx={mark.x} cy={mark.y - scroll} r={mark.radius * Math.min(1, (now - mark.created) / 450)}
             stroke="#d8d8d8" strokeWidth={1.5} fill="none" opacity={Math.max(0, 1 - (now - mark.created) / 650)} />
         ))}
-        <Line x1={0} y1={screedY} x2={width} y2={screedY} stroke={started ? '#72dc83' : '#eb6060'} strokeWidth={4} />
+        <Line x1={0} y1={screedY} x2={width} y2={screedY} stroke={started && marks.some(mark => Math.abs(mark.y - scroll - screedY) < mark.radius) ? '#72dc83' : '#eb6060'} strokeWidth={4} />
       </Svg>
-      <View style={{ position: 'absolute', top: height * SCREED + 10, alignSelf: 'center' }}>
-        <Text style={{ color: '#fff', fontSize: 12, fontWeight: 'bold' }}>{started ? 'KEEP THE GRADE' : 'FIND THE GRADE'}</Text>
+      <View style={{ position: 'absolute', top: screedY + 10, alignSelf: 'center' }}>
+        <Text style={{ color: '#fff', fontSize: 12, fontWeight: 'bold' }}>{started ? 'KEEP THE GRADE' : 'PUMP TO THE RED LINE'}</Text>
       </View>
       {ending && (
         <View style={{ position: 'absolute', top: height * .42, alignSelf: 'center', alignItems: 'center', padding: 20, backgroundColor: 'rgba(0,0,0,0.72)', borderRadius: 16 }}>
