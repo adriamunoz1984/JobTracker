@@ -69,9 +69,9 @@ const DraggableFAB: React.FC<DraggableFABProps> = ({ variant = 'default' }) => {
         }];
         lastMark.current = now;
       }
-      // Four-second head start, then a gentle 14px advance every 4 seconds.
+      // Five seconds of rings, then four seconds to build solid concrete before moving.
       // Each move eases over 1.8 seconds, leaving time to build depth.
-      const moveElapsed = Math.max(0, elapsed - 4000);
+      const moveElapsed = Math.max(0, elapsed - 9000);
       const cycle = moveElapsed % 4000;
       const completedCycles = Math.floor(moveElapsed / 4000);
       const t = Math.min(1, cycle / 1800);
