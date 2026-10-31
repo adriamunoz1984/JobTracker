@@ -11,6 +11,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useAppTheme, makeStyles } from '../theme';
 
 import { Job } from '../types';
+import { chooseMapApp } from '../utils/openMap';
 
 interface JobCardProps {
   job: Job;
@@ -210,10 +211,10 @@ const JobCard: React.FC<JobCardProps> = ({ job, onDelete, onTogglePaid }) => {
           )}
           
           {/* Address */}
-          <View style={styles.addressRow}>
-            <IconButton icon="map-marker" size={16} style={styles.addressIcon} iconColor={Colors.textSecondary} />
-            <Text style={styles.address}>{job.address}, {job.city}</Text>
-          </View>
+          <TouchableOpacity style={styles.addressRow} onPress={() => chooseMapApp(job.address, job.city)} accessibilityRole="button" accessibilityLabel="Open job address in maps">
+            <IconButton icon="map-marker" size={16} style={styles.addressIcon} iconColor={Colors.primary} onPress={() => chooseMapApp(job.address, job.city)} />
+            <Text style={[styles.address, { color: Colors.primary, textDecorationLine: 'underline' }]}>{job.address}, {job.city}</Text>
+          </TouchableOpacity>
           
           {/* Details Row */}
           <View style={styles.detailsRow}>
