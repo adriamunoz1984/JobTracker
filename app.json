@@ -16,7 +16,7 @@
       "package": "com.jobtracker.app",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#FFFFFF"
+        "backgroundColor": "#000000"
       }
     },
     "plugins": [
@@ -29,6 +29,7 @@
       "eas": {
         "projectId": "2b91a239-ba57-4172-893c-fc972642abf4"
       }
-    }
+    },
+    "icon": "./assets/icon.png"
   }
 }
