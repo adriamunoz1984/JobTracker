@@ -1,8 +1,7 @@
 // src/components/DraggableFAB.tsx - Alternative implementation
-import React, { useRef, useEffect, useState } from 'react';
+import React, { useRef, useEffect } from 'react';
 import { Animated, PanResponder, StyleSheet, Vibration, Dimensions } from 'react-native';
-import { FAB, Portal } from 'react-native-paper';
-import ConcretePourOverlay, { PourMark, calculatePourScore } from './ConcretePourOverlay';
+import { FAB } from 'react-native-paper';
 import { useNavigation } from '@react-navigation/native';
 import { useAppTheme, makeStyles } from '../theme';
 
@@ -31,56 +30,6 @@ const DraggableFAB: React.FC<DraggableFABProps> = ({ variant = 'default' }) => {
   const isDragging = useRef(false);
   const currentPosition = useRef({ x: width / 2 - 28, y: height - 120 });
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const pourTimer = useRef<ReturnType<typeof setInterval> | null>(null);
-  const endTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const gameActive = useRef(false);
-  const gameStart = useRef(0);
-  const lastMark = useRef(0);
-  const touch = useRef({ x: width / 2, y: height - 94 });
-  const marksRef = useRef<PourMark[]>([]);
-  const scrollRef = useRef(0);
-  const [game, setGame] = useState<{ active: boolean; ending: boolean; marks: PourMark[]; scroll: number; elapsed: number; score: number; now: number }>({
-    active: false, ending: false, marks: [], scroll: 0, elapsed: 0, score: 0, now: 0,
-  });
-  const finishGame = () => {
-    if (pourTimer.current) clearInterval(pourTimer.current);
-    pourTimer.current = null;
-    const score = calculatePourScore(marksRef.current, scrollRef.current, width, height);
-    setGame(old => ({ ...old, ending: true, score }));
-    endTimer.current = setTimeout(() => {
-      gameActive.current = false;
-      setGame({ active: false, ending: false, marks: [], scroll: 0, elapsed: 0, score: 0, now: 0 });
-    }, 1350);
-  };
-  const startGame = () => {
-    gameActive.current = true;
-    marksRef.current = [];
-    scrollRef.current = 0;
-    gameStart.current = Date.now();
-    lastMark.current = 0;
-    setGame({ active: true, ending: false, marks: [], scroll: 0, elapsed: 0, score: 0, now: Date.now() });
-    Vibration.vibrate(80);
-    pourTimer.current = setInterval(() => {
-      const now = Date.now(), elapsed = now - gameStart.current;
-      if (now - lastMark.current >= 110) {
-        marksRef.current = [...marksRef.current.slice(-135), {
-          id: now, x: touch.current.x, y: touch.current.y + scrollRef.current,
-          radius: 43, created: now,
-        }];
-        lastMark.current = now;
-      }
-      // Five seconds of rings, then four seconds to build solid concrete before moving.
-      // Each move eases over 1.8 seconds, leaving time to build depth.
-      const moveElapsed = Math.max(0, elapsed - 9000);
-      const cycle = moveElapsed % 4000;
-      const completedCycles = Math.floor(moveElapsed / 4000);
-      const t = Math.min(1, cycle / 1800);
-      const eased = t * t * (3 - 2 * t);
-      scrollRef.current = completedCycles * 14 + eased * 14;
-      setGame({ active: true, ending: false, marks: marksRef.current, scroll: scrollRef.current, elapsed, score: 0, now });
-    }, 110);
-  };
-  
   const panResponder = useRef(
     PanResponder.create({
       onStartShouldSetPanResponder: () => true,
@@ -89,7 +38,6 @@ const DraggableFAB: React.FC<DraggableFABProps> = ({ variant = 'default' }) => {
       onPanResponderGrant: () => {
         // Vibrate when touched
         Vibration.vibrate(50);
-        touch.current = { x: currentPosition.current.x + 28, y: currentPosition.current.y + 28 };
         
         // Set up for potential dragging
         position.extractOffset();
@@ -97,14 +45,12 @@ const DraggableFAB: React.FC<DraggableFABProps> = ({ variant = 'default' }) => {
         // Start timer to detect long press
         isDragging.current = false;
         timeoutRef.current = setTimeout(() => {
-          if (activeVariantRef.current === 'default') startGame();
-          else isDragging.current = true;
+          // A long hold does not open a form or launch any hidden feature.
+          isDragging.current = true;
         }, 3000);
       },
       
       onPanResponderMove: (evt, gestureState) => {
-        touch.current = { x: evt.nativeEvent.pageX, y: evt.nativeEvent.pageY };
-        if (gameActive.current) return;
         // If moved significantly, consider it dragging
         if (Math.abs(gestureState.dx) > 5 || Math.abs(gestureState.dy) > 5) {
           if (timeoutRef.current) {
@@ -124,12 +70,6 @@ const DraggableFAB: React.FC<DraggableFABProps> = ({ variant = 'default' }) => {
       },
       
       onPanResponderRelease: (evt, gestureState) => {
-        if (gameActive.current) {
-          finishGame();
-          position.flattenOffset();
-          position.setValue({ x: currentPosition.current.x, y: currentPosition.current.y });
-          return;
-        }
         // Clear the timeout if still running
         if (timeoutRef.current) {
           clearTimeout(timeoutRef.current);
@@ -180,20 +120,11 @@ const DraggableFAB: React.FC<DraggableFABProps> = ({ variant = 'default' }) => {
     return () => {
       position.removeListener(listener);
       if (timeoutRef.current) clearTimeout(timeoutRef.current);
-      if (pourTimer.current) clearInterval(pourTimer.current);
-      if (endTimer.current) clearTimeout(endTimer.current);
     };
   }, []);
   
   return (
     <>
-    {game.active && (
-      <Portal>
-        <ConcretePourOverlay width={width} height={height} marks={game.marks}
-          scroll={game.scroll} elapsed={game.elapsed} ending={game.ending}
-          score={game.score} now={game.now} />
-      </Portal>
-    )}
     <Animated.View
       style={[
         styles.fabContainer,
