@@ -21,7 +21,8 @@
     },
     "plugins": [
       "expo-build-properties",
-      "expo-font"
+      "expo-font",
+      "expo-notifications"
     ],
     "scheme": "job-tracker",
     "extra": {
