@@ -27,6 +27,7 @@ import { createStackNavigator } from '@react-navigation/stack';
 import MainNavigator from './src/navigation/MainNavigator';
 import ProfileScreen from './src/screens/ProfileScreen';
 import SettingsScreen from './src/screens/SettingsScreen';
+import NotificationSettingsScreen from './src/screens/NotificationSettingsScreen';
 import AppearanceSettingsScreen from './src/screens/AppearanceSettingsScreen';
 import PaymentSettingsScreen from './src/screens/PaymentSettingsScreen';
 import TaxSettingsScreen from './src/screens/TaxSettingsScreen';
@@ -176,6 +177,11 @@ function AppNavigatorWithFAB({ user }: { user: any }) {
               name="Settings"
               component={SettingsScreen}
               options={{ headerShown: true, title: 'Settings' }}
+            />
+            <Stack.Screen
+              name="NotificationSettings"
+              component={NotificationSettingsScreen}
+              options={{ headerShown: true, title: 'Phone Notifications' }}
             />
             <Stack.Screen
               name="AppearanceSettings"
