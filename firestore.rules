@@ -71,6 +71,26 @@ service cloud.firestore {
       allow read, write: if isSelf(uid);
     }
 
+    // Device push tokens can only be managed by the signed-in device's user.
+    // Other users (including an employer) cannot read a worker's token.
+    match /users/{uid}/pushTokens/{deviceId} {
+      allow read, delete: if isSelf(uid);
+      allow create, update: if isSelf(uid)
+        && request.resource.data.keys().hasOnly(['token', 'platform', 'updatedAt'])
+        && request.resource.data.token is string
+        && request.resource.data.token.size() < 256
+        && request.resource.data.platform == 'android'
+        && request.resource.data.updatedAt == request.time;
+    }
+
+    match /users/{uid}/notificationSettings/{settingId} {
+      allow read, delete: if isSelf(uid);
+      allow create, update: if isSelf(uid)
+        && settingId == 'preferences'
+        && request.resource.data.keys().hasOnly(['newJobs', 'assignments', 'jobUpdates', 'messages', 'reminders'])
+        && request.resource.data.values().hasOnly([true, false]);
+    }
+
     // A user's own JobTracker jobs.
     match /users/{uid}/jobs/{jobId} {
       allow read, create, update, delete: if isSelf(uid);
