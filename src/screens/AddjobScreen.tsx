@@ -875,6 +875,47 @@ else
           </Text>
         )}
 
+
+        {!manualOverride && extraAmount > 0 && (
+          <View style={styles.chargeSummary}>
+            <Text style={styles.chargeSummaryTitle}>Additional Charges Summary</Text>
+            {hourlyEnabled && hourlyAmount > 0 && (
+              <View style={styles.chargeSummaryRow}>
+                <Text style={styles.chargeSummaryLabel}>{hours || 0} hrs × ${hourlyRate || 0}/hr</Text>
+                <Text style={styles.chargeSummaryValue}>${chargeMoney(hourlyAmount).toFixed(2)}</Text>
+              </View>
+            )}
+            {hoseAmount > 0 && (
+              <View style={styles.chargeSummaryRow}>
+                <Text style={styles.chargeSummaryLabel}>Extra Hose: {extraHoseFeet || 0} ft × ${extraHoseRate || 0}/ft</Text>
+                <Text style={styles.chargeSummaryValue}>${chargeMoney(hoseAmount).toFixed(2)}</Text>
+              </View>
+            )}
+            {chargeValue(fuelCharge) > 0 && (
+              <View style={styles.chargeSummaryRow}>
+                <Text style={styles.chargeSummaryLabel}>Fuel Surcharge</Text>
+                <Text style={styles.chargeSummaryValue}>${chargeValue(fuelCharge).toFixed(2)}</Text>
+              </View>
+            )}
+            {customCharges.filter(charge => chargeValue(charge.amount) > 0).map(charge => (
+              <View key={charge.id} style={styles.chargeSummaryRow}>
+                <Text style={styles.chargeSummaryLabel}>{charge.description.trim() || 'Custom Charge'}</Text>
+                <Text style={styles.chargeSummaryValue}>${chargeValue(charge.amount).toFixed(2)}</Text>
+              </View>
+            ))}
+            <View style={styles.chargeSummaryRow}>
+              <Text style={styles.chargeSummarySubtotalLabel}>Additional Charges Total</Text>
+              <Text style={styles.chargeSummarySubtotalValue}>${extraAmount.toFixed(2)}</Text>
+            </View>
+          </View>
+        )}
+
+        {manualOverride && (
+          <Text style={styles.calculation}>
+            Manual amount override: ${total.toFixed(2)} (replaces the calculated charges)
+          </Text>
+        )}
+
         <Divider style={styles.divider} />
 
         <View style={styles.section}>
@@ -1262,6 +1303,26 @@ const useStyles = makeStyles((Colors) => ({
   extraHeaderText: { fontSize: 16, fontWeight: '600', color: Colors.text },
   extraHeaderAmount: { fontSize: 15, fontWeight: '600', color: Colors.primary },
   extraPanel: { padding: Spacing.sm, marginBottom: Spacing.md },
+  chargeSummary: {
+    backgroundColor: Colors.surface,
+    borderWidth: 1,
+    borderColor: Colors.borderLight,
+    borderRadius: BorderRadius.medium,
+    padding: Spacing.md,
+    marginBottom: Spacing.sm,
+  },
+  chargeSummaryTitle: {
+    fontSize: 14, fontWeight: '600', color: Colors.text,
+    marginBottom: Spacing.sm,
+  },
+  chargeSummaryRow: {
+    flexDirection: 'row', justifyContent: 'space-between',
+    alignItems: 'flex-start', gap: Spacing.sm, marginBottom: 5,
+  },
+  chargeSummaryLabel: { flex: 1, fontSize: 13, color: Colors.textSecondary },
+  chargeSummaryValue: { fontSize: 13, fontWeight: '500', color: Colors.text },
+  chargeSummarySubtotalLabel: { flex: 1, fontSize: 13, fontWeight: '700', color: Colors.text },
+  chargeSummarySubtotalValue: { fontSize: 13, fontWeight: '700', color: Colors.text },
   totalContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
