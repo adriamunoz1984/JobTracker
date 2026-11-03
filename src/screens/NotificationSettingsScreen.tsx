@@ -4,6 +4,7 @@ import { Text, Switch, Button, Divider } from 'react-native-paper';
 import { doc, getFirestore, onSnapshot, setDoc } from 'firebase/firestore';
 import { useAuth } from '../context/AuthContext';
 import { useAppTheme } from '../theme';
+import { registerPhonePush, unregisterPhonePush } from '../utils/pushRegistration';
 
 type Category = 'newJobs' | 'assignments' | 'jobUpdates' | 'messages' | 'reminders';
 type Preferences = Record<Category, boolean>;
@@ -22,6 +23,29 @@ export default function NotificationSettingsScreen() {
   const { colors } = useAppTheme();
   const [prefs, setPrefs] = useState<Preferences>(DEFAULTS);
   const [saving, setSaving] = useState(false);
+  const [deviceWorking, setDeviceWorking] = useState(false);
+  const [deviceMessage, setDeviceMessage] = useState('');
+
+  const register = async () => {
+    if (!user?.uid || deviceWorking) return;
+    setDeviceWorking(true);
+    try {
+      await registerPhonePush(user.uid);
+      setDeviceMessage('Notifications enabled on this phone.');
+    } catch (error) {
+      Alert.alert('Could not enable notifications', error instanceof Error ? error.message : String(error));
+    } finally { setDeviceWorking(false); }
+  };
+  const unregister = async () => {
+    if (!user?.uid || deviceWorking) return;
+    setDeviceWorking(true);
+    try {
+      await unregisterPhonePush(user.uid);
+      setDeviceMessage('JobTracker push notifications turned off on this phone.');
+    } catch (error) {
+      Alert.alert('Could not disable notifications', error instanceof Error ? error.message : String(error));
+    } finally { setDeviceWorking(false); }
+  };
 
   useEffect(() => {
     if (!user?.uid) return;
@@ -53,6 +77,11 @@ export default function NotificationSettingsScreen() {
         Choose which alerts you want. Shared employee jobs can notify the connected owner.
         Your private independent jobs stay private.
       </Text>
+      <Button mode="contained" disabled={deviceWorking} loading={deviceWorking}
+        onPress={register} style={{ marginBottom: 12 }}>Enable Notifications on This Phone</Button>
+      <Button mode="outlined" disabled={deviceWorking} onPress={unregister}
+        style={{ marginBottom: 12 }}>Disable on This Phone</Button>
+      {!!deviceMessage && <Text style={{ color: colors.text, marginBottom: 12 }}>{deviceMessage}</Text>}
       {CATEGORIES.map(item => (
         <View key={item.key} style={{ paddingVertical: 12 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
