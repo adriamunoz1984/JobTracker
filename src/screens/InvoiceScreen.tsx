@@ -77,72 +77,88 @@ export default function InvoiceScreen() {
     const items: InvoiceLineItem[] = [];
 
     jobs.forEach((job, jobIndex) => {
+      const charges = (job as any).extraCharges as {
+        hourly?: { enabled: boolean; hours: number; rate: number };
+        hose?: { feet: number; rate: number };
+        fuel?: number;
+        custom?: { id: string; description: string; amount: number }[];
+      } | undefined;
       let setup = Number(job.setupCharge || 0);
       let yardRate = Number(job.amountPerYard || 0);
       const yards = Number(job.yards || 0);
-      // Saved totals are authoritative for legacy flat rates and manual overrides.
-      // Old jobs may still carry rates that would otherwise overstate the invoice.
-      if (job.isFlatRate || setup + yards * yardRate > Number(job.amount || 0)) {
-        setup = Number(job.amount || 0);
-        yardRate = 0;
-      }
-      const yardAmount = yardRate > 0 ? yards * yardRate : 0;
-      let remaining = Math.max(0, Number(job.amount || 0) - setup - yardAmount);
-
-      if (setup === 0 && yardRate === 0) {
-        setup = Number(job.amount || 0);
-        remaining = 0;
-      }
-
       const suffix = jobs.length > 1
         ? ' - ' + format(parseISO(job.date), 'MMM d') + ' - ' + job.address
         : '';
-
-      items.push({
-        id: 'setup-' + jobIndex,
-        description: 'Minimum Set-Up' + suffix,
-        quantity: 1,
-        rate: setup,
-        amount: setup,
-      });
-
-      if (yardRate > 0) {
-        // The job records total yards, not how many exceeded the minimum.
-        // Do not guess the over-minimum quantity. Preserve the pumping charge
-        // separately so the invoice total continues to match the job total.
+      const extras = charges
+        ? (charges.hourly?.enabled ? Number(charges.hourly.hours || 0) * Number(charges.hourly.rate || 0) : 0)
+          + Number(charges.hose?.feet || 0) * Number(charges.hose?.rate || 0)
+          + Number(charges.fuel || 0)
+          + (charges.custom || []).reduce((sum, c) => sum + Number(c.amount || 0), 0)
+        : 0;
+      const amount = Number(job.amount || 0);
+      const expected = setup + yards * yardRate + extras;
+      // Never double bill saved legacy overrides. Treat an unmatched total as a flat amount.
+      const flat = job.isFlatRate || (charges && Math.abs(expected - amount) > 0.02)
+        || (!charges && setup + yards * yardRate > amount + 0.02);
+      if (flat) {
         items.push({
-          id: 'yards-' + jobIndex,
-          description: 'Yards Over Minimum' + suffix,
-          quantity: 0,
-          rate: 0,
-          amount: 0,
+          id: 'flat-' + jobIndex,
+          description: 'Pumping Charges' + suffix,
+          quantity: 1, rate: amount, amount,
         });
+        return;
+      }
+      if (setup > 0) {
+        items.push({
+          id: 'setup-' + jobIndex,
+          description: 'Minimum Set-Up' + suffix,
+          quantity: 1, rate: setup, amount: setup,
+        });
+      }
+      const yardAmount = yardRate * yards;
+      if (yardAmount > 0) {
         items.push({
           id: 'pumping-' + jobIndex,
           description: 'Pumping Charges' + suffix,
-          quantity: 1,
-          rate: yardAmount,
-          amount: yardAmount,
+          quantity: yards, rate: yardRate, amount: yardAmount,
         });
       }
-
-      if (remaining > 0) {
-        items.push({
-          id: 'additional-' + jobIndex,
-          description: 'Additional Pumping Charges' + suffix,
-          quantity: 1,
-          rate: remaining,
-          amount: remaining,
+      if (charges?.hourly?.enabled && Number(charges.hourly.hours) > 0 && Number(charges.hourly.rate) > 0) {
+        const qty = Number(charges.hourly.hours), rate = Number(charges.hourly.rate);
+        items.push({ id: 'hourly-' + jobIndex, description: 'Operator Hours' + suffix,
+          quantity: qty, rate, amount: qty * rate });
+      }
+      if (charges?.hose && Number(charges.hose.feet) > 0 && Number(charges.hose.rate) > 0) {
+        const qty = Number(charges.hose.feet), rate = Number(charges.hose.rate);
+        items.push({ id: 'hose-' + jobIndex, description: 'Extra Hose (ft)' + suffix,
+          quantity: qty, rate, amount: qty * rate });
+      }
+      if (charges && Number(charges.fuel) > 0) {
+        const fuel = Number(charges.fuel);
+        items.push({ id: 'fuel-' + jobIndex, description: 'Fuel Surcharge' + suffix,
+          quantity: 1, rate: fuel, amount: fuel });
+      }
+      (charges?.custom || []).forEach((charge, i) => {
+        const cost = Number(charge.amount || 0);
+        if (cost > 0) items.push({
+          id: 'custom-' + jobIndex + '-' + i, description: (charge.description || 'Additional Charge') + suffix,
+          quantity: 1, rate: cost, amount: cost,
         });
+      });
+      const remaining = amount - expected;
+      if (remaining > 0.02) {
+        items.push({ id: 'additional-' + jobIndex, description: 'Additional Pumping Charges' + suffix,
+          quantity: 1, rate: remaining, amount: remaining });
+      }
+      if (!charges && setup === 0 && yardAmount === 0 && remaining <= 0.02 && amount > 0) {
+        items.push({ id: 'legacy-' + jobIndex, description: 'Pumping Charges' + suffix,
+          quantity: 1, rate: amount, amount });
       }
     });
 
     if (jobs.length === 1) {
       [
-        'Extra Hose Over 200 Ft.',
         'Relocation',
-        'Fuel Charge',
-        'Operator Hours',
         'Operator O.T. Hours',
       ].forEach((description, index) => {
         items.push({
