@@ -31,6 +31,16 @@ import { useAppTheme, makeStyles } from '../theme';
 
 const db = getFirestore();
 
+type CustomJobCharge = { id: string; description: string; amount: number };
+type JobChargeBreakdown = {
+  hourly: { enabled: boolean; hours: number; rate: number };
+  hose: { feet: number; rate: number };
+  fuel: number;
+  custom: CustomJobCharge[];
+};
+const chargeValue = (text: string) => Math.max(0, Number(text) || 0);
+const chargeMoney = (num: number) => Math.round((num + Number.EPSILON) * 100) / 100;
+
 export default function AddJobScreen() {
   const { colors: Colors, gradients } = useAppTheme();
   const styles = useStyles();
@@ -44,8 +54,15 @@ export default function AddJobScreen() {
 
   // A zero yard rate plus the editable setup charge starts new jobs at $350.
   // Preserve saved totals that cannot be reconstructed from their old rates.
+  const previousCharges = (editingJob as any)?.extraCharges as JobChargeBreakdown | undefined;
+  const savedExtras = previousCharges
+    ? (previousCharges.hourly?.enabled ? previousCharges.hourly.hours * previousCharges.hourly.rate : 0)
+      + (previousCharges.hose?.feet || 0) * (previousCharges.hose?.rate || 0)
+      + (previousCharges.fuel || 0)
+      + (previousCharges.custom || []).reduce((sum, charge) => sum + charge.amount, 0)
+    : 0;
   const savedCalculatedAmount = (editingJob?.yards ?? 0) * (editingJob?.amountPerYard ?? 0)
-    + (editingJob?.setupCharge ?? 0);
+    + (editingJob?.setupCharge ?? 0) + savedExtras;
 
   const [clients, setClients] = useState<Client[]>([]);
   const [isLoadingClients, setIsLoadingClients] = useState(true);
@@ -76,6 +93,29 @@ export default function AddJobScreen() {
     !!editingJob && (editingJob.isFlatRate || Math.abs(savedCalculatedAmount - editingJob.amount) > 0.005)
   );
   const [manualAmount, setManualAmount] = useState(editingJob?.amount?.toString() || '');
+  const [showExtraCharges, setShowExtraCharges] = useState(!!previousCharges);
+  const [hourlyEnabled, setHourlyEnabled] = useState(previousCharges?.hourly?.enabled || false);
+  const [hours, setHours] = useState(String(previousCharges?.hourly?.hours || ''));
+  const [hourlyRate, setHourlyRate] = useState(String(previousCharges?.hourly?.rate || ''));
+  const [extraHoseFeet, setExtraHoseFeet] = useState(String(previousCharges?.hose?.feet || ''));
+  const [extraHoseRate, setExtraHoseRate] = useState(String(previousCharges?.hose?.rate || ''));
+  const [fuelCharge, setFuelCharge] = useState(String(previousCharges?.fuel || ''));
+  const [customCharges, setCustomCharges] = useState<{ id: string; description: string; amount: string }[]>(
+    (previousCharges?.custom || []).map((charge, index) => ({ id: String(charge.id || index), description: charge.description, amount: String(charge.amount) }))
+  );
+  const enableHourly = (enabled: boolean) => {
+    setHourlyEnabled(enabled);
+    if (enabled) {
+      setSetupCharge('0');
+      setAmountPerYard('0');
+      setShowExtraCharges(true);
+    }
+  };
+  const addCustomCharge = () => setCustomCharges(old => [...old, {
+    id: String(Date.now()) + '-' + String(old.length), description: '', amount: '',
+  }]);
+  const updateCustomCharge = (id: string, field: 'description' | 'amount', value: string) =>
+    setCustomCharges(old => old.map(charge => charge.id === id ? { ...charge, [field]: value } : charge));
   const [paymentMethod, setPaymentMethod] = useState<'Cash' | 'Check' | 'Zelle' | 'Square' | 'Charge' | 'Card'>(
     editingJob?.paymentMethod || 'Cash'
   );
@@ -268,15 +308,14 @@ export default function AddJobScreen() {
 
   const yardsNum = parseFloat(yards) || 0;
 
-  const calculateTotal = (): number => {
-    if (manualOverride) {
-      return parseFloat(manualAmount) || 0;
-    }
+  const hourlyAmount = hourlyEnabled ? chargeValue(hours) * chargeValue(hourlyRate) : 0;
+  const hoseAmount = chargeValue(extraHoseFeet) * chargeValue(extraHoseRate);
+  const customAmount = customCharges.reduce((sum, charge) => sum + chargeValue(charge.amount), 0);
+  const extraAmount = chargeMoney(hourlyAmount + hoseAmount + chargeValue(fuelCharge) + customAmount);
 
-    const perYardNum = parseFloat(amountPerYard) || 0;
-    const setupNum = parseFloat(setupCharge) || 0;
-    
-    return (yardsNum * perYardNum) + setupNum;
+  const calculateTotal = (): number => {
+    if (manualOverride) return chargeMoney(chargeValue(manualAmount));
+    return chargeMoney(yardsNum * chargeValue(amountPerYard) + chargeValue(setupCharge) + extraAmount);
   };
 
   const total = calculateTotal();
@@ -364,6 +403,19 @@ export default function AddJobScreen() {
       }
     }
 
+    const enteredCharges = [
+      ...(hourlyEnabled ? [hours, hourlyRate] : []),
+      extraHoseFeet, extraHoseRate, fuelCharge,
+      ...customCharges.map(charge => charge.amount),
+    ];
+    if (enteredCharges.some(value => value.trim() !== '' && (!Number.isFinite(Number(value)) || Number(value) < 0))) {
+      Alert.alert('Invalid Input', 'Additional charges must be valid nonnegative amounts.');
+      return;
+    }
+    if (customCharges.some(charge => !charge.description.trim() && chargeValue(charge.amount) > 0)) {
+      Alert.alert('Missing Description', 'Please describe each custom charge that has an amount.');
+      return;
+    }
     if (manualOverride && (!manualAmount.trim() || !Number.isFinite(Number(manualAmount)) || Number(manualAmount) <= 0)) {
       Alert.alert('Invalid Input', 'Please enter a valid manual amount');
       return;
@@ -398,7 +450,14 @@ export default function AddJobScreen() {
         } : {}),
       };
 
-      // Overrides have no rate breakdown; clear stale values when editing.
+      // Preserve itemized charges for editing and invoicing; override remains authoritative.
+      jobData.extraCharges = {
+        hourly: { enabled: hourlyEnabled, hours: hourlyEnabled ? chargeValue(hours) : 0, rate: hourlyEnabled ? chargeValue(hourlyRate) : 0 },
+        hose: { feet: chargeValue(extraHoseFeet), rate: chargeValue(extraHoseRate) },
+        fuel: chargeValue(fuelCharge),
+        custom: customCharges.filter(charge => charge.description.trim() || chargeValue(charge.amount) > 0)
+          .map(charge => ({ id: charge.id, description: charge.description.trim(), amount: chargeValue(charge.amount) })),
+      } as JobChargeBreakdown;
       jobData.amountPerYard = manualOverride ? 0 : Number(amountPerYard);
       jobData.setupCharge = manualOverride ? total : Number(setupCharge);
 
@@ -733,6 +792,568 @@ else
               activeOutlineColor={Colors.primary}
             />
           </>
+        )}
+
+        <TouchableOpacity accessibilityRole="button"
+          accessibilityLabel={showExtraCharges ? 'Collapse additional charges' : 'Expand additional charges'}
+          onPress={() => setShowExtraCharges(open => !open)} style={styles.extraHeader}>
+          <Text style={styles.extraHeaderText}>{showExtraCharges ? '▼' : '▶'}  Additional Charges</Text>
+          <Text style={styles.extraHeaderAmount}>{'
+          <Switch value={manualOverride} onValueChange={setManualOverride} color={Colors.primary} />
+        </View>
+
+        {manualOverride && (
+          <TextInput
+            label="Manual Amount ($) *"
+            value={manualAmount}
+            onChangeText={setManualAmount}
+            keyboardType="decimal-pad"
+            mode="outlined"
+            style={styles.input}
+            left={<TextInput.Icon icon="currency-usd" />}
+            outlineColor={Colors.border}
+            activeOutlineColor={Colors.primary}
+          />
+        )}
+
+        <Divider style={styles.divider} />
+
+        <LinearGradient
+          colors={gradients.success}
+          style={styles.totalContainer}
+        >
+          <Text style={styles.totalLabel}>Total Amount:</Text>
+          <Text style={styles.totalAmount}>${total.toFixed(2)}</Text>
+        </LinearGradient>
+
+        {!manualOverride && yards && (
+          <Text style={styles.calculation}>
+            {`(${yards} yards × ${amountPerYard || 0}) + ${setupCharge || 0} setup + ${extraAmount.toFixed(2)} extras`}
+          </Text>
+        )}
+
+        <Divider style={styles.divider} />
+
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Payment Method</Text>
+          <View style={styles.paymentMethodContainer}>
+            {['Cash', 'Check', 'Charge', 'Zelle', 'Card'].map((method) => (
+              <Chip
+                key={method}
+                selected={paymentMethod === method}
+                onPress={() => setPaymentMethod(method as any)}
+                style={styles.paymentChip}
+                selectedColor={Colors.primary}
+              >
+                {method === 'Cash' && '💵'}
+                {method === 'Check' && '📝'}
+                {method === 'Charge' && '📋'}
+                {method === 'Zelle' && '📱'}
+                {method === 'Card' && '💳'}
+                {' '}{method}
+              </Chip>
+            ))}
+          </View>
+        </View>
+
+        {paymentMethod === 'Check' && (
+          <TextInput
+            label="Check Number *"
+            value={checkNumber}
+            onChangeText={setCheckNumber}
+            keyboardType="numeric"
+            mode="outlined"
+            style={styles.input}
+            outlineColor={Colors.border}
+            activeOutlineColor={Colors.primary}
+          />
+        )}
+
+        {paymentMethod === 'Zelle' && (
+          <View style={styles.zelleContainer}>
+            <Text style={styles.subLabel}>Zelle Payment Details (Optional)</Text>
+            
+            <TextInput
+              label="Recipient Name"
+              value={zelleName}
+              onChangeText={setZelleName}
+              mode="outlined"
+              style={styles.input}
+              placeholder="Name on Zelle account"
+              outlineColor={Colors.border}
+              activeOutlineColor={Colors.primary}
+            />
+            
+            <TextInput
+              label="Phone Number"
+              value={zellePhone}
+              onChangeText={setZellePhone}
+              mode="outlined"
+              keyboardType="phone-pad"
+              style={styles.input}
+              placeholder="Phone used for Zelle"
+              outlineColor={Colors.border}
+              activeOutlineColor={Colors.primary}
+            />
+            
+            <TextInput
+              label="Confirmation Number"
+              value={zelleNumber}
+              onChangeText={setZelleNumber}
+              mode="outlined"
+              style={styles.input}
+              placeholder="Transaction confirmation #"
+              outlineColor={Colors.border}
+              activeOutlineColor={Colors.primary}
+            />
+          </View>
+        )}
+
+        {paymentMethod === 'Charge' && (
+          <View style={styles.billingSection}>
+            <TouchableOpacity
+              style={styles.checkboxRow}
+              onPress={() => setUseDifferentBilling(!useDifferentBilling)}
+            >
+              <Checkbox
+                status={useDifferentBilling ? 'checked' : 'unchecked'}
+                onPress={() => setUseDifferentBilling(!useDifferentBilling)}
+                color={Colors.primary}
+              />
+              <Text style={styles.checkboxLabel}>Use different billing info for this job</Text>
+            </TouchableOpacity>
+
+            {useDifferentBilling && (
+              <Card style={styles.billingCard}>
+                <Card.Content>
+                  <Text style={styles.billingCardTitle}>💳 Billing Information</Text>
+                  
+                  <TextInput
+                    label="Billing Name"
+                    value={billingName}
+                    onChangeText={setBillingName}
+                    mode="outlined"
+                    style={styles.input}
+                    placeholder="Company name for invoice"
+                    outlineColor={Colors.border}
+                    activeOutlineColor={Colors.primary}
+                  />
+
+                  <TextInput
+                    label="Billing Address"
+                    value={billingAddress}
+                    onChangeText={setBillingAddress}
+                    mode="outlined"
+                    style={styles.input}
+                    placeholder="Street address"
+                    outlineColor={Colors.border}
+                    activeOutlineColor={Colors.primary}
+                  />
+
+                  <View style={styles.row}>
+                    <TextInput
+                      label="City"
+                      value={billingCity}
+                      onChangeText={setBillingCity}
+                      mode="outlined"
+                      style={[styles.input, styles.flexInput]}
+                      outlineColor={Colors.border}
+                      activeOutlineColor={Colors.primary}
+                    />
+                    
+                    <TextInput
+                      label="State"
+                      value={billingState}
+                      onChangeText={setBillingState}
+                      mode="outlined"
+                      style={[styles.input, styles.shortInput]}
+                      maxLength={2}
+                      autoCapitalize="characters"
+                      placeholder="CA"
+                      outlineColor={Colors.border}
+                      activeOutlineColor={Colors.primary}
+                    />
+                  </View>
+
+                  <TextInput
+                    label="ZIP Code"
+                    value={billingZip}
+                    onChangeText={setBillingZip}
+                    mode="outlined"
+                    keyboardType="numeric"
+                    style={styles.input}
+                    maxLength={10}
+                    outlineColor={Colors.border}
+                    activeOutlineColor={Colors.primary}
+                  />
+
+                  <TextInput
+                    label="Billing Email"
+                    value={billingEmail}
+                    onChangeText={setBillingEmail}
+                    mode="outlined"
+                    keyboardType="email-address"
+                    autoCapitalize="none"
+                    style={styles.input}
+                    left={<TextInput.Icon icon="email" color={Colors.primary} />}
+                    outlineColor={Colors.border}
+                    activeOutlineColor={Colors.primary}
+                  />
+
+                  <TextInput
+                    label="Billing Phone"
+                    value={billingPhone}
+                    onChangeText={setBillingPhone}
+                    mode="outlined"
+                    keyboardType="phone-pad"
+                    style={styles.input}
+                    left={<TextInput.Icon icon="phone" color={Colors.primary} />}
+                    outlineColor={Colors.border}
+                    activeOutlineColor={Colors.primary}
+                  />
+
+                  <TextInput
+                    label="PO Number"
+                    value={billingPO}
+                    onChangeText={setBillingPO}
+                    mode="outlined"
+                    style={styles.input}
+                    placeholder="Purchase order #"
+                    outlineColor={Colors.border}
+                    activeOutlineColor={Colors.primary}
+                  />
+                </Card.Content>
+              </Card>
+            )}
+          </View>
+        )}
+
+      {/* Direct payments only apply to jobs shared with an employer. */}
+        {!independentJob && <View style={styles.switchRow}>
+          <View style={styles.switchContent}>
+            <Text style={styles.switchLabel}>Direct Payment</Text>
+            <Text style={styles.switchSubtext}>
+              Payment received directly (not through company account)
+            </Text>
+          </View>
+          <Switch 
+            value={isPaidToMe} 
+            onValueChange={setIsPaidToMe}
+            color={Colors.primary}
+          />
+        </View>}
+        
+      
+      {/* Auto-Generate Invoice - NEW */}
+      <View style={styles.switchRow}>
+        <View style={styles.switchContent}>
+          <Text style={styles.switchLabel}>📄 Generate Invoice</Text>
+          <Text style={styles.switchSubtext}>
+            Automatically create an invoice for this job
+          </Text>
+        </View>
+        <Switch 
+          value={generateInvoice} 
+          onValueChange={setGenerateInvoice}
+          color={Colors.primary}
+        />
+      </View>
+        <TextInput
+          label="Notes (Optional)"
+          value={notes}
+          onChangeText={setNotes}
+          mode="outlined"
+          multiline
+          numberOfLines={3}
+          style={styles.input}
+          outlineColor={Colors.border}
+          activeOutlineColor={Colors.primary}
+        />
+
+        <Button
+          mode="contained"
+          onPress={handleSave}
+          style={styles.saveButton}
+          loading={isSaving}
+          disabled={isSaving}
+          buttonColor={Colors.primary}
+          icon={isEditing ? 'check' : 'content-save'}
+        >
+          {isEditing ? 'Update Job' : 'Save Job'}
+        </Button>
+      </View>
+    </ScrollView>
+  );
+}
+
+const useStyles = makeStyles((Colors) => ({
+  container: {
+    flex: 1,
+    backgroundColor: Colors.background,
+  },
+  header: {
+    paddingVertical: Spacing.xl,
+    paddingHorizontal: Spacing.lg,
+    ...Shadows.medium,
+  },
+  headerTitle: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: Colors.textInverse,
+    marginBottom: Spacing.xs,
+  },
+  headerSubtitle: {
+    fontSize: 14,
+    color: Colors.textInverse,
+    opacity: 0.9,
+  },
+  content: {
+    padding: Spacing.md,
+  },
+  section: {
+    marginBottom: Spacing.sm,
+  },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: Colors.text,
+    marginBottom: Spacing.sm,
+  },
+  subLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: Colors.textSecondary,
+    marginBottom: Spacing.sm,
+  },
+  dateButton: {
+    borderColor: Colors.primary,
+  },
+  input: {
+    marginBottom: Spacing.md,
+    backgroundColor: Colors.surface,
+  },
+  row: {
+    flexDirection: 'row',
+    gap: Spacing.sm,
+  },
+  flexInput: {
+    flex: 1,
+  },
+  shortInput: {
+    width: 80,
+  },
+  divider: {
+    marginVertical: Spacing.lg,
+    backgroundColor: Colors.borderLight,
+  },
+  dropdownCard: {
+    marginTop: -Spacing.sm,
+    marginBottom: Spacing.md,
+    maxHeight: 200,
+    backgroundColor: Colors.surface,
+    borderRadius: BorderRadius.medium,
+    ...Shadows.medium,
+  },
+  dropdown: {
+    maxHeight: 200,
+  },
+  dropdownHint: {
+    padding: Spacing.md,
+    fontSize: 14,
+    color: Colors.textSecondary,
+  },
+  dropdownItem: {
+    padding: Spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.borderLight,
+  },
+  dropdownItemText: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 2,
+    color: Colors.text,
+  },
+  dropdownItemSubtext: {
+    fontSize: 12,
+    color: Colors.textSecondary,
+  },
+  dropdownPricing: {
+    fontSize: 12,
+    color: Colors.primary,
+    marginTop: 4,
+  },
+  addressDropdownItem: {
+    gap: 4,
+  },
+  addressLabelChip: {
+    alignSelf: 'flex-start',
+    marginBottom: 4,
+  },
+  flatRateNotice: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.warningBg,
+    padding: Spacing.md,
+    borderRadius: BorderRadius.medium,
+    marginBottom: Spacing.md,
+    borderLeftWidth: 4,
+    borderLeftColor: Colors.warning,
+  },
+  flatRateText: {
+    flex: 1,
+    fontSize: 14,
+    color: Colors.warning,
+    fontWeight: '600',
+  },
+  extraHeader: {
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    borderWidth: 1, borderColor: Colors.border, borderRadius: BorderRadius.medium,
+    backgroundColor: Colors.surface, padding: Spacing.md, marginBottom: Spacing.sm,
+  },
+  extraHeaderText: { fontSize: 16, fontWeight: '600', color: Colors.text },
+  extraHeaderAmount: { fontSize: 15, fontWeight: '600', color: Colors.primary },
+  extraPanel: { padding: Spacing.sm, marginBottom: Spacing.md },
+  totalContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: Spacing.lg,
+    borderRadius: BorderRadius.large,
+    marginBottom: Spacing.sm,
+    ...Shadows.medium,
+  },
+  totalLabel: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: Colors.textInverse,
+  },
+  totalAmount: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: Colors.textInverse,
+  },
+  calculation: {
+    fontSize: 14,
+    color: Colors.textSecondary,
+    fontStyle: 'italic',
+    textAlign: 'center',
+    marginBottom: Spacing.md,
+  },
+  paymentMethodContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: Spacing.md,
+  },
+  paymentChip: {
+    marginBottom: 4,
+  },
+  zelleContainer: {
+    padding: Spacing.md,
+    backgroundColor: Colors.infoBg,
+    borderRadius: BorderRadius.medium,
+    borderLeftWidth: 4,
+    borderLeftColor: Colors.info,
+    marginBottom: Spacing.md,
+  },
+  billingSection: {
+    marginBottom: Spacing.md,
+  },
+  checkboxRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: Spacing.sm,
+  },
+  checkboxLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: Colors.text,
+    marginLeft: Spacing.xs,
+  },
+  billingCard: {
+    backgroundColor: Colors.infoBg,
+    borderLeftWidth: 4,
+    borderLeftColor: Colors.info,
+  },
+  billingCardTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: Colors.text,
+    marginBottom: Spacing.md,
+  },
+  switchRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginVertical: Spacing.sm,
+    padding: Spacing.md,
+    backgroundColor: Colors.infoBg,
+    borderRadius: BorderRadius.medium,
+    borderLeftWidth: 4,
+    borderLeftColor: Colors.info,
+    ...Shadows.small,
+  },
+  switchContent: {
+    flex: 1,
+    marginRight: Spacing.md,
+  },
+  switchLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: Colors.text,
+    marginBottom: 4,
+  },
+  switchSubtext: {
+    fontSize: 12,
+    color: Colors.textSecondary,
+  },
+  saveButton: {
+    marginTop: Spacing.lg,
+    marginBottom: Spacing.xl,
+    paddingVertical: Spacing.sm,
+    borderRadius: BorderRadius.medium,
+    ...Shadows.medium,
+  },
+})); + extraAmount.toFixed(2)}</Text>
+        </TouchableOpacity>
+        {showExtraCharges && (
+          <View style={styles.extraPanel}>
+            <View style={styles.switchRow}>
+              <Text style={styles.switchLabel}>Hourly billing</Text>
+              <Switch value={hourlyEnabled} onValueChange={enableHourly} color={Colors.primary} />
+            </View>
+            {hourlyEnabled && (
+              <View style={styles.row}>
+                <TextInput label="Hours (decimal)" value={hours} onChangeText={setHours}
+                  keyboardType="decimal-pad" mode="outlined" style={[styles.input, styles.flexInput]} />
+                <TextInput label="Rate per Hour ($)" value={hourlyRate} onChangeText={setHourlyRate}
+                  keyboardType="decimal-pad" mode="outlined" style={[styles.input, styles.flexInput]} />
+              </View>
+            )}
+            <Text style={styles.subLabel}>Extra Hose (chargeable feet only)</Text>
+            <View style={styles.row}>
+              <TextInput label="Extra Hose (ft)" value={extraHoseFeet} onChangeText={setExtraHoseFeet}
+                keyboardType="decimal-pad" mode="outlined" style={[styles.input, styles.flexInput]} />
+              <TextInput label="Price per Foot ($)" value={extraHoseRate} onChangeText={setExtraHoseRate}
+                keyboardType="decimal-pad" mode="outlined" style={[styles.input, styles.flexInput]} />
+            </View>
+            <TextInput label="Fuel Surcharge ($)" value={fuelCharge} onChangeText={setFuelCharge}
+              keyboardType="decimal-pad" mode="outlined" style={styles.input} />
+            <Text style={styles.subLabel}>Custom Charges</Text>
+            {customCharges.map(charge => (
+              <View key={charge.id} style={styles.row}>
+                <TextInput label="Description" value={charge.description}
+                  onChangeText={value => updateCustomCharge(charge.id, 'description', value)}
+                  mode="outlined" style={[styles.input, styles.flexInput]} />
+                <TextInput label="Amount ($)" value={charge.amount}
+                  onChangeText={value => updateCustomCharge(charge.id, 'amount', value)}
+                  keyboardType="decimal-pad" mode="outlined" style={[styles.input, { flex: 0.65 }]} />
+                <IconButton icon="close-circle-outline" accessibilityLabel="Remove custom charge"
+                  onPress={() => setCustomCharges(old => old.filter(item => item.id !== charge.id))} />
+              </View>
+            ))}
+            <Button icon="plus" mode="outlined" onPress={addCustomCharge}>Add Custom Charge</Button>
+          </View>
         )}
 
         <View style={styles.switchRow}>
