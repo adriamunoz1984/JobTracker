@@ -209,6 +209,12 @@ export default function SettingsScreen() {
         />
       </Group>
 
+      <Group title="Notifications">
+        <SettingsRow icon="notifications-outline" label="Phone notifications"
+          detail="Job alerts, messages, and reminders"
+          onPress={() => navigation.navigate('NotificationSettings')} last />
+      </Group>
+
       <Group title="Look">
         <SettingsRow
           icon="color-palette-outline"
