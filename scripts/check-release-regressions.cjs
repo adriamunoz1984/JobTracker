@@ -52,6 +52,7 @@ async function invoiceSharing() {
     'react-native': { Alert: { alert: (...args) => alerts.push(args) } },
     '../context/AuthContext': { useAuth: () => ({ user: { displayName: 'Pumps' } }) },
     'firebase/firestore': { getFirestore() {}, doc() {}, updateDoc: async (_ref, data) => updates.push(data) },
+    '../utils/exportFileName': { nameExportedPdf: async (uri) => uri },
     'expo-print': { printToFileAsync: async () => ({ uri: 'file:///invoice.pdf', numberOfPages: 1 }) },
     'expo-sharing': { isAvailableAsync: async () => true, shareAsync: async uri => shares.push(uri) },
   }, { invoice: { id: 'i', clientName: 'Customer', lineItems: [], renderedHtml: '<html>saved invoice</html>' } });
@@ -79,6 +80,7 @@ async function newInvoiceSharing() {
       updateDoc: async (_ref, data) => updates.push(data),
     },
     '../utils/invoiceTemplate': { buildConcretePumpInvoiceHtml: () => '<html>invoice</html>' },
+    '../utils/exportFileName': { nameExportedPdf: async (uri) => uri },
     'expo-print': { printToFileAsync: async () => ({ uri: 'file:///new-invoice.pdf' }) },
     'expo-sharing': { isAvailableAsync: async () => true, shareAsync: async uri => shares.push(uri) },
   });
