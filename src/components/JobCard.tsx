@@ -213,7 +213,12 @@ const JobCard: React.FC<JobCardProps> = ({ job, onDelete, onTogglePaid }) => {
           {/* Address */}
           <TouchableOpacity style={styles.addressRow} onPress={() => chooseMapApp(job.address, job.city)} accessibilityRole="button" accessibilityLabel="Open job address in maps">
             <IconButton icon="map-marker" size={16} style={styles.addressIcon} iconColor={Colors.primary} onPress={() => chooseMapApp(job.address, job.city)} />
-            <Text style={[styles.address, { color: Colors.primary, textDecorationLine: 'underline' }]}>{job.address}, {job.city}</Text>
+            <View style={styles.addressTextColumn}>
+              <Text style={[styles.address, { color: Colors.primary, textDecorationLine: 'underline' }]}>{job.address}</Text>
+              {!!job.city && (
+                <Text style={[styles.city, { color: Colors.primary, textDecorationLine: 'underline' }]}>{job.city}</Text>
+              )}
+            </View>
           </TouchableOpacity>
           
           {/* Details Row */}
@@ -329,25 +334,33 @@ const useStyles = makeStyles((Colors) => ({
     height: 4,
   },
   cardContent: {
-    paddingTop: Spacing.md,
+    paddingTop: Spacing.lg,
+    paddingHorizontal: Spacing.lg,
   },
   headerRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: Spacing.sm,
+    flexDirection: 'column',
+    alignItems: 'stretch',
+    marginBottom: Spacing.md,
+    gap: Spacing.sm,
   },
   leftHeader: {
-    flex: 1,
+    width: '100%',
+    minWidth: 0,
   },
   rightHeader: {
-    alignItems: 'flex-end',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    flexWrap: 'wrap',
+    gap: Spacing.sm,
   },
   date: {
-    fontSize: 16,
+    fontSize: 24,
+    lineHeight: 30,
     fontWeight: '700',
     color: Colors.text,
     marginBottom: Spacing.xs,
+    flexShrink: 1,
   },
   badgeRow: {
     flexDirection: 'row',
@@ -386,32 +399,31 @@ sequenceBadgeText: {
     color: Colors.primary,
   },
   amount: {
-    fontSize: 24,
+    fontSize: 25,
     fontWeight: 'bold',
     color: Colors.primary,
-    marginBottom: Spacing.xs,
   },
   statusBadge: {
     paddingHorizontal: Spacing.sm,
-    paddingVertical: 4,
+    paddingVertical: 6,
     borderRadius: BorderRadius.small,
-    marginBottom: Spacing.xs,
   },
   statusText: {
-    fontSize: 11,
+    fontSize: 13,
     fontWeight: 'bold',
   },
   menuButton: {
     margin: 0,
   },
   contentContainer: {
-    marginTop: Spacing.xs,
+    marginTop: Spacing.sm,
   },
   companyName: {
-    fontSize: 18,
+    fontSize: 20,
+    lineHeight: 26,
     fontWeight: 'bold',
     color: Colors.text,
-    marginBottom: Spacing.xs,
+    marginBottom: Spacing.sm,
   },
   noCompany: {
     fontStyle: 'italic',
@@ -419,23 +431,39 @@ sequenceBadgeText: {
   },
   addressRow: {
     flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: Spacing.sm,
+    alignItems: 'flex-start',
+    marginBottom: Spacing.md,
+    gap: Spacing.xs,
   },
   addressIcon: {
     margin: 0,
+    marginTop: -6,
+    marginLeft: -8,
     marginRight: -8,
   },
-  address: {
-    fontSize: 14,
-    color: Colors.textSecondary,
+  addressTextColumn: {
     flex: 1,
+    minWidth: 0,
+    gap: 3,
+  },
+  address: {
+    fontSize: 17,
+    lineHeight: 23,
+    color: Colors.textSecondary,
+    flexShrink: 1,
+  },
+  city: {
+    fontSize: 16,
+    lineHeight: 22,
+    color: Colors.textSecondary,
   },
   detailsRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.md,
+    columnGap: Spacing.lg,
+    rowGap: Spacing.sm,
     flexWrap: 'wrap',
+    marginBottom: Spacing.xs,
   },
   detailItem: {
     flexDirection: 'row',
@@ -446,7 +474,8 @@ sequenceBadgeText: {
     marginRight: -4,
   },
   detailValue: {
-    fontSize: 14,
+    fontSize: 16,
+    lineHeight: 22,
     fontWeight: '600',
     color: Colors.text,
   },
@@ -457,7 +486,8 @@ sequenceBadgeText: {
     marginTop: Spacing.sm,
   },
   referenceText: {
-    fontSize: 12,
+    fontSize: 14,
+    lineHeight: 20,
     color: Colors.textSecondary,
     fontWeight: '600',
   },
@@ -465,7 +495,8 @@ sequenceBadgeText: {
     marginTop: Spacing.sm,
   },
   taxText: {
-    fontSize: 12,
+    fontSize: 14,
+    lineHeight: 20,
     color: Colors.textSecondary,
     fontWeight: '600',
   },
@@ -504,8 +535,9 @@ sequenceBadgeText: {
   },
   cardActions: {
     justifyContent: 'flex-end',
-    paddingTop: 0,
+    paddingTop: Spacing.sm,
     paddingBottom: Spacing.sm,
+    paddingHorizontal: Spacing.md,
   },
   directPaymentChip: {
   height: 28,
