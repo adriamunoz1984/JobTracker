@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { Card, Title, Paragraph, Text, Button, IconButton, Menu, Divider, Badge, Chip } from 'react-native-paper';
 import { format, parseISO } from 'date-fns';
@@ -212,59 +213,54 @@ const JobCard: React.FC<JobCardProps> = ({ job, onDelete, onTogglePaid }) => {
             <Text style={[styles.companyName, styles.noCompany]}>No Company</Text>
           )}
           
-          {/* Address */}
-          <TouchableOpacity style={styles.addressRow} onPress={() => chooseMapApp(job.address, job.city)} accessibilityRole="button" accessibilityLabel="Open job address in maps">
-            <IconButton icon="map-marker" size={16} style={styles.addressIcon} iconColor={Colors.textSecondary} onPress={() => chooseMapApp(job.address, job.city)} />
+          {/* One consistent icon column across address, job details, and references. */}
+          <TouchableOpacity style={styles.addressRow}
+            onPress={() => chooseMapApp(job.address, job.city)}
+            accessibilityRole="button" accessibilityLabel="Open job address in maps">
+            <View style={styles.infoIconSlot}>
+              <MaterialCommunityIcons name="map-marker" size={21} color={Colors.textSecondary} />
+            </View>
             <View style={styles.addressTextColumn}>
               <Text style={styles.address}>{job.address}</Text>
-              {!!job.city && (
-                <Text style={styles.city}>{job.city}</Text>
-              )}
+              {!!job.city && <Text style={styles.city}>{job.city}</Text>}
             </View>
           </TouchableOpacity>
-          
-          {/* Details Row */}
+
           <View style={styles.detailsRow}>
-            {/* Yards */}
             <View style={styles.detailItem}>
-              <IconButton icon="truck-delivery" size={16} style={styles.detailIcon} iconColor={Colors.primary} />
+              <View style={styles.infoIconSlot}>
+                <MaterialCommunityIcons name="truck-delivery" size={21} color={Colors.primary} />
+              </View>
               <Text style={styles.detailValue}>{job.yards} yds</Text>
             </View>
-            
-            {/* Payment Method */}
             <View style={styles.detailItem}>
-              <IconButton 
-                icon={getPaymentIcon()} 
-                size={16} 
-                style={styles.detailIcon} 
-                iconColor={getPaymentColor()} 
-              />
+              <View style={styles.infoIconSlot}>
+                <MaterialCommunityIcons name={getPaymentIcon() as any} size={21} color={getPaymentColor()} />
+              </View>
               <Text style={styles.detailValue}>{job.paymentMethod}</Text>
             </View>
-            
-            {/* Direct Payment Indicator */}
-              {job.isPaidToMe && (
-                <Chip 
-                  icon="cash-fast" 
-                  compact
-                  style={styles.directPaymentChip}
-                  textStyle={styles.directPaymentText}
-                >
-                  Direct Payment
-                </Chip>
-              )}
+            {job.isPaidToMe && (
+              <Chip icon="cash-fast" compact style={styles.directPaymentChip}
+                textStyle={styles.directPaymentText}>Direct Payment</Chip>
+            )}
           </View>
-          
-          {(job as any).jobNumber || (job as any).poNumber ? (
+
+          {!!(job as any).jobNumber && (
             <View style={styles.referenceRow}>
-              {(job as any).jobNumber ? (
-                <Text style={styles.referenceText}>Job #: {(job as any).jobNumber}</Text>
-              ) : null}
-              {(job as any).poNumber ? (
-                <Text style={styles.referenceText}>PO #: {(job as any).poNumber}</Text>
-              ) : null}
+              <View style={styles.infoIconSlot}>
+                <MaterialCommunityIcons name="pound" size={21} color={Colors.textSecondary} />
+              </View>
+              <Text style={styles.referenceText}>Job #: {(job as any).jobNumber}</Text>
             </View>
-          ) : null}
+          )}
+          {!!(job as any).poNumber && (
+            <View style={styles.referenceRow}>
+              <View style={styles.infoIconSlot}>
+                <MaterialCommunityIcons name="file-document-outline" size={21} color={Colors.textSecondary} />
+              </View>
+              <Text style={styles.referenceText}>PO #: {(job as any).poNumber}</Text>
+            </View>
+          )}
 
           {taxEnabled && taxRate > 0 && (
             <View style={styles.taxRow}>
@@ -443,6 +439,13 @@ sequenceBadgeText: {
     marginBottom: Spacing.md,
     gap: Spacing.xs,
   },
+  infoIconSlot: {
+    width: 30,
+    minHeight: 24,
+    justifyContent: 'center',
+    alignItems: 'flex-start',
+    flexShrink: 0,
+  },
   addressIcon: {
     margin: 0,
     marginTop: -6,
@@ -471,11 +474,13 @@ sequenceBadgeText: {
     columnGap: Spacing.lg,
     rowGap: Spacing.sm,
     flexWrap: 'wrap',
-    marginBottom: Spacing.xs,
+    marginBottom: Spacing.sm,
   },
   detailItem: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: Spacing.xs,
+    minHeight: 26,
   },
   detailIcon: {
     margin: 0,
@@ -489,13 +494,15 @@ sequenceBadgeText: {
   },
   referenceRow: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: Spacing.md,
-    marginTop: Spacing.sm,
+    alignItems: 'center',
+    gap: Spacing.xs,
+    minHeight: 26,
+    marginTop: Spacing.xs,
   },
   referenceText: {
-    fontSize: 14,
-    lineHeight: 20,
+    fontSize: 15,
+    lineHeight: 22,
+    flexShrink: 1,
     color: Colors.textSecondary,
     fontWeight: '600',
   },
