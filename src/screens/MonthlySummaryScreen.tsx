@@ -37,6 +37,7 @@ export default function MonthlySummaryScreen() {
   const [isExporting, setIsExporting] = useState(false);
   const [monthOffset, setMonthOffset] = useState(0);
   const [ownerTakeHomeMode, setOwnerTakeHomeMode] = useState<'paid' | 'all'>('paid');
+  const [employeeBreakdownMode, setEmployeeBreakdownMode] = useState<'owed' | 'earned'>('earned');
 
   const currentDate = new Date();
   const adjustedDate = addMonths(currentDate, monthOffset);
@@ -104,6 +105,8 @@ export default function MonthlySummaryScreen() {
       week: `W${index + 1}`,
       jobs: weekJobs.length,
       revenue: weekJobs.reduce((sum, job) => sum + (job.amount || 0), 0),
+      employeeOwed: calculateEmployeeEarnings(weekJobs, commissionRate).owed,
+      employeeEarned: calculateEmployeeEarnings(weekJobs, commissionRate).earned,
       yards: weekJobs.reduce((sum, job) => sum + (job.yards || 0), 0),
     };
   });
@@ -678,6 +681,17 @@ export default function MonthlySummaryScreen() {
         <Card style={styles.card}>
           <Card.Content>
             <Text variant="titleMedium" style={styles.sectionTitle}>📋 Weekly Breakdown</Text>
+            {!isOwner && (
+              <SegmentedButtons
+                value={employeeBreakdownMode}
+                onValueChange={value => setEmployeeBreakdownMode(value as 'owed' | 'earned')}
+                buttons={[
+                  { value: 'owed', label: 'Amount Owed' },
+                  { value: 'earned', label: 'Amount Earned' },
+                ]}
+                style={styles.breakdownToggle}
+              />
+            )}
             <Divider style={styles.divider} />
 
             {weeklyData.map((week) => (
@@ -686,7 +700,14 @@ export default function MonthlySummaryScreen() {
                 <View style={styles.weekStats}>
                   <Text style={styles.weekStat}>{week.jobs} jobs</Text>
                   <Text style={styles.weekStat}>{week.yards.toFixed(0)} yds</Text>
-                  <Text style={styles.weekRevenue}>${week.revenue.toFixed(0)}</Text>
+                  <View style={styles.weekAmountColumn}>
+                    <Text style={styles.weekRevenue}>
+                      ${(isOwner ? week.revenue : employeeBreakdownMode === 'owed' ? week.employeeOwed : week.employeeEarned).toFixed(2)}
+                    </Text>
+                    {!isOwner && (
+                      <Text style={styles.weekAmountCaption}>{employeeBreakdownMode === 'owed' ? 'Owed' : 'Earned'}</Text>
+                    )}
+                  </View>
                 </View>
               </View>
             ))}
@@ -904,14 +925,29 @@ const useStyles = makeStyles((Colors) => ({
     fontStyle: 'italic',
     paddingVertical: Spacing.xl,
   },
+  breakdownToggle: {
+    marginTop: Spacing.sm,
+    marginBottom: Spacing.md,
+  },
   weekRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    gap: Spacing.sm,
+    flexWrap: 'wrap',
     padding: Spacing.md,
     backgroundColor: Colors.surfaceDark,
     borderRadius: BorderRadius.medium,
     marginBottom: Spacing.sm,
+  },
+  weekAmountColumn: {
+    alignItems: 'flex-end',
+    minWidth: 90,
+  },
+  weekAmountCaption: {
+    fontSize: 11,
+    color: Colors.textSecondary,
+    marginTop: 2,
   },
   weekLabel: {
     fontSize: 16,
@@ -920,7 +956,10 @@ const useStyles = makeStyles((Colors) => ({
   },
   weekStats: {
     flexDirection: 'row',
-    gap: Spacing.md,
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: Spacing.sm,
+    flexShrink: 1,
   },
   weekStat: {
     fontSize: 14,
