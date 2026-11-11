@@ -155,8 +155,9 @@ const JobCard: React.FC<JobCardProps> = ({ job, onDelete, onTogglePaid }) => {
             {/* Amount */}
             <Text style={styles.amount}>${job.amount.toFixed(0)}</Text>
             
-            {/* Status Badge */}
-            <View style={[styles.statusBadge, { backgroundColor: statusBgColor }]}>
+            <View style={styles.statusAndMenu}>
+              {/* Status Badge */}
+              <View style={[styles.statusBadge, { backgroundColor: statusBgColor }]}>
               <Text style={[styles.statusText, { color: statusColor }]}>
                 {job.isPaid ? '✓ Paid' : '✗ Unpaid'}
               </Text>
@@ -198,6 +199,7 @@ const JobCard: React.FC<JobCardProps> = ({ job, onDelete, onTogglePaid }) => {
                 </>
               )}
             </Menu>
+            </View>
           </View>
         </View>
         
@@ -212,11 +214,11 @@ const JobCard: React.FC<JobCardProps> = ({ job, onDelete, onTogglePaid }) => {
           
           {/* Address */}
           <TouchableOpacity style={styles.addressRow} onPress={() => chooseMapApp(job.address, job.city)} accessibilityRole="button" accessibilityLabel="Open job address in maps">
-            <IconButton icon="map-marker" size={16} style={styles.addressIcon} iconColor={Colors.primary} onPress={() => chooseMapApp(job.address, job.city)} />
+            <IconButton icon="map-marker" size={16} style={styles.addressIcon} iconColor={Colors.textSecondary} onPress={() => chooseMapApp(job.address, job.city)} />
             <View style={styles.addressTextColumn}>
-              <Text style={[styles.address, { color: Colors.primary, textDecorationLine: 'underline' }]}>{job.address}</Text>
+              <Text style={styles.address}>{job.address}</Text>
               {!!job.city && (
-                <Text style={[styles.city, { color: Colors.primary, textDecorationLine: 'underline' }]}>{job.city}</Text>
+                <Text style={styles.city}>{job.city}</Text>
               )}
             </View>
           </TouchableOpacity>
@@ -352,7 +354,13 @@ const useStyles = makeStyles((Colors) => ({
     alignItems: 'center',
     justifyContent: 'space-between',
     flexWrap: 'wrap',
-    gap: Spacing.sm,
+    columnGap: Spacing.sm,
+    rowGap: Spacing.xs,
+  },
+  statusAndMenu: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.xs,
   },
   date: {
     fontSize: 24,
@@ -447,14 +455,14 @@ sequenceBadgeText: {
     gap: 3,
   },
   address: {
-    fontSize: 17,
-    lineHeight: 23,
+    fontSize: 18,
+    lineHeight: 24,
     color: Colors.textSecondary,
     flexShrink: 1,
   },
   city: {
-    fontSize: 16,
-    lineHeight: 22,
+    fontSize: 17,
+    lineHeight: 23,
     color: Colors.textSecondary,
   },
   detailsRow: {
