@@ -41,6 +41,7 @@ export default function YearlySummaryScreen() {
   const [yearOffset, setYearOffset] = useState(0);
   const [ownerTakeHomeMode, setOwnerTakeHomeMode] = useState<'paid' | 'all'>('paid');
   const [employeeGraphMode, setEmployeeGraphMode] = useState<'earnings' | 'revenue'>('earnings');
+  const [employeeBreakdownMode, setEmployeeBreakdownMode] = useState<'owed' | 'earned'>('earned');
   const [hiddenEmployeeIds, setHiddenEmployeeIds] = useState<string[]>([]);
   const [selectedWeek, setSelectedWeek] = useState<number | null>(null);
 
@@ -112,6 +113,8 @@ export default function YearlySummaryScreen() {
       fullMonth: format(monthStart, 'MMMM'),
       jobs: monthJobs.length,
       revenue: monthJobs.reduce((sum, job) => sum + (job.amount || 0), 0),
+      employeeOwed: calculateEmployeeEarnings(monthJobs, commissionRate).owed,
+      employeeEarned: calculateEmployeeEarnings(monthJobs, commissionRate).earned,
       yards: monthJobs.reduce((sum, job) => sum + (job.yards || 0), 0),
     };
   });
@@ -898,6 +901,17 @@ export default function YearlySummaryScreen() {
         <Card style={styles.card}>
           <Card.Content>
             <Text variant="titleMedium" style={styles.sectionTitle}>📋 Monthly Breakdown</Text>
+            {!isOwner && (
+              <SegmentedButtons
+                value={employeeBreakdownMode}
+                onValueChange={value => setEmployeeBreakdownMode(value as 'owed' | 'earned')}
+                buttons={[
+                  { value: 'owed', label: 'Amount Owed' },
+                  { value: 'earned', label: 'Amount Earned' },
+                ]}
+                style={styles.breakdownToggle}
+              />
+            )}
             <Divider style={styles.divider} />
 
             {monthlyData.map((month, index) => (
@@ -912,8 +926,15 @@ export default function YearlySummaryScreen() {
                   )}
                 </View>
                 <View style={styles.monthRevenue}>
-                  {month.revenue > 0 ? (
-                    <Text style={styles.revenueValue}>${month.revenue.toLocaleString()}</Text>
+                  {month.jobs > 0 ? (
+                    <>
+                      <Text style={styles.revenueValue}>
+                        ${(isOwner ? month.revenue : employeeBreakdownMode === 'owed' ? month.employeeOwed : month.employeeEarned).toFixed(2)}
+                      </Text>
+                      {!isOwner && (
+                        <Text style={styles.breakdownCaption}>{employeeBreakdownMode === 'owed' ? 'Owed' : 'Earned'}</Text>
+                      )}
+                    </>
                   ) : (
                     <Text style={styles.noRevenueText}>-</Text>
                   )}
@@ -1211,14 +1232,24 @@ const useStyles = makeStyles((Colors) => ({
     fontStyle: 'italic',
     paddingVertical: Spacing.xl,
   },
+  breakdownToggle: {
+    marginTop: Spacing.sm,
+    marginBottom: Spacing.md,
+  },
   monthRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    gap: Spacing.sm,
     padding: Spacing.md,
     backgroundColor: Colors.surfaceDark,
     borderRadius: BorderRadius.medium,
     marginBottom: Spacing.sm,
+  },
+  breakdownCaption: {
+    color: Colors.textSecondary,
+    fontSize: 11,
+    marginTop: 3,
   },
   monthInfo: {
     flex: 1,
@@ -1261,7 +1292,8 @@ const useStyles = makeStyles((Colors) => ({
     includeFontPadding: false,
   },
   monthRevenue: {
-    minWidth: 100,
+    minWidth: 108,
+    flexShrink: 1,
     alignItems: 'flex-end',
     justifyContent: 'center',
     minHeight: 90,
