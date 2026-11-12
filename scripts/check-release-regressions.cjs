@@ -203,6 +203,23 @@ function reportBuilderRegression() {
   assert.equal(format(months[1].start,'yyyy-MM-dd'),'2026-10-01');
   const splitTotal = months.reduce((n,m)=>n+reportRows(jobs,m.start,m.end,defaultReportOptions,false,50).reduce((a,r)=>a+r.amount,0),0);
   assert.equal(splitTotal,450,'split monthly reports reconcile to the combined total');
+  const mondayRows=reportRows(jobs,start,end,{...defaultReportOptions,weekStartsOn:1},false,50);
+  assert.equal(format(mondayRows[0].end,'yyyy-MM-dd'),'2026-09-06');
+  assert.equal(mondayRows[0].amount,350,'Monday week includes Sunday Sep 6');
+  const ownerJobs=[
+    {date:'2026-09-01',amount:500,jobType:'employee',employeeId:'e1',employeeName:'Pumper One',employeeCommissionRate:40,companyName:'Customer A',paymentMethod:'Check'},
+    {date:'2026-09-02',amount:300,jobType:'employee',employeeId:'e1',employeeName:'Pumper One',employeeCommissionRate:40,isPaidToMe:true,companyName:'Customer A',paymentMethod:'Cash'},
+    {date:'2026-09-03',amount:700,jobType:'personal',companyName:'Customer B',paymentMethod:'Cash'},
+    {date:'2026-09-04',amount:100,companyName:'Customer B',paymentMethod:'Cash'},
+  ];
+  const ownerOptions={...defaultReportOptions,scope:'all',direct:'balance',metric:'revenue'};
+  assert.equal(reportAmount(selectReportJobs(ownerJobs,start,end,ownerOptions,true),'revenue',true,50),1600);
+  assert.equal(reportAmount(selectReportJobs(ownerJobs,start,end,{...ownerOptions,scope:'independent'},true),'revenue',true,50),800,'owner-only scope includes older unclassified owner jobs');
+  const payroll={...ownerOptions,scope:'company',breakdown:'pumper',metric:'earned'};
+  assert.equal(reportRows(ownerJobs,start,end,payroll,true,50)[0].amount,320,'pumper earned is gross commission, not owner profit');
+  assert.equal(reportRows(ownerJobs,start,end,{...payroll,metric:'owed'},true,50)[0].amount,20,'pumper owed subtracts direct receipts');
+  assert.equal(reportRows(ownerJobs,start,end,{...ownerOptions,breakdown:'customer'},true,50).length,2);
+  assert.equal(reportRows(ownerJobs,start,end,{...ownerOptions,breakdown:'payment'},true,50)[0].amount,1100);
 }
 
 (async () => {
