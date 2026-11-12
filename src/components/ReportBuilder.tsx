@@ -28,7 +28,7 @@ export default function ReportBuilder({jobs, owner, rate, userId, mode}: Props) 
   const [analyticsOpts, setAnalyticsOpts] = useState<ReportOptions>(() => ({...defaultReportOptions, metric:owner?'revenue':'earned', scope:'all', direct:'balance'}));
   const opts = mode==='reports'?reportOpts:analyticsOpts;
   const setOpts = mode==='reports'?setReportOpts:setAnalyticsOpts;
-  const [split, setSplit] = useState(false);
+  const [split, setSplit] = useState(!owner);
   const [busy, setBusy] = useState(false);
   const [saved, setSaved] = useState<Template[]>([]);
   const [templateName, setTemplateName] = useState('');
@@ -46,6 +46,8 @@ export default function ReportBuilder({jobs, owner, rate, userId, mode}: Props) 
   const total = reportAmount(selected,opts.metric,owner,rate,opts.breakdown);
   const rangeLabel = format(start,'MMM d, yyyy')+' – '+format(end,'MMM d, yyyy');
   const rowLabel = opts.breakdown==='customer'?'Customer':opts.breakdown==='payment'?'Payment method':opts.breakdown==='pumper'?'Pumper':'Date range';
+  const periodName=opts.group==='day'?'Daily':opts.group==='week'?'Weekly':opts.group==='month'?'Monthly':'Yearly';
+  const reportTitle=opts.breakdown==='customer'?'Customer Summary':opts.breakdown==='payment'?'Payment Summary':opts.breakdown==='pumper'?'Employee Payroll Report':periodName+(opts.metric==='revenue'?' Revenue Report':' Earnings Report');
   const scopeLabel=opts.scope==='company'?(owner?'Pumper jobs only':'Company jobs only'):opts.scope==='independent'?(owner?'Owner jobs only':'Independent jobs only'):'All jobs';
   const filterText=scopeLabel+' • '+(opts.direct==='exclude'?'Direct-payment jobs excluded':'Direct payments included; deducted for owed')+' • '+(opts.status==='all'?'All payment statuses':opts.status==='paid'?'Paid jobs only':'Unpaid jobs only')+((opts.breakdown||'period')==='period'&&opts.group==='week'?' • Weeks start '+(opts.weekStartsOn===1?'Monday':'Sunday'):'');
   const card = {marginBottom:16, backgroundColor:C.surface};
@@ -59,7 +61,7 @@ export default function ReportBuilder({jobs, owner, rate, userId, mode}: Props) 
     {name:'Payment summary',options:{...defaultReportOptions,breakdown:'payment',metric:'revenue',scope:'all',direct:'balance'}},
     {name:'Outstanding payments',options:{...defaultReportOptions,group:'week',metric:'revenue',scope:'all',direct:'balance',status:'unpaid'}}
   ] : [
-    {name:'Employee income',options:defaultReportOptions},
+    {name:'Employee income',options:defaultReportOptions,split:true},
     {name:'Employer balance',options:{...defaultReportOptions,direct:'balance'}},
     {name:'Personal earnings',options:{...defaultReportOptions,metric:'earned',scope:'all',direct:'balance'}},
     {name:'Customer summary',options:{...defaultReportOptions,breakdown:'customer',metric:'earned',scope:'company',direct:'balance'}},
@@ -93,7 +95,7 @@ export default function ReportBuilder({jobs, owner, rate, userId, mode}: Props) 
         let uri:string;
         if(kind==='pdf'){
           const rows=section.rows.map(r=>'<tr><td>'+escapeHtml(r.label)+'</td><td>'+escapeHtml(money(r.amount))+'</td></tr>').join('');
-          const html='<html><head><meta charset="utf-8"><style>body{font-family:Arial,sans-serif;padding:30px;color:#17212b}h1{font-size:25px;margin:0 0 8px}p{color:#52606d}table{border-collapse:collapse;width:100%;margin-top:24px}th,td{padding:13px;border-bottom:1px solid #ddd;text-align:left}th{background:#eef1f4}td:last-child,th:last-child{text-align:right}tfoot td{font-weight:bold;border-top:2px solid #555}tr{page-break-inside:avoid}</style></head><body><h1>'+escapeHtml(label)+' Report</h1><p>'+escapeHtml(section.label)+'</p><p>'+escapeHtml(filterText)+'</p><table><thead><tr><th>'+escapeHtml(rowLabel)+'</th><th>'+escapeHtml(label)+'</th></tr></thead><tbody>'+rows+'</tbody><tfoot><tr><td>Total</td><td>'+escapeHtml(money(sum))+'</td></tr></tfoot></table></body></html>';
+          const html='<html><head><meta charset="utf-8"><style>body{font-family:Arial,sans-serif;padding:30px;color:#17212b}h1{font-size:25px;margin:0 0 8px}p{color:#52606d}table{border-collapse:collapse;width:100%;margin-top:24px}th,td{padding:13px;border-bottom:1px solid #ddd;text-align:left}th{background:#eef1f4}td:last-child,th:last-child{text-align:right}tfoot td{font-weight:bold;border-top:2px solid #555}tr{page-break-inside:avoid}</style></head><body><h1>'+escapeHtml(reportTitle)+'</h1><p>'+escapeHtml(format(section.start,'MMM d, yyyy')+' – '+format(section.end,'MMM d, yyyy'))+'</p><p>'+escapeHtml(filterText)+'</p><table><thead><tr><th>'+escapeHtml(rowLabel)+'</th><th>'+escapeHtml(label)+'</th></tr></thead><tbody>'+rows+'</tbody><tfoot><tr><td>Total</td><td>'+escapeHtml(money(sum))+'</td></tr></tfoot></table></body></html>';
           const printed=await Print.printToFileAsync({html});
           uri=await nameExportedPdf(printed.uri,filename);
         }else{
@@ -141,7 +143,7 @@ export default function ReportBuilder({jobs, owner, rate, userId, mode}: Props) 
       {picker&&<DateTimePicker value={picker==='start'?start:end} mode="date" onChange={(event,date)=>{const target=picker;setPicker(null);if(date&&event.type!=='dismissed'){if(target==='start')setStart(startOfDay(date));else setEnd(endOfDay(date));}}}/>}
       {!valid&&<Text style={{color:C.error,marginBottom:12}}>Choose an end date on or after the start date, within ten years.</Text>}
       <Text style={heading}>Amount to display</Text>
-      <SegmentedButtons value={opts.metric} onValueChange={v=>patch({metric:v as ReportOptions['metric']})} buttons={[{value:'owed',label:owner?'Pumper owed':'Owed'},{value:'earned',label:'Earned'},{value:'revenue',label:'Revenue'}]} style={space}/>
+      <SegmentedButtons value={opts.metric} onValueChange={v=>patch({metric:v as ReportOptions['metric']})} buttons={[{value:'owed',label:'Owed'},{value:'earned',label:'Earned'},{value:'revenue',label:'Revenue'}]} style={space}/>
       <Text style={heading}>Job scope</Text>
       <SegmentedButtons value={opts.scope} onValueChange={v=>patch({scope:v as ReportOptions['scope']})} buttons={[{value:'company',label:owner?'Pumper jobs':'Company'},{value:'all',label:'All'},{value:'independent',label:owner?'Owner jobs':'Independent'}]} style={space}/>
       <Text style={heading}>Direct payments</Text>
@@ -166,8 +168,9 @@ export default function ReportBuilder({jobs, owner, rate, userId, mode}: Props) 
       </>}
     </Card.Content></Card>
     <Card style={card}><Card.Content>
-      <Text style={heading}>{mode==='reports'?'Report preview':label}</Text>
+      <Text style={heading}>{mode==='reports'?reportTitle:label}</Text>
       <Text style={sub}>{rangeLabel}</Text><Text style={sub}>{filterText}</Text>
+      {mode==='reports'&&<Text style={{color:C.textSecondary,fontWeight:'600',marginBottom:4}}>{label}</Text>}
       <Text style={{fontSize:30,fontWeight:'700',color:C.success,marginBottom:6}}>{money(total)}</Text>
       <Text style={sub}>{selected.length} jobs • {selected.reduce((n,j)=>n+Number(j.yards||0),0).toFixed(1)} yards</Text>
       {mode==='reports'?sections.slice(0,24).map(s=><View key={s.label} style={{marginTop:12}}>
