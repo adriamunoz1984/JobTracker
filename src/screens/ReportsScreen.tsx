@@ -1,5 +1,6 @@
 // src/screens/ReportsScreen.tsx
 import React, { useState, useEffect } from 'react';
+import ReportBuilder from '../components/ReportBuilder';
 import { View, StyleSheet, ScrollView, Dimensions, Alert, Platform } from 'react-native';
 import { 
   Card, 
@@ -49,6 +50,7 @@ export default function ReportsScreen() {
   const { jobs } = useJobs();
   const { user } = useAuth();
 
+  const [reportTab, setReportTab] = useState<'reports' | 'analytics' | 'details'>('reports');
   const [dateRange, setDateRange] = useState<'week' | 'lastweek' | 'month' | 'custom'>('week');
   const [paymentStatus, setPaymentStatus] = useState<'all' | 'paid' | 'unpaid'>('all');
   const [showGraphs, setShowGraphs] = useState(true);
@@ -489,6 +491,8 @@ export default function ReportsScreen() {
       </LinearGradient>
 
       <View style={styles.content}>
+        <SegmentedButtons value={reportTab} onValueChange={value => setReportTab(value as 'reports' | 'analytics' | 'details')} buttons={[{value:'reports',label:'Reports'},{value:'analytics',label:'Analytics'},{value:'details',label:'Job details'}]} style={{marginBottom:16}} />
+        {reportTab !== 'details' ? <ReportBuilder jobs={jobs} owner={user?.role === 'owner'} rate={user?.commissionRate ?? 50} userId={user?.uid} mode={reportTab} /> : <>
         {/* Date Range Filters */}
         <Card style={styles.card}>
           <Card.Content>
@@ -903,6 +907,7 @@ export default function ReportsScreen() {
         >
           Export as PDF
         </Button>
+        </>}
       </View>
     </ScrollView>
   );
