@@ -3,7 +3,7 @@ import { View, Alert } from 'react-native';
 import { Card, Text, Button, SegmentedButtons, Checkbox, Divider, Chip, TextInput } from 'react-native-paper';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { format, startOfMonth, endOfMonth, subMonths, startOfYear, subYears } from 'date-fns';
+import { format, startOfDay, endOfDay, startOfMonth, endOfMonth, subMonths, startOfYear, subYears } from 'date-fns';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 import * as FileSystem from 'expo-file-system';
@@ -24,7 +24,10 @@ export default function ReportBuilder({jobs, owner, rate, userId, mode}: Props) 
   const [start, setStart] = useState(startOfMonth(now));
   const [end, setEnd] = useState(endOfMonth(now));
   const [picker, setPicker] = useState<'start'|'end'|null>(null);
-  const [opts, setOpts] = useState<ReportOptions>(() => owner ? {...defaultReportOptions, metric:'revenue', scope:'all', direct:'balance'} : defaultReportOptions);
+  const [reportOpts, setReportOpts] = useState<ReportOptions>(() => owner ? {...defaultReportOptions, metric:'revenue', scope:'all', direct:'balance'} : {...defaultReportOptions});
+  const [analyticsOpts, setAnalyticsOpts] = useState<ReportOptions>(() => ({...defaultReportOptions, metric:owner?'revenue':'earned', scope:'all', direct:'balance'}));
+  const opts = mode==='reports'?reportOpts:analyticsOpts;
+  const setOpts = mode==='reports'?setReportOpts:setAnalyticsOpts;
   const [split, setSplit] = useState(false);
   const [busy, setBusy] = useState(false);
   const [saved, setSaved] = useState<Template[]>([]);
@@ -32,17 +35,19 @@ export default function ReportBuilder({jobs, owner, rate, userId, mode}: Props) 
   const [files, setFiles] = useState<{label:string; uri:string}[]>([]);
   const key = 'JT-report-templates-v1-' + (userId || 'local') + '-' + (owner?'owner':'employee');
   useEffect(()=>{ let active=true; setSaved([]); AsyncStorage.getItem(key).then(raw=>{if(active&&raw){try{const v=JSON.parse(raw);if(Array.isArray(v))setSaved(v);}catch{}}}).catch(()=>{});return()=>{active=false};},[key]);
-  useEffect(()=>{setFiles([]);},[start,end,opts,split,jobs,owner,rate]);
+  useEffect(()=>{setFiles([]);},[start,end,reportOpts,split,jobs,owner,rate]);
   const patch = (p:Partial<ReportOptions>) => setOpts(o=>({...o,...p}));
-  const valid = start.getTime() <= end.getTime() && (end.getTime()-start.getTime()) <= 3660*86400000;
-  const selected = valid ? selectReportJobs(jobs,start,end,opts) : [];
-  const ranges = valid ? (split ? monthRanges(start,end) : [{start,end,label:format(start,'MMM d, yyyy')+' – '+format(end,'MMM d, yyyy')}]) : [];
+  const valid = startOfDay(start).getTime() <= endOfDay(end).getTime() && (endOfDay(end).getTime()-startOfDay(start).getTime()) <= 3660*86400000;
+  const selected = valid ? selectReportJobs(jobs,start,end,opts,owner) : [];
+  const ranges = valid && mode==='reports' ? (split ? monthRanges(start,end) : [{start,end,label:format(start,'MMM d, yyyy')+' – '+format(end,'MMM d, yyyy')}]) : [];
+  const canExport = valid && ranges.length>0 && (!split || ranges.length<=24);
   const sections = ranges.map(r=>({...r, rows:reportRows(jobs,r.start,r.end,opts,owner,rate)}));
-  const label = metricLabel(opts.metric,owner);
-  const total = reportAmount(selected,opts.metric,owner,rate);
+  const label = metricLabel(opts.metric,owner,opts.breakdown);
+  const total = reportAmount(selected,opts.metric,owner,rate,opts.breakdown);
   const rangeLabel = format(start,'MMM d, yyyy')+' – '+format(end,'MMM d, yyyy');
   const rowLabel = opts.breakdown==='customer'?'Customer':opts.breakdown==='payment'?'Payment method':opts.breakdown==='pumper'?'Pumper':'Date range';
-  const filterText = (opts.scope==='company'?'Company jobs only':opts.scope==='independent'?'Independent jobs only':'All jobs')+' • '+(opts.direct==='exclude'?'Direct-payment company jobs excluded':'Direct payments included; deducted for owed')+' • '+(opts.status==='all'?'All payment statuses':opts.status==='paid'?'Paid jobs only':'Unpaid jobs only')+' • Weeks start '+(opts.weekStartsOn===1?'Monday':'Sunday');
+  const scopeLabel=opts.scope==='company'?(owner?'Pumper jobs only':'Company jobs only'):opts.scope==='independent'?(owner?'Owner jobs only':'Independent jobs only'):'All jobs';
+  const filterText=scopeLabel+' • '+(opts.direct==='exclude'?'Direct-payment jobs excluded':'Direct payments included; deducted for owed')+' • '+(opts.status==='all'?'All payment statuses':opts.status==='paid'?'Paid jobs only':'Unpaid jobs only')+((opts.breakdown||'period')==='period'&&opts.group==='week'?' • Weeks start '+(opts.weekStartsOn===1?'Monday':'Sunday'):'');
   const card = {marginBottom:16, backgroundColor:C.surface};
   const heading = {fontSize:18,fontWeight:'700' as const,color:C.text,marginBottom:10};
   const sub = {color:C.textSecondary,marginBottom:8};
@@ -72,7 +77,7 @@ export default function ReportBuilder({jobs, owner, rate, userId, mode}: Props) 
     await Sharing.shareAsync(uri,{mimeType});
   }
   async function exportReports(kind:'pdf'|'csv') {
-    if (!valid || !ranges.length) {Alert.alert('Choose a valid date range');return;}
+    if (!canExport) {Alert.alert('Check the date range','Choose a valid range of up to 24 months when creating separate files.');return;}
     // Independent data is private: only an explicit personal export can include it.
     if (!owner && opts.scope!=='company') {
       Alert.alert('Private earnings report','This export includes independent jobs. Share it only with your intended recipient.',[{text:'Cancel',style:'cancel'},{text:'Continue',onPress:()=>void generate(kind)}]);
@@ -84,7 +89,7 @@ export default function ReportBuilder({jobs, owner, rate, userId, mode}: Props) 
       const made:{label:string;uri:string}[]=[];
       for (const section of sections) {
         const filename='JT-'+opts.metric+'-'+format(section.start,'yyyy-MM-dd')+'-to-'+format(section.end,'yyyy-MM-dd')+'-'+Date.now();
-        const sum=reportAmount(selectReportJobs(jobs,section.start,section.end,opts),opts.metric,owner,rate);
+        const sum=reportAmount(selectReportJobs(jobs,section.start,section.end,opts,owner),opts.metric,owner,rate,opts.breakdown);
         let uri:string;
         if(kind==='pdf'){
           const rows=section.rows.map(r=>'<tr><td>'+escapeHtml(r.label)+'</td><td>'+escapeHtml(money(r.amount))+'</td></tr>').join('');
@@ -107,21 +112,22 @@ export default function ReportBuilder({jobs, owner, rate, userId, mode}: Props) 
   }
   const analysisOptions = {...opts, breakdown:'period' as const, group:'month' as const};
   const analysisRows = valid ? reportRows(jobs,start,end,analysisOptions,owner,rate) : [];
-  const priorAmount=valid?reportAmount(selectReportJobs(jobs,subYears(start,1),subYears(end,1),opts),opts.metric,owner,rate):0;
+  const priorJobs=valid?selectReportJobs(jobs,subYears(start,1),subYears(end,1),opts,owner):[];
+  const priorAmount=reportAmount(priorJobs,opts.metric,owner,rate,opts.breakdown);
   const busiest=analysisRows.reduce<typeof analysisRows[number] | undefined>((best,r)=>!best||r.jobs>best.jobs?r:best,undefined);
-  const payrollRows=owner&&valid?reportRows(jobs,start,end,{...opts,scope:'company',breakdown:'pumper',metric:'earned',direct:'balance'},true,rate):[];
+  const payrollRows=mode==='analytics'&&owner&&valid&&opts.scope!=='independent'?reportRows(jobs,start,end,{...opts,scope:'company',breakdown:'pumper',metric:'earned'},true,rate):[];
   const customerMap = new Map<string,Job[]>();
   selected.forEach(j=>{const name=j.companyName?.trim()||'No company';customerMap.set(name,[...(customerMap.get(name)||[]),j]);});
-  const customers=Array.from(customerMap,([name,js])=>({name,amount:reportAmount(js,opts.metric,owner,rate),count:js.length})).sort((a,b)=>b.amount-a.amount);
+  const customers=Array.from(customerMap,([name,js])=>({name,amount:reportAmount(js,opts.metric,owner,rate,opts.breakdown),count:js.length})).sort((a,b)=>b.amount-a.amount);
   const peak=Math.max(1,...analysisRows.map(r=>Math.abs(r.amount)));
   return <View>
     <Card style={card}><Card.Content>
       <Text style={heading}>{mode==='reports'?'Report Builder':'Analytics'}</Text>
       <Text style={sub}>{mode==='reports'?'Choose a template or build a custom report. Preview before exporting.':'Explore earnings and customer performance for your selected dates.'}</Text>
-      <View style={{flexDirection:'row',flexWrap:'wrap',gap:8,marginBottom:12}}>
+      {mode==='reports'&&<View style={{flexDirection:'row',flexWrap:'wrap',gap:8,marginBottom:12}}>
         {presets.map(t=><Chip key={t.name} onPress={()=>apply(t)}>{t.name}</Chip>)}
         {saved.map(t=><Chip key={'saved-'+t.name} onPress={()=>apply(t)} icon="bookmark">{t.name}</Chip>)}
-      </View>
+      </View>}
       <Text style={heading}>Date range</Text>
       <View style={{flexDirection:'row',flexWrap:'wrap',gap:8,marginBottom:12}}>
         <Chip onPress={()=>{setStart(startOfMonth(now));setEnd(endOfMonth(now));}}>This month</Chip>
@@ -132,15 +138,15 @@ export default function ReportBuilder({jobs, owner, rate, userId, mode}: Props) 
         <Button style={{flex:1}} mode="outlined" onPress={()=>setPicker('start')}>{format(start,'MMM d, yyyy')}</Button>
         <Button style={{flex:1}} mode="outlined" onPress={()=>setPicker('end')}>{format(end,'MMM d, yyyy')}</Button>
       </View>
-      {picker&&<DateTimePicker value={picker==='start'?start:end} mode="date" onChange={(event,date)=>{const target=picker;setPicker(null);if(date&&event.type!=='dismissed'){if(target==='start')setStart(date);else setEnd(date);}}}/>}
+      {picker&&<DateTimePicker value={picker==='start'?start:end} mode="date" onChange={(event,date)=>{const target=picker;setPicker(null);if(date&&event.type!=='dismissed'){if(target==='start')setStart(startOfDay(date));else setEnd(endOfDay(date));}}}/>}
       {!valid&&<Text style={{color:C.error,marginBottom:12}}>Choose an end date on or after the start date, within ten years.</Text>}
       <Text style={heading}>Amount to display</Text>
       <SegmentedButtons value={opts.metric} onValueChange={v=>patch({metric:v as ReportOptions['metric']})} buttons={[{value:'owed',label:owner?'Pumper owed':'Owed'},{value:'earned',label:'Earned'},{value:'revenue',label:'Revenue'}]} style={space}/>
       <Text style={heading}>Job scope</Text>
-      <SegmentedButtons value={opts.scope} onValueChange={v=>patch({scope:v as ReportOptions['scope']})} buttons={[{value:'company',label:'Company'},{value:'all',label:'All'},{value:'independent',label:'Independent'}]} style={space}/>
+      <SegmentedButtons value={opts.scope} onValueChange={v=>patch({scope:v as ReportOptions['scope']})} buttons={[{value:'company',label:owner?'Pumper jobs':'Company'},{value:'all',label:'All'},{value:'independent',label:owner?'Owner jobs':'Independent'}]} style={space}/>
       <Text style={heading}>Direct payments</Text>
       <SegmentedButtons value={opts.direct} onValueChange={v=>patch({direct:v as ReportOptions['direct']})} buttons={[{value:'exclude',label:'Exclude jobs'},{value:'balance',label:'Include jobs'}]} style={space}/>
-      <Text style={sub}>{opts.direct==='exclude'?'Jobs paid directly to you are left out completely.':'Owed subtracts direct payments from the commission balance; earned does not.'}</Text>
+      <Text style={sub}>{opts.direct==='exclude'?'Direct-payment company jobs are left out completely.':'Owed subtracts direct payments from the commission balance; earned does not.'}</Text>
       <Text style={heading}>Payment status</Text>
       <SegmentedButtons value={opts.status} onValueChange={v=>patch({status:v as ReportOptions['status']})} buttons={[{value:'all',label:'All'},{value:'paid',label:'Paid'},{value:'unpaid',label:'Unpaid'}]} style={space}/>
       {mode==='reports'&&<>
@@ -154,6 +160,7 @@ export default function ReportBuilder({jobs, owner, rate, userId, mode}: Props) 
         {opts.group==='week'&&<><Text style={heading}>Week starts on</Text><SegmentedButtons value={String(opts.weekStartsOn??0)} onValueChange={v=>patch({weekStartsOn:v==='1'?1:0})} buttons={[{value:'0',label:'Sunday'},{value:'1',label:'Monday'}]} style={space}/></>}
         </>}
         <Checkbox.Item label="Separate file for each month" status={split?'checked':'unchecked'} onPress={()=>setSplit(v=>!v)} />
+        {split&&ranges.length>24&&<Text style={{color:C.error,marginBottom:8}}>Choose up to 24 months per batch, or turn off separate files.</Text>}
         <TextInput mode="outlined" label="Template name" value={templateName} onChangeText={setTemplateName} style={space} />
         <Button mode="outlined" icon="bookmark-outline" onPress={saveTemplate}>Save report template</Button>
       </>}
@@ -163,24 +170,25 @@ export default function ReportBuilder({jobs, owner, rate, userId, mode}: Props) 
       <Text style={sub}>{rangeLabel}</Text><Text style={sub}>{filterText}</Text>
       <Text style={{fontSize:30,fontWeight:'700',color:C.success,marginBottom:6}}>{money(total)}</Text>
       <Text style={sub}>{selected.length} jobs • {selected.reduce((n,j)=>n+Number(j.yards||0),0).toFixed(1)} yards</Text>
-      {mode==='reports'?sections.map(s=><View key={s.label} style={{marginTop:12}}>
+      {mode==='reports'?sections.slice(0,24).map(s=><View key={s.label} style={{marginTop:12}}>
         <Text style={heading}>{s.label}</Text>
-        {s.rows.map(r=><View key={r.label} style={{flexDirection:'row',justifyContent:'space-between',alignItems:'center',gap:12,paddingVertical:10,borderBottomWidth:1,borderColor:C.border}}>
+        {s.rows.slice(0,120).map((r,i)=><View key={r.label+i} style={{flexDirection:'row',justifyContent:'space-between',alignItems:'center',gap:12,paddingVertical:10,borderBottomWidth:1,borderColor:C.border}}>
           <Text style={{flex:1,color:C.text}}>{r.label}</Text><Text style={{fontWeight:'700',color:C.text}}>{money(r.amount)}</Text>
         </View>)}
-        <Text style={{textAlign:'right',fontWeight:'700',marginTop:8,color:C.success}}>Total {money(reportAmount(selectReportJobs(jobs,s.start,s.end,opts),opts.metric,owner,rate))}</Text>
+        {s.rows.length>120&&<Text style={sub}>Showing 120 of {s.rows.length} rows. Export includes all rows.</Text>}
+        <Text style={{textAlign:'right',fontWeight:'700',marginTop:8,color:C.success}}>Total {money(reportAmount(selectReportJobs(jobs,s.start,s.end,opts,owner),opts.metric,owner,rate,opts.breakdown))}</Text>
       </View>):<>
         <Text style={heading}>Monthly trend</Text>
         {analysisRows.map(r=><View key={r.label} style={{marginBottom:10}}><View style={{flexDirection:'row',justifyContent:'space-between'}}><Text style={{color:C.text}}>{format(r.start,'MMM yyyy')}</Text><Text style={{color:C.text}}>{money(r.amount)}</Text></View><View style={{height:8,backgroundColor:C.surfaceDark,borderRadius:4,marginTop:5}}><View style={{height:8,width:(Math.abs(r.amount)/peak*100)+'%' as any,backgroundColor:r.amount<0?C.error:C.primary,borderRadius:4}}/></View></View>)}
         <Divider style={{marginVertical:12}}/><Text style={heading}>Top customers</Text>
         {customers.slice(0,10).map(c=><View key={c.name} style={{flexDirection:'row',justifyContent:'space-between',gap:8,paddingVertical:8}}><Text style={{flex:1,color:C.text}}>{c.name} · {c.count} jobs</Text><Text style={{color:C.text,fontWeight:'700'}}>{money(c.amount)}</Text></View>)}
-        <Divider style={{marginVertical:12}}/><Text style={heading}>Year-over-year comparison</Text><Text style={sub}>Same date range last year: {money(priorAmount)}</Text><Text style={sub}>Change: {money(total-priorAmount)}</Text>
+        <Divider style={{marginVertical:12}}/><Text style={heading}>Year-over-year comparison</Text><Text style={sub}>{priorJobs.length?'Same date range last year: '+money(priorAmount):'No matching jobs in the same date range last year.'}</Text>{priorJobs.length>0&&<Text style={sub}>Change: {money(total-priorAmount)}</Text>}
         {!owner&&<><Text style={heading}>Employee earnings</Text><Text style={sub}>Earned: {money(reportAmount(selected,'earned',false,rate))}</Text><Text style={sub}>Owed: {money(reportAmount(selected,'owed',false,rate))}</Text></>}
-        {owner&&<><Text style={heading}>Pumper earnings</Text>{payrollRows.map((r,i)=><View key={r.label+i} style={{flexDirection:'row',justifyContent:'space-between',paddingVertical:8}}><Text style={{color:C.text}}>{r.label}</Text><Text style={{color:C.text}}>{money(r.amount)}</Text></View>)}</>}
+        {owner&&payrollRows.length>0&&<><Text style={heading}>Pumper earnings</Text>{payrollRows.map((r,i)=><View key={r.label+i} style={{flexDirection:'row',justifyContent:'space-between',paddingVertical:8}}><Text style={{color:C.text}}>{r.label}</Text><Text style={{color:C.text}}>{money(r.amount)}</Text></View>)}</>}
         <Divider style={{marginVertical:12}}/><Text style={heading}>Performance</Text>{busiest&&busiest.jobs>0&&<Text style={sub}>Busiest month: {format(busiest.start,'MMM yyyy')} ({busiest.jobs} jobs)</Text>}<Text style={sub}>Average per job: {money(selected.length?total/selected.length:0)}</Text><Text style={sub}>Average per yard: {money(selected.reduce((n,j)=>n+Number(j.yards||0),0)?total/selected.reduce((n,j)=>n+Number(j.yards||0),0):0)}</Text>
       </>}
     </Card.Content></Card>
-    {mode==='reports'&&<><Button mode="contained" icon="file-pdf-box" disabled={!valid||busy} loading={busy} onPress={()=>exportReports('pdf')} style={{marginBottom:10}}>Export PDF</Button><Button mode="outlined" icon="file-delimited-outline" disabled={!valid||busy} onPress={()=>exportReports('csv')} style={{marginBottom:12}}>Export CSV (spreadsheet)</Button>
+    {mode==='reports'&&<><Button mode="contained" icon="file-pdf-box" disabled={!canExport||busy} loading={busy} onPress={()=>exportReports('pdf')} style={{marginBottom:10}}>Export PDF</Button><Button mode="outlined" icon="file-delimited-outline" disabled={!canExport||busy} onPress={()=>exportReports('csv')} style={{marginBottom:12}}>Export CSV (spreadsheet)</Button>
       {files.map(f=><Button key={f.uri} mode="outlined" icon="share-variant" onPress={()=>share(f.uri,f.uri.endsWith('.pdf')?'application/pdf':'text/csv')} style={{marginBottom:8}}>Share {f.label}</Button>)}</>}
   </View>;
 }
