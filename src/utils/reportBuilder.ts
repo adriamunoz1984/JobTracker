@@ -1,14 +1,15 @@
-import { addDays, addMonths, addYears, endOfDay, endOfMonth, endOfWeek, endOfYear, format, parseISO, startOfDay, startOfMonth } from 'date-fns';
+import { addDays, addMonths, endOfDay, endOfMonth, endOfWeek, endOfYear, format, parseISO, startOfDay, startOfMonth } from 'date-fns';
 import { Job } from '../types';
-import { calculateEmployeeEarnings, calculateOwnerPay } from './jobMath';
+import { calculateEmployeeEarnings, calculateOwnerPay, isEmployeeJob, getJobPumperName } from './jobMath';
 
 export type ReportGroup = 'day' | 'week' | 'month' | 'year';
 export type ReportMetric = 'owed' | 'earned' | 'revenue';
 export type ReportScope = 'all' | 'company' | 'independent';
 export type DirectMode = 'exclude' | 'balance';
-export type ReportOptions = { group: ReportGroup; metric: ReportMetric; scope: ReportScope; direct: DirectMode; status: 'all' | 'paid' | 'unpaid' };
+export type ReportBreakdown = 'period' | 'customer' | 'payment' | 'pumper';
+export type ReportOptions = { group: ReportGroup; metric: ReportMetric; scope: ReportScope; direct: DirectMode; status: 'all' | 'paid' | 'unpaid'; breakdown?: ReportBreakdown; weekStartsOn?: 0 | 1 };
 export type ReportRow = { start: Date; end: Date; label: string; amount: number; jobs: number; yards: number };
-export const defaultReportOptions: ReportOptions = { group: 'week', metric: 'owed', scope: 'company', direct: 'exclude', status: 'all' };
+export const defaultReportOptions: ReportOptions = { group: 'week', metric: 'owed', scope: 'company', direct: 'exclude', status: 'all', breakdown: 'period', weekStartsOn: 0 };
 export const metricLabel = (metric: ReportMetric, owner: boolean) => metric === 'revenue' ? 'Job revenue' : owner ? metric === 'owed' ? 'Owed to pumpers' : 'Owner earnings' : metric === 'owed' ? 'Amount owed' : 'Amount earned';
 export const money = (n: number) => (n < 0 ? '-' : '') + '$' + Math.abs(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 export function selectReportJobs(jobs: Job[], start: Date, end: Date, options: ReportOptions) {
@@ -16,6 +17,7 @@ export function selectReportJobs(jobs: Job[], start: Date, end: Date, options: R
   return jobs.filter(j => {
     const t = parseISO(j.date).getTime();
     if (!Number.isFinite(t) || t < from || t > to) return false;
+    if (options.breakdown === 'pumper' && !isEmployeeJob(j)) return false;
     if (options.scope === 'company' && j.jobType === 'personal') return false;
     if (options.scope === 'independent' && j.jobType !== 'personal') return false;
     if (options.direct === 'exclude' && j.isPaidToMe && j.jobType !== 'personal') return false;
@@ -38,9 +40,19 @@ export function reportRows(jobs: Job[], start: Date, end: Date, options: ReportO
   if (first > last) return [];
   const selected = selectReportJobs(jobs, first, last, options);
   const rows: ReportRow[] = [];
+  if (options.breakdown && options.breakdown !== 'period') {
+    const grouped = new Map<string, { label: string; jobs: Job[] }>();
+    selected.forEach(j => {
+      const label = options.breakdown === 'customer' ? j.companyName?.trim() || 'No company' : options.breakdown === 'payment' ? j.paymentMethod || 'Not specified' : getJobPumperName(j);
+      const key = options.breakdown === 'pumper' ? j.employeeId || j.assignedTo || label : label;
+      const bucket = grouped.get(key) || { label, jobs: [] };
+      bucket.jobs.push(j); grouped.set(key,bucket);
+    });
+    return Array.from(grouped.values(), g => ({ start:first, end:last, label:g.label, amount:reportAmount(g.jobs,options.metric,owner,rate), jobs:g.jobs.length, yards:g.jobs.reduce((n,j)=>n+Number(j.yards||0),0) })).sort((a,b)=>b.amount-a.amount || a.label.localeCompare(b.label));
+  }
   let cursor = first;
   while (cursor <= last && rows.length < 4000) {
-    const boundary = options.group === 'day' ? endOfDay(cursor) : options.group === 'week' ? endOfWeek(cursor) : options.group === 'month' ? endOfMonth(cursor) : endOfYear(cursor);
+    const boundary = options.group === 'day' ? endOfDay(cursor) : options.group === 'week' ? endOfWeek(cursor, {weekStartsOn: options.weekStartsOn ?? 0}) : options.group === 'month' ? endOfMonth(cursor) : endOfYear(cursor);
     const stop = new Date(Math.min(boundary.getTime(), last.getTime()));
     const included = selected.filter(j => { const t = parseISO(j.date).getTime(); return t >= cursor.getTime() && t <= stop.getTime(); });
     rows.push({ start: cursor, end: stop, label: format(cursor, 'MMM d, yyyy') + (format(cursor,'yyyy-MM-dd') === format(stop,'yyyy-MM-dd') ? '' : ' – ' + format(stop,'MMM d, yyyy')), amount: reportAmount(included, options.metric, owner, rate), jobs: included.length, yards: included.reduce((n,j)=>n+Number(j.yards||0),0) });
