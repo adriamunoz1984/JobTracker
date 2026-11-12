@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { View, ScrollView, Alert, Platform } from 'react-native';
-import { Card, Text, Button, SegmentedButtons, Checkbox, Divider, Chip } from 'react-native-paper';
+import { View, Alert } from 'react-native';
+import { Card, Text, Button, SegmentedButtons, Checkbox, Divider, Chip, TextInput } from 'react-native-paper';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { format, startOfMonth, endOfMonth, subMonths, startOfYear } from 'date-fns';
@@ -9,7 +9,7 @@ import * as Sharing from 'expo-sharing';
 import * as FileSystem from 'expo-file-system';
 import { useAppTheme } from '../theme';
 import { Job } from '../types';
-import { defaultReportOptions, ReportOptions, ReportRow, reportRows, monthRanges, money, metricLabel, selectReportJobs, reportAmount } from '../utils/reportBuilder';
+import { defaultReportOptions, ReportOptions, reportRows, monthRanges, money, metricLabel, selectReportJobs, reportAmount } from '../utils/reportBuilder';
 import { nameExportedPdf } from '../utils/exportFileName';
 
 type Props = { jobs: Job[]; owner: boolean; rate: number; userId?: string; mode: 'reports' | 'analytics' };
@@ -33,7 +33,7 @@ export default function ReportBuilder({jobs, owner, rate, userId, mode}: Props) 
   useEffect(()=>{ let active=true; setSaved([]); AsyncStorage.getItem(key).then(raw=>{if(active&&raw){try{const v=JSON.parse(raw);if(Array.isArray(v))setSaved(v);}catch{}}}).catch(()=>{});return()=>{active=false};},[key]);
   useEffect(()=>{setFiles([]);},[start,end,opts,split,jobs,owner,rate]);
   const patch = (p:Partial<ReportOptions>) => setOpts(o=>({...o,...p}));
-  const valid = start.getTime() <= end.getTime();
+  const valid = start.getTime() <= end.getTime() && (end.getTime()-start.getTime()) <= 3660*86400000;
   const selected = valid ? selectReportJobs(jobs,start,end,opts) : [];
   const ranges = valid ? (split ? monthRanges(start,end) : [{start,end,label:format(start,'MMM d, yyyy')+' – '+format(end,'MMM d, yyyy')}]) : [];
   const sections = ranges.map(r=>({...r, rows:reportRows(jobs,r.start,r.end,opts,owner,rate)}));
@@ -77,7 +77,7 @@ export default function ReportBuilder({jobs, owner, rate, userId, mode}: Props) 
     try {
       const made:{label:string;uri:string}[]=[];
       for (const section of sections) {
-        const filename='JT-'+opts.metric+'-'+format(section.start,'yyyy-MM-dd')+'-to-'+format(section.end,'yyyy-MM-dd');
+        const filename='JT-'+opts.metric+'-'+format(section.start,'yyyy-MM-dd')+'-to-'+format(section.end,'yyyy-MM-dd')+'-'+Date.now();
         const sum=reportAmount(selectReportJobs(jobs,section.start,section.end,opts),opts.metric,owner,rate);
         let uri:string;
         if(kind==='pdf'){
@@ -86,7 +86,9 @@ export default function ReportBuilder({jobs, owner, rate, userId, mode}: Props) 
           const printed=await Print.printToFileAsync({html});
           uri=await nameExportedPdf(printed.uri,filename);
         }else{
-          uri=(FileSystem.cacheDirectory || FileSystem.documentDirectory)+filename+'.csv';
+          const dir=FileSystem.cacheDirectory || FileSystem.documentDirectory;
+          if(!dir) throw new Error('No export directory');
+          uri=dir+filename+'.csv';
           const lines=[['Date range',label,'Jobs','Yards'].map(csvCell).join(','),...section.rows.map(r=>[r.label,r.amount.toFixed(2),r.jobs,r.yards].map(csvCell).join(',')),['Total',sum.toFixed(2),'',''].map(csvCell).join(',')];
           await FileSystem.writeAsStringAsync(uri,lines.join('\r\n'));
         }
@@ -97,7 +99,7 @@ export default function ReportBuilder({jobs, owner, rate, userId, mode}: Props) 
       else Alert.alert('Reports ready',made.length+' separate files created. Tap each file below to share or save.');
     }catch(e){console.error(e);Alert.alert('Export failed','Unable to create report.');}finally{setBusy(false);}
   }
-  const analysisRows = reportRows(jobs,start,end,{...opts,group:'month'},owner,rate);
+  const analysisRows = valid ? reportRows(jobs,start,end,{...opts,group:'month'},owner,rate) : [];
   const customerMap = new Map<string,Job[]>();
   selected.forEach(j=>{const name=j.companyName?.trim()||'No company';customerMap.set(name,[...(customerMap.get(name)||[]),j]);});
   const customers=Array.from(customerMap,([name,js])=>({name,amount:reportAmount(js,opts.metric,owner,rate),count:js.length})).sort((a,b)=>b.amount-a.amount);
@@ -121,7 +123,7 @@ export default function ReportBuilder({jobs, owner, rate, userId, mode}: Props) 
         <Button style={{flex:1}} mode="outlined" onPress={()=>setPicker('end')}>{format(end,'MMM d, yyyy')}</Button>
       </View>
       {picker&&<DateTimePicker value={picker==='start'?start:end} mode="date" onChange={(event,date)=>{const target=picker;setPicker(null);if(date&&event.type!=='dismissed'){if(target==='start')setStart(date);else setEnd(date);}}}/>}
-      {!valid&&<Text style={{color:C.error,marginBottom:12}}>End date must be on or after start date.</Text>}
+      {!valid&&<Text style={{color:C.error,marginBottom:12}}>Choose an end date on or after the start date, within ten years.</Text>}
       <Text style={heading}>Amount to display</Text>
       <SegmentedButtons value={opts.metric} onValueChange={v=>patch({metric:v as ReportOptions['metric']})} buttons={[{value:'owed',label:owner?'Pumper owed':'Owed'},{value:'earned',label:'Earned'},{value:'revenue',label:'Revenue'}]} style={space}/>
       <Text style={heading}>Job scope</Text>
@@ -135,6 +137,7 @@ export default function ReportBuilder({jobs, owner, rate, userId, mode}: Props) 
         <Text style={heading}>Group by</Text>
         <SegmentedButtons value={opts.group} onValueChange={v=>patch({group:v as ReportOptions['group']})} buttons={[{value:'day',label:'Day'},{value:'week',label:'Week'},{value:'month',label:'Month'},{value:'year',label:'Year'}]} style={space}/>
         <Checkbox.Item label="Separate file for each month" status={split?'checked':'unchecked'} onPress={()=>setSplit(v=>!v)} />
+        <TextInput mode="outlined" label="Template name" value={templateName} onChangeText={setTemplateName} style={space} />
         <Button mode="outlined" icon="bookmark-outline" onPress={saveTemplate}>Save report template</Button>
       </>}
     </Card.Content></Card>
