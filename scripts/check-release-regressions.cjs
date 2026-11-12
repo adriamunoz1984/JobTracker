@@ -165,9 +165,49 @@ function dragButton() {
   cleanup(); assert.equal(position.listeners.size, 0);
 }
 
+function reportBuilderRegression() {
+  function loadModule(file, dependencies = {}) {
+    const source = fs.readFileSync(path.join(root, file), 'utf8');
+    const output = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS } }).outputText;
+    const context = { exports: {}, require(name) { return name in dependencies ? dependencies[name] : require(name); } };
+    vm.createContext(context);
+    vm.runInContext(output, context);
+    return context.exports;
+  }
+  const jobMath = loadModule('src/utils/jobMath.ts');
+  const { reportRows, monthRanges, reportAmount, selectReportJobs, defaultReportOptions } = loadModule('src/utils/reportBuilder.ts', {'./jobMath': jobMath});
+  const { parseISO, format } = require('date-fns');
+  const start = parseISO('2026-09-01'), end = parseISO('2026-10-31');
+  const jobs = [
+    { date:'2026-09-01', amount:500, employeeCommissionRate:50, isPaid:true, jobType:'employee' },
+    { date:'2026-09-05', amount:500, employeeCommissionRate:50, isPaidToMe:true, isPaid:true, jobType:'employee' },
+    { date:'2026-09-06', amount:400, employeeCommissionRate:25, isPaid:false, jobType:'employee' },
+    { date:'2026-09-06', amount:1000, jobType:'personal', isPaid:true },
+    { date:'2026-10-31', amount:200, employeeCommissionRate:50, jobType:'employee' },
+  ];
+  const rows = reportRows(jobs,start,end,defaultReportOptions,false,50);
+  assert.equal(rows[0].amount,250,'exclude direct jobs completely');
+  assert.equal(rows[1].amount,100,'use job-specific commission');
+  assert.equal(rows[rows.length-1].amount,100,'include final day');
+  assert.equal(rows.reduce((sum,r)=>sum+r.amount,0),450);
+  assert.ok(rows.some(r=>r.jobs===0 && r.amount===0),'include zero-work weeks');
+  assert.equal(format(rows[0].start,'yyyy-MM-dd'),'2026-09-01');
+  assert.equal(format(rows[0].end,'yyyy-MM-dd'),'2026-09-05');
+  const balance = {...defaultReportOptions,direct:'balance'};
+  assert.equal(reportRows(jobs,start,end,balance,false,50)[0].amount,0,'include direct receipts in owed balance');
+  const earned = {...balance,metric:'earned',scope:'all'};
+  assert.equal(reportAmount(selectReportJobs(jobs,start,end,earned),'earned',false,50),1700,'independent earnings count only when explicitly included');
+  const months = monthRanges(start,end);
+  assert.equal(months.length,2);
+  assert.equal(format(months[0].end,'yyyy-MM-dd'),'2026-09-30');
+  assert.equal(format(months[1].start,'yyyy-MM-dd'),'2026-10-01');
+  const splitTotal = months.reduce((n,m)=>n+reportRows(jobs,m.start,m.end,defaultReportOptions,false,50).reduce((a,r)=>a+r.amount,0),0);
+  assert.equal(splitTotal,450,'split monthly reports reconcile to the combined total');
+}
+
 (async () => {
-  await registration(); await invoiceSharing(); await newInvoiceSharing(); await savedJobInvoiceNavigation(); dragButton();
-  console.log('PASS: save once before invoice creation, return Home without saved form, registration, cancelled sharing, explicit Sent update, PDF URI, drag and cleanup.');
+  await registration(); await invoiceSharing(); await newInvoiceSharing(); await savedJobInvoiceNavigation(); dragButton(); reportBuilderRegression();
+  console.log('PASS: save once before invoice creation, return Home without saved form, registration, cancelled sharing, explicit Sent update, PDF URI, drag and cleanup, grouped earnings and report filters.');
 })().catch(error => { console.error(error); process.exitCode = 1; });
 
 
