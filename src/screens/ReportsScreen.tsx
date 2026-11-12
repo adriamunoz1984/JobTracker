@@ -486,13 +486,13 @@ export default function ReportsScreen() {
       >
         <Text style={styles.headerTitle}>📊 Reports & Analytics</Text>
         <Text style={styles.headerSubtitle}>
-          {format(getDateRange().start, 'MMM d')} - {format(getDateRange().end, 'MMM d, yyyy')}
+          {reportTab === 'details' ? `${format(getDateRange().start, 'MMM d')} - ${format(getDateRange().end, 'MMM d, yyyy')}` : reportTab === 'reports' ? 'Build and export exactly the report you need' : 'Explore your earnings and performance'}
         </Text>
       </LinearGradient>
 
       <View style={styles.content}>
         <SegmentedButtons value={reportTab} onValueChange={value => setReportTab(value as 'reports' | 'analytics' | 'details')} buttons={[{value:'reports',label:'Reports'},{value:'analytics',label:'Analytics'},{value:'details',label:'Job details'}]} style={{marginBottom:16}} />
-        {reportTab !== 'details' ? <ReportBuilder jobs={jobs} owner={user?.role === 'owner'} rate={user?.commissionRate ?? 50} userId={user?.uid} mode={reportTab} /> : <>
+        {reportTab !== 'details' ? <ReportBuilder key={`${user?.uid || 'local'}-${user?.role || 'employee'}`} jobs={jobs} owner={user?.role === 'owner'} rate={user?.commissionRate ?? 50} userId={user?.uid} mode={reportTab} /> : <>
         {/* Date Range Filters */}
         <Card style={styles.card}>
           <Card.Content>
