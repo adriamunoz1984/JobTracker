@@ -516,8 +516,11 @@ const useStyles = makeStyles((Colors) => ({
     backgroundColor: Colors.background,
   },
   header: {
-    paddingVertical: Spacing.xl,
+    paddingTop: Spacing.xxl,
+    paddingBottom: Spacing.xl,
     paddingHorizontal: Spacing.lg,
+    alignItems: 'center',
+    justifyContent: 'center',
     ...Shadows.medium,
   },
   headerTitle: {
@@ -525,11 +528,15 @@ const useStyles = makeStyles((Colors) => ({
     fontWeight: 'bold',
     color: Colors.textInverse,
     marginBottom: Spacing.xs,
+    textAlign: 'center',
+    width: '100%',
   },
   headerSubtitle: {
     fontSize: 14,
     color: Colors.textInverse,
     opacity: 0.9,
+    textAlign: 'center',
+    width: '100%',
   },
   content: {
     padding: Spacing.md,
