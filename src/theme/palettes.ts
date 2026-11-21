@@ -213,8 +213,8 @@ function defineTheme(meta: Omit<ThemeDefinition, 'light' | 'dark' | 'lightGradie
 // ---------- the themes ----------
 export const themes: Record<ThemeId, ThemeDefinition> = {
   summerCamp: defineTheme(
-    { id: 'summerCamp', name: 'Summer Camp Massacre', description: 'Campfire orange and pine green. Cabin canvas by day, midnight forest by night.',
-      headerFont: 'Nosifer_400Regular', headerFontSize: 15 },
+    { id: 'summerCamp', name: 'Evergreen', description: 'Natural pine green, warm cream and terracotta. Calm and welcoming.',
+      headerFont: undefined, headerFontSize: 19 },
     { background: '#F2EBDD', surface: '#FFFFFF', surfaceDark: '#E8DFCC', header: '#1F3324', onHeader: '#F1E6D2',
       text: '#1F3324', textSecondary: '#556453', textLight: '#5F6A5C',
       border: '#D9CDB8', borderLight: '#E8DFCC', borderDark: '#A89C85',
@@ -228,7 +228,7 @@ export const themes: Record<ThemeId, ThemeDefinition> = {
   ),
 
   vhsSlasher: defineTheme(
-    { id: 'vhsSlasher', name: 'VHS Slasher', description: 'Blood red on bone paper by day, pitch black by night.',
+    { id: 'vhsSlasher', name: 'Halloween', description: 'The one spooky theme: vintage horror red and midnight black.',
       headerFont: 'Creepster_400Regular', headerFontSize: 22 },
     { background: '#F4EFE8', surface: '#FFFFFF', surfaceDark: '#E9E1D6', header: '#1A1414', onHeader: '#F4EDE4',
       text: '#1A1414', textSecondary: '#5A4E48', textLight: '#6E625C',
@@ -243,8 +243,8 @@ export const themes: Record<ThemeId, ThemeDefinition> = {
   ),
 
   neonNightmare: defineTheme(
-    { id: 'neonNightmare', name: 'Neon Nightmare', description: 'Hot pink and cyan. Pale lavender by day, synth purple by night.',
-      headerFont: 'RubikGlitch_400Regular', headerFontSize: 20 },
+    { id: 'neonNightmare', name: 'Electric Violet', description: 'Modern violet, magenta and electric blue accents.',
+      headerFont: undefined, headerFontSize: 19 },
     { background: '#F6F1FF', surface: '#FFFFFF', surfaceDark: '#EAE1FA', header: '#1E1433', onHeader: '#F4EEFF',
       text: '#1E1433', textSecondary: '#5B4E78', textLight: '#6F6390',
       border: '#DCD0F2', borderLight: '#EAE2F8', borderDark: '#A898C8',
@@ -258,8 +258,8 @@ export const themes: Record<ThemeId, ThemeDefinition> = {
   ),
 
   zombieOutbreak: defineTheme(
-    { id: 'zombieOutbreak', name: 'Zombie Outbreak', description: 'Hazmat yellow and black. Warning sign by day, quarantine zone by night.',
-      headerFont: 'Butcherman_400Regular', headerFontSize: 18 },
+    { id: 'zombieOutbreak', name: 'Golden Hour', description: 'Confident charcoal and warm gold with crisp contrast.',
+      headerFont: undefined, headerFontSize: 19 },
     { background: '#FFF8DC', surface: '#FFFFFF', surfaceDark: '#F3EACB', header: '#1A1A1A', onHeader: '#F5C400',
       text: '#1A1A1A', textSecondary: '#4A4535', textLight: '#625C48',
       border: '#E3D9B5', borderLight: '#EFE7CB', borderDark: '#A89E7C',
@@ -273,8 +273,8 @@ export const themes: Record<ThemeId, ThemeDefinition> = {
   ),
 
   comicCrypt: defineTheme(
-    { id: 'comicCrypt', name: 'Comic Crypt', description: 'Pulp horror comic. Cream paper by day, black ink by night.',
-      headerFont: 'Bangers_400Regular', headerFontSize: 24 },
+    { id: 'comicCrypt', name: 'Retro Studio', description: 'Vintage cream, bold coral and inky navy. Playful but polished.',
+      headerFont: undefined, headerFontSize: 19 },
     { background: '#F3E9D2', surface: '#FFFFFF', surfaceDark: '#E8DCC0', header: '#1A1A1A', onHeader: '#FFD23F',
       text: '#1A1A1A', textSecondary: '#4A4438', textLight: '#625B4C',
       border: '#CFC3A6', borderLight: '#E2D7BD', borderDark: '#1A1A1A',
@@ -288,8 +288,8 @@ export const themes: Record<ThemeId, ThemeDefinition> = {
   ),
 
   lateNightStatic: defineTheme(
-    { id: 'lateNightStatic', name: 'Late-Night Static', description: 'Old TV static. Test-pattern gray by day, 3 AM ghost glow by night.',
-      headerFont: 'VT323_400Regular', headerFontSize: 26 },
+    { id: 'lateNightStatic', name: 'Midnight Blue', description: 'Sleek slate, cool blue and clean contemporary lines.',
+      headerFont: undefined, headerFontSize: 19 },
     { background: '#EEF0F2', surface: '#FFFFFF', surfaceDark: '#E1E5E9', header: '#151719', onHeader: '#9EE6FF',
       text: '#151719', textSecondary: '#4E555C', textLight: '#636A72',
       border: '#D3D7DB', borderLight: '#E4E7EA', borderDark: '#9AA1A8',
@@ -303,7 +303,7 @@ export const themes: Record<ThemeId, ThemeDefinition> = {
   ),
 
   cleanConcrete: defineTheme(
-    { id: 'cleanConcrete', name: 'Clean Concrete', description: 'No horror. Plain and professional: concrete gray, navy, burnt orange.',
+    { id: 'cleanConcrete', name: 'Industrial', description: 'Professional concrete gray, navy and warm copper.',
       headerFont: undefined, headerFontSize: 18 },
     { background: '#EEECE7', surface: '#FFFFFF', surfaceDark: '#E2DFD7', header: '#1E2A38', onHeader: '#F4F2EE',
       text: '#1E2A38', textSecondary: '#4E5966', textLight: '#5C6672',
