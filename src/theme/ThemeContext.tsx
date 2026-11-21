@@ -1,6 +1,6 @@
 // src/theme/ThemeContext.tsx
 // Provides the current theme + palette (light or dark) to the whole app.
-// - Theme: one of the horror themes (or Clean Concrete), picked in Profile.
+// - Theme: six modern palettes and one Halloween style, picked in Appearance settings.
 // - Appearance: follow the phone ("system"), or lock to light / dark.
 // Both choices are saved on the phone and restored on the next launch.
 import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
