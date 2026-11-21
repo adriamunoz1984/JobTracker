@@ -74,11 +74,14 @@ const TAB_TITLES: Record<string, string> = {
 // Pump Finder sub-screens open as full screens on top (from App.tsx) with a back button.
 function FixedTopBar({ title }: { title: string }) {
   const { colors, headerTitleStyle } = useAppTheme();
+  const { width } = useWindowDimensions();
+  // Leave a guaranteed lane for the bell, settings and profile buttons.
+  // Centered long titles previously ran underneath the notification bell.
+  const titleWidth = Math.max(76, width - 195);
   return (
     <Header
       title={title}
-      // Center the compact tab titles while keeping header actions on the right.
-      headerTitleAlign="center"
+      headerTitleAlign="left"
       headerStyle={{ backgroundColor: colors.header }}
       headerTintColor={colors.onHeader}
       headerTitle={() => (
@@ -86,7 +89,13 @@ function FixedTopBar({ title }: { title: string }) {
           numberOfLines={1}
           adjustsFontSizeToFit
           minimumFontScale={0.7}
-          style={[headerTitleStyle, { color: colors.onHeader, textAlign: 'center' }]}
+          style={[headerTitleStyle, {
+            color: colors.onHeader,
+            textAlign: 'left',
+            maxWidth: titleWidth,
+            flexShrink: 1,
+            marginRight: 12,
+          }]}
           accessibilityRole="header"
         >
           {title}
