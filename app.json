@@ -5,7 +5,8 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "platforms": [
-      "android"
+      "android",
+      "ios"
     ],
     "userInterfaceStyle": "automatic",
     "splash": {
@@ -31,6 +32,10 @@
         "projectId": "2b91a239-ba57-4172-893c-fc972642abf4"
       }
     },
-    "icon": "./assets/icon.png"
+    "icon": "./assets/icon.png",
+    "ios": {
+      "bundleIdentifier": "com.jobtracker.app",
+      "supportsTablet": true
+    }
   }
 }
